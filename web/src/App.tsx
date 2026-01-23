@@ -1,53 +1,15 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
-import { useServersStore } from '@/stores/servers'
-import { Layout } from '@/components/Layout'
-import { PageLoader } from '@/components/common'
-import { Toaster } from '@/components/ui/sonner'
+import { Suspense } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AppLayout } from '@/layouts'
+import { PageLoader } from '@/shared/components'
+import { Toaster } from '@/ui/sonner'
+import {
+  features,
+  serverFeatures,
+} from '@/app/feature-registry'
 
-// Lazy load pages for code splitting
-const AddServerPage = lazy(() =>
-  import('@/pages/AddServer').then((m) => ({ default: m.AddServerPage }))
-)
-const DashboardPage = lazy(() =>
-  import('@/pages/Dashboard').then((m) => ({ default: m.DashboardPage }))
-)
-const ServerDetailPage = lazy(() =>
-  import('@/pages/ServerDetail').then((m) => ({ default: m.ServerDetailPage }))
-)
-const FilesPage = lazy(() =>
-  import('@/pages/Files').then((m) => ({ default: m.FilesPage }))
-)
-const SearchPage = lazy(() =>
-  import('@/pages/Search').then((m) => ({ default: m.SearchPage }))
-)
-const TerminalPage = lazy(() =>
-  import('@/pages/Terminal').then((m) => ({ default: m.TerminalPage }))
-)
-const TasksPage = lazy(() =>
-  import('@/pages/Tasks').then((m) => ({ default: m.TasksPage }))
-)
-
-function AppLayout() {
-  return (
-    <Layout>
-      <Suspense fallback={<PageLoader />}>
-        <Outlet />
-      </Suspense>
-    </Layout>
-  )
-}
-
-function RequireServers() {
-  const { servers } = useServersStore()
-
-  // If no servers configured, redirect to add server page
-  if (servers.length === 0) {
-    return <Navigate to="/add-server" replace />
-  }
-
-  return <Outlet />
-}
+// Special pages not in registry
+import { AddServerPage } from '@/features/servers'
 
 function App() {
   return (
@@ -55,21 +17,35 @@ function App() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Add server (no layout) */}
-          <Route path="/add-server" element={<AddServerPage />} />
+          <Route path="/servers/add" element={<AddServerPage />} />
 
           {/* Main app with layout */}
           <Route element={<AppLayout />}>
-            {/* Routes that require at least one server */}
-            <Route element={<RequireServers />}>
-              <Route path="/" element={<DashboardPage />} />
-              
-              {/* Server-scoped routes */}
-              <Route path="/servers/:serverId" element={<ServerDetailPage />} />
-              <Route path="/servers/:serverId/files" element={<FilesPage />} />
-              <Route path="/servers/:serverId/search" element={<SearchPage />} />
-              <Route path="/servers/:serverId/terminal" element={<TerminalPage />} />
-              <Route path="/servers/:serverId/tasks" element={<TasksPage />} />
-            </Route>
+            {/* Global features from registry */}
+            {features.map((feature) => (
+              <Route
+                key={feature.id}
+                path={feature.path}
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <feature.component />
+                  </Suspense>
+                }
+              />
+            ))}
+
+            {/* Server-scoped features from registry */}
+            {serverFeatures.map((feature) => (
+              <Route
+                key={feature.id}
+                path={feature.path}
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <feature.component />
+                  </Suspense>
+                }
+              />
+            ))}
           </Route>
 
           {/* Catch all - redirect to dashboard */}

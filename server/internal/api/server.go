@@ -32,7 +32,6 @@ func NewServer(application *app.App, opts ...ServerOptions) *Server {
 		FileService:     application.Files,
 		TaskService:     application.Tasks,
 		SysService:      application.System,
-		DockerService:   application.Docker,
 		PackagesService: application.Packages,
 		CronService:     application.Cron,
 		Features:        application.Features(),

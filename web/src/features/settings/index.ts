@@ -1,0 +1,2 @@
+export { SettingsPage as default } from './pages/SettingsPage'
+export { useSettingsStore } from './stores/settings'

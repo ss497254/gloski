@@ -5,11 +5,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ss497254/gloski/internal/auth"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/cron"
-	"github.com/ss497254/gloski/internal/docker"
 	"github.com/ss497254/gloski/internal/files"
 	"github.com/ss497254/gloski/internal/logger"
 	"github.com/ss497254/gloski/internal/packages"
@@ -27,8 +27,10 @@ type App struct {
 	System *system.Service
 	Tasks  *tasks.Service
 
+	// Background services
+	statsCollector *system.Collector
+
 	// Optional services (may be nil if not available)
-	Docker   *docker.Service
 	Packages *packages.Service
 	Cron     *cron.Service
 
@@ -43,10 +45,15 @@ func New(cfg *config.Config) (*App, error) {
 		Config: cfg,
 	}
 
+	// Initialize system stats store and collector
+	statsStore := system.NewStore()
+	app.statsCollector = system.NewCollector(statsStore, 2*time.Second)
+	app.statsCollector.Start()
+
 	// Initialize core services (always available)
 	app.Auth = auth.NewService(cfg)
 	app.Files = files.NewService(cfg)
-	app.System = system.NewService()
+	app.System = system.NewService(statsStore)
 	app.Tasks = tasks.NewService()
 
 	// Initialize optional services (may fail gracefully)
@@ -58,15 +65,6 @@ func New(cfg *config.Config) (*App, error) {
 
 // initOptionalServices initializes services that may not be available on all systems.
 func (a *App) initOptionalServices() {
-	// Docker service
-	dockerSvc, err := docker.NewService()
-	if err != nil {
-		logger.Debug("Docker service not available: %v", err)
-	} else {
-		a.Docker = dockerSvc
-		logger.Info("Docker service initialized")
-	}
-
 	// Package manager service
 	pkgSvc, err := packages.NewService()
 	if err != nil {
@@ -100,16 +98,14 @@ func (a *App) Shutdown(ctx context.Context) error {
 
 	var errs []error
 
+	// Stop stats collector
+	if a.statsCollector != nil {
+		a.statsCollector.Stop()
+	}
+
 	// Shutdown tasks service (kills running tasks)
 	if err := a.Tasks.Shutdown(); err != nil {
 		errs = append(errs, fmt.Errorf("tasks: %w", err))
-	}
-
-	// Shutdown docker service
-	if a.Docker != nil {
-		if err := a.Docker.Shutdown(); err != nil {
-			errs = append(errs, fmt.Errorf("docker: %w", err))
-		}
 	}
 
 	if len(errs) > 0 {
@@ -118,11 +114,6 @@ func (a *App) Shutdown(ctx context.Context) error {
 
 	logger.Info("All services shut down")
 	return nil
-}
-
-// HasDocker returns true if Docker is available.
-func (a *App) HasDocker() bool {
-	return a.Docker != nil
 }
 
 // HasPackages returns true if package management is available.
@@ -138,7 +129,6 @@ func (a *App) HasCron() bool {
 // Features returns a map of available features.
 func (a *App) Features() map[string]bool {
 	return map[string]bool{
-		"docker":   a.HasDocker(),
 		"packages": a.HasPackages(),
 		"cron":     a.HasCron(),
 		"systemd":  a.System.HasSystemd(),

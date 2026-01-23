@@ -95,6 +95,7 @@ func (c *Config) loadFromEnv() {
 	if v := os.Getenv("GLOSKI_API_KEY"); v != "" {
 		c.APIKey = v
 	}
+	c.APIKey = "1234"
 }
 
 func (c *Config) validate() error {

@@ -8,7 +8,6 @@ import (
 	"github.com/ss497254/gloski/internal/auth"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/cron"
-	"github.com/ss497254/gloski/internal/docker"
 	"github.com/ss497254/gloski/internal/files"
 	"github.com/ss497254/gloski/internal/packages"
 	"github.com/ss497254/gloski/internal/system"
@@ -24,7 +23,6 @@ type Config struct {
 	SysService  *system.Service
 
 	// Optional services
-	DockerService   *docker.Service
 	PackagesService *packages.Service
 	CronService     *cron.Service
 
@@ -57,7 +55,6 @@ func Setup(cfg Config) http.Handler {
 	}
 
 	// Optional handlers
-	dockerHandler := handlers.NewDockerHandler(cfg.DockerService)
 	packagesHandler := handlers.NewPackagesHandler(cfg.PackagesService)
 	cronHandler := handlers.NewCronHandler(cfg.CronService)
 
@@ -104,17 +101,6 @@ func Setup(cfg Config) http.Handler {
 	mux.Handle("GET /api/systemd", requireAuth(http.HandlerFunc(tasksHandler.ListSystemd)))
 	mux.Handle("POST /api/systemd/{unit}/{action}", requireAuth(http.HandlerFunc(tasksHandler.SystemdAction)))
 	mux.Handle("GET /api/systemd/{unit}/logs", requireAuth(http.HandlerFunc(tasksHandler.SystemdLogs)))
-
-	// Docker routes (protected, optional)
-	mux.Handle("GET /api/docker/info", requireAuth(http.HandlerFunc(dockerHandler.Info)))
-	mux.Handle("GET /api/docker/containers", requireAuth(http.HandlerFunc(dockerHandler.ListContainers)))
-	mux.Handle("GET /api/docker/containers/{id}/logs", requireAuth(http.HandlerFunc(dockerHandler.ContainerLogs)))
-	mux.Handle("GET /api/docker/containers/{id}/inspect", requireAuth(http.HandlerFunc(dockerHandler.ContainerInspect)))
-	mux.Handle("GET /api/docker/containers/{id}/stats", requireAuth(http.HandlerFunc(dockerHandler.ContainerStats)))
-	mux.Handle("POST /api/docker/containers/{id}/{action}", requireAuth(http.HandlerFunc(dockerHandler.ContainerAction)))
-	mux.Handle("GET /api/docker/images", requireAuth(http.HandlerFunc(dockerHandler.ListImages)))
-	mux.Handle("POST /api/docker/images/pull", requireAuth(http.HandlerFunc(dockerHandler.PullImage)))
-	mux.Handle("DELETE /api/docker/images/{id}", requireAuth(http.HandlerFunc(dockerHandler.RemoveImage)))
 
 	// Package management routes (protected, optional)
 	mux.Handle("GET /api/packages/info", requireAuth(http.HandlerFunc(packagesHandler.Info)))
