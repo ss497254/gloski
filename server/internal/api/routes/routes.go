@@ -72,6 +72,7 @@ func Setup(cfg Config) http.Handler {
 
 	// System routes (protected)
 	mux.Handle("GET /api/system/stats", requireAuth(http.HandlerFunc(systemHandler.GetStats)))
+	mux.Handle("GET /api/system/stats/history", requireAuth(http.HandlerFunc(systemHandler.GetStatsHistory)))
 	mux.Handle("GET /api/system/info", requireAuth(http.HandlerFunc(systemHandler.GetInfo)))
 	mux.Handle("GET /api/system/processes", requireAuth(http.HandlerFunc(systemHandler.GetProcesses)))
 

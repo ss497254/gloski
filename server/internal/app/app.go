@@ -46,7 +46,8 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	// Initialize system stats store and collector
-	statsStore := system.NewStore()
+	// Store 150 samples at 2s interval = 5 minutes of history
+	statsStore := system.NewStore(150)
 	app.statsCollector = system.NewCollector(statsStore, 2*time.Second)
 	app.statsCollector.Start()
 

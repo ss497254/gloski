@@ -103,7 +103,7 @@ func (c *Collector) collect() {
 	// Process count
 	stats.Processes = c.getProcessCount()
 
-	c.store.Update(stats)
+	c.store.Push(stats)
 }
 
 func (c *Collector) getCPUStats() CPUStats {

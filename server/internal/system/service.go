@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Service provides system information by reading from the store.
@@ -27,6 +28,16 @@ func (s *Service) GetStats() (*Stats, error) {
 		return &Stats{}, nil
 	}
 	return stats, nil
+}
+
+// GetStatsHistory returns stats history for the given duration.
+func (s *Service) GetStatsHistory(duration time.Duration) []Sample {
+	return s.store.GetHistory(duration)
+}
+
+// GetAllStats returns all stored stats samples.
+func (s *Service) GetAllStats() []Sample {
+	return s.store.GetAll()
 }
 
 // HasSystemd checks if systemd is available on the system.

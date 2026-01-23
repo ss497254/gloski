@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/ss497254/gloski/internal/system"
 )
@@ -67,4 +68,34 @@ func (h *SystemHandler) GetProcesses(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Success(w, map[string]interface{}{"processes": processes})
+}
+
+// GetStatsHistory handles GET /api/system/stats/history
+// Query params:
+//   - duration: time duration string (e.g., "5m", "1h"). Default: "5m"
+func (h *SystemHandler) GetStatsHistory(w http.ResponseWriter, r *http.Request) {
+	// Parse duration from query param, default to 5 minutes
+	durationStr := r.URL.Query().Get("duration")
+	if durationStr == "" {
+		durationStr = "5m"
+	}
+
+	duration, err := time.ParseDuration(durationStr)
+	if err != nil {
+		BadRequest(w, "invalid duration format")
+		return
+	}
+
+	// Cap at reasonable maximum (1 hour)
+	if duration > time.Hour {
+		duration = time.Hour
+	}
+
+	samples := h.systemService.GetStatsHistory(duration)
+
+	Success(w, map[string]interface{}{
+		"samples":  samples,
+		"count":    len(samples),
+		"duration": duration.String(),
+	})
 }
