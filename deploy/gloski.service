@@ -1,0 +1,25 @@
+[Unit]
+Description=Gloski Server Control Dashboard
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gloski
+Restart=always
+RestartSec=5
+
+# Environment variables (alternatively use EnvironmentFile)
+Environment=GLOSKI_HOST=127.0.0.1
+Environment=GLOSKI_PORT=8080
+Environment=GLOSKI_LOG_LEVEL=info
+# Set your password hash here (generate with: gloski -gen-password "your-password")
+# Environment=GLOSKI_PASSWORD=your-password
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
