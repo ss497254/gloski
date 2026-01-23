@@ -3,6 +3,7 @@ import { Button } from '@/ui/button'
 import { Badge } from '@/ui/badge'
 import { ScrollArea } from '@/ui/scroll-area'
 import { PageLayout } from '@/layouts'
+import { FilterSidebar, EmptyState } from '@/shared/components'
 import { useActivityStore, type ActivityAction, type ActivityItem } from '../stores/activity'
 import { cn, formatDate, formatRelativeTime } from '@/shared/lib/utils'
 import {
@@ -169,27 +170,24 @@ export function ActivityPage() {
     >
       <div className="flex gap-6">
         {/* Filters */}
-        <div className="w-48 shrink-0 space-y-1">
-          {(Object.keys(categoryFilters) as FilterCategory[]).map((category) => (
-            <button
-              key={category}
-              onClick={() => setFilter(category)}
-              className={cn(
-                'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors capitalize',
-                filter === category
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50'
-              )}
-            >
-              {category === 'all' && <Activity className="h-4 w-4" />}
-              {category === 'servers' && <Server className="h-4 w-4" />}
-              {category === 'files' && <File className="h-4 w-4" />}
-              {category === 'tasks' && <Terminal className="h-4 w-4" />}
-              {category === 'other' && <Bookmark className="h-4 w-4" />}
-              {category}
-            </button>
-          ))}
-        </div>
+        <FilterSidebar
+          selected={filter === 'all' ? null : filter}
+          onSelect={(id) => setFilter((id as FilterCategory) || 'all')}
+          allItem={{
+            label: 'All',
+            icon: Activity,
+          }}
+          sections={[
+            {
+              items: [
+                { id: 'servers', label: 'Servers', icon: Server },
+                { id: 'files', label: 'Files', icon: File },
+                { id: 'tasks', label: 'Tasks', icon: Terminal },
+                { id: 'other', label: 'Other', icon: Bookmark },
+              ],
+            },
+          ]}
+        />
 
         {/* Timeline */}
         <ScrollArea className="flex-1">
@@ -209,10 +207,11 @@ export function ActivityPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No activity to show</p>
-            </div>
+            <EmptyState
+              icon={Activity}
+              title="No activity to show"
+              description={filter !== 'all' ? 'Try selecting a different category' : 'Your activity will appear here'}
+            />
           )}
         </ScrollArea>
       </div>

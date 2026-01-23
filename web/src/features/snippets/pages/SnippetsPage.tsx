@@ -19,11 +19,11 @@ import {
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
 import { PageLayout } from '@/layouts'
+import { SearchInput, EmptyState } from '@/shared/components'
 import { useSnippetsStore, type Snippet } from '../stores/snippets'
 import { cn } from '@/shared/lib/utils'
 import {
   Plus,
-  Search,
   Code2,
   Star,
   Copy,
@@ -255,15 +255,12 @@ export function SnippetsPage() {
       <div className="space-y-4">
         {/* Filters */}
         <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search snippets..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search snippets..."
+            className="flex-1 max-w-md"
+          />
 
           <div className="flex items-center gap-2">
             <Button
@@ -322,10 +319,11 @@ export function SnippetsPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <Code2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No snippets found</p>
-          </div>
+          <EmptyState
+            icon={Code2}
+            title="No snippets found"
+            description={search ? 'Try a different search term' : 'Create your first snippet to get started'}
+          />
         )}
       </div>
 

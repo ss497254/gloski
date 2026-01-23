@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { generateId } from '@/shared/lib/utils'
 import { persist } from 'zustand/middleware'
 
 export interface Note {
@@ -212,9 +213,6 @@ git clean -fd
 
 const initialFolders = ['Documentation', 'Meetings', 'Reference']
 
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 10)
-}
 
 export const useNotesStore = create<NotesState>()(
   persist(

@@ -3,6 +3,7 @@ import { Button } from '@/ui/button'
 import { Badge } from '@/ui/badge'
 import { ScrollArea } from '@/ui/scroll-area'
 import { PageLayout } from '@/layouts'
+import { EmptyState } from '@/shared/components'
 import { useMessagesStore, type Message, type MessageType } from '../stores/messages'
 import { cn, formatRelativeTime } from '@/shared/lib/utils'
 import {
@@ -170,9 +171,12 @@ export function MessagesPage() {
                 />
               ))
             ) : (
-              <div className="p-8 text-center text-muted-foreground">
-                <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No messages</p>
+              <div className="p-8">
+                <EmptyState
+                  icon={Mail}
+                  title="No messages"
+                  description={filter !== 'all' ? `No ${filter} messages` : 'Your inbox is empty'}
+                />
               </div>
             )}
           </ScrollArea>
@@ -237,11 +241,12 @@ export function MessagesPage() {
               </ScrollArea>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <MailOpen className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p>Select a message to read</p>
-              </div>
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={MailOpen}
+                title="No message selected"
+                description="Select a message to read"
+              />
             </div>
           )}
         </div>

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { generateId } from '@/shared/lib/utils'
 import { persist } from 'zustand/middleware'
 
 export type MessageType = 'info' | 'warning' | 'success' | 'error'
@@ -99,9 +100,6 @@ const initialMessages: Message[] = [
   },
 ]
 
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 10)
-}
 
 export const useMessagesStore = create<MessagesState>()(
   persist(

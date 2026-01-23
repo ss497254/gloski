@@ -18,11 +18,10 @@ import {
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
 import { PageLayout } from '@/layouts'
+import { SearchInput, FilterSidebar, EmptyState } from '@/shared/components'
 import { useBookmarksStore, type Bookmark } from '../stores/bookmarks'
-import { cn } from '@/shared/lib/utils'
 import {
   Plus,
-  Search,
   ExternalLink,
   Folder,
   MoreVertical,
@@ -204,60 +203,34 @@ export function BookmarksPage() {
     >
       <div className="flex gap-6">
         {/* Sidebar - Folders */}
-        <div className="w-48 shrink-0 space-y-1">
-          <button
-            onClick={() => setSelectedFolder(null)}
-            className={cn(
-              'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              !selectedFolder
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-accent/50'
-            )}
-          >
-            <Globe className="h-4 w-4" />
-            All Bookmarks
-            <span className="ml-auto text-xs">{bookmarks.length}</span>
-          </button>
-
-          <div className="pt-4 pb-2 px-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase">
-              Folders
-            </span>
-          </div>
-
-          {folders.map((folder) => {
-            const count = bookmarks.filter((b) => b.folder === folder).length
-            return (
-              <button
-                key={folder}
-                onClick={() => setSelectedFolder(folder)}
-                className={cn(
-                  'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  selectedFolder === folder
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50'
-                )}
-              >
-                <Folder className="h-4 w-4" />
-                {folder}
-                <span className="ml-auto text-xs">{count}</span>
-              </button>
-            )
-          })}
-        </div>
+        <FilterSidebar
+          selected={selectedFolder}
+          onSelect={setSelectedFolder}
+          allItem={{
+            label: 'All Bookmarks',
+            icon: Globe,
+            count: bookmarks.length,
+          }}
+          sections={[
+            {
+              title: 'Folders',
+              items: folders.map((folder) => ({
+                id: folder,
+                label: folder,
+                icon: Folder,
+                count: bookmarks.filter((b) => b.folder === folder).length,
+              })),
+            },
+          ]}
+        />
 
         {/* Main content */}
         <div className="flex-1 space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search bookmarks..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search bookmarks..."
+          />
 
           {/* Bookmarks grid */}
           {filteredBookmarks.length > 0 ? (
@@ -272,10 +245,11 @@ export function BookmarksPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <Globe className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No bookmarks found</p>
-            </div>
+            <EmptyState
+              icon={Globe}
+              title="No bookmarks found"
+              description={search ? 'Try a different search term' : 'Add your first bookmark to get started'}
+            />
           )}
         </div>
       </div>

@@ -4,11 +4,11 @@ import { Input } from '@/ui/input'
 import { Badge } from '@/ui/badge'
 import { ScrollArea } from '@/ui/scroll-area'
 import { PageLayout } from '@/layouts'
+import { SearchInput, FilterSidebar, EmptyState } from '@/shared/components'
 import { useNotesStore, type Note } from '../stores/notes'
 import { cn, formatRelativeTime } from '@/shared/lib/utils'
 import {
   Plus,
-  Search,
   FileText,
   Folder,
   Pin,
@@ -183,52 +183,34 @@ export function NotesPage() {
         <div className="w-72 border-r flex flex-col">
           {/* Search */}
           <div className="p-3 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search notes..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search notes..."
+            />
           </div>
 
           {/* Folders */}
-          <div className="p-3 space-y-1">
-            <button
-              onClick={() => setSelectedFolder(null)}
-              className={cn(
-                'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                !selectedFolder
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50'
-              )}
-            >
-              <FileText className="h-4 w-4" />
-              All Notes
-              <span className="ml-auto text-xs">{notes.length}</span>
-            </button>
-
-            {folders.map((folder) => {
-              const count = notes.filter((n) => n.folder === folder).length
-              return (
-                <button
-                  key={folder}
-                  onClick={() => setSelectedFolder(folder)}
-                  className={cn(
-                    'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                    selectedFolder === folder
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:bg-accent/50'
-                  )}
-                >
-                  <Folder className="h-4 w-4" />
-                  {folder}
-                  <span className="ml-auto text-xs">{count}</span>
-                </button>
-              )
-            })}
+          <div className="p-3">
+            <FilterSidebar
+              selected={selectedFolder}
+              onSelect={setSelectedFolder}
+              allItem={{
+                label: 'All Notes',
+                icon: FileText,
+                count: notes.length,
+              }}
+              sections={[
+                {
+                  items: folders.map((folder) => ({
+                    id: folder,
+                    label: folder,
+                    icon: Folder,
+                    count: notes.filter((n) => n.folder === folder).length,
+                  })),
+                },
+              ]}
+            />
           </div>
 
           {/* Notes list */}
@@ -279,11 +261,12 @@ export function NotesPage() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p>Select a note or create a new one</p>
-              </div>
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={FileText}
+                title="No note selected"
+                description="Select a note or create a new one"
+              />
             </div>
           )}
         </div>

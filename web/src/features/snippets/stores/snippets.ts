@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { generateId } from '@/shared/lib/utils'
 
 export interface Snippet {
   id: string
@@ -309,10 +310,6 @@ if (result.success) {
     createdAt: '2024-01-06T09:00:00Z',
   },
 ]
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 10)
-}
 
 export const useSnippetsStore = create<SnippetsState>()(
   persist(

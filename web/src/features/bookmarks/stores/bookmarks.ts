@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { generateId } from '@/shared/lib/utils'
 
 export interface Bookmark {
   id: string
@@ -135,10 +136,6 @@ const initialBookmarks: Bookmark[] = [
 ]
 
 const initialFolders = ['Development', 'Documentation', 'News', 'Tools', 'Design']
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 10)
-}
 
 export const useBookmarksStore = create<BookmarksState>()(
   persist(

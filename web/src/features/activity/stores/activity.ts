@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { generateId } from '@/shared/lib/utils'
 import { persist } from 'zustand/middleware'
 
 export type ActivityAction =
@@ -83,9 +84,6 @@ function generateMockActivity(): ActivityItem[] {
   })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 }
 
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 10)
-}
 
 export const useActivityStore = create<ActivityState>()(
   persist(
