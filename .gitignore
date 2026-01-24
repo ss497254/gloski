@@ -1,0 +1,40 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+server/coverage.out
+server/coverage.html
+
+# Node
+web/node_modules/
+web/dist/
+web/.cache/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Config with secrets
+config.json
+!deploy/config.example.json
+
+# Logs
+*.log
+logs/
+.opencode
