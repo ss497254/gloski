@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -15,47 +14,31 @@ type contextKey string
 const (
 	// UserContextKey is the context key for authenticated user info
 	UserContextKey contextKey = "user"
-	// AuthMethodKey is the context key for the auth method used (jwt or apikey)
-	AuthMethodKey contextKey = "auth_method"
 )
 
-// Auth returns a middleware that validates JWT tokens or API keys
+// Auth returns a middleware that validates API keys or JWT tokens
 func Auth(authService *auth.Service) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Try API key first (X-API-Key header or api_key query param)
-			apiKey := extractAPIKey(r)
-			if apiKey != "" {
+			// Try API key first
+			if apiKey := extractAPIKey(r); apiKey != "" {
 				if err := authService.ValidateAPIKey(apiKey); err == nil {
-					ctx := context.WithValue(r.Context(), UserContextKey, "authenticated")
-					ctx = context.WithValue(ctx, AuthMethodKey, "apikey")
+					ctx := context.WithValue(r.Context(), UserContextKey, "api_key")
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
-				// Invalid API key - don't fall back to JWT, return error
-				response.Unauthorized(w, "invalid API key")
-				return
 			}
 
 			// Try JWT token
-			token := extractToken(r)
-			if token == "" {
-				response.Unauthorized(w, "missing authorization")
-				return
-			}
-
-			if err := authService.ValidateToken(token); err != nil {
-				if errors.Is(err, auth.ErrTokenExpired) {
-					response.Unauthorized(w, "token expired")
-				} else {
-					response.Unauthorized(w, "invalid token")
+			if token := extractToken(r); token != "" {
+				if err := authService.ValidateToken(token); err == nil {
+					ctx := context.WithValue(r.Context(), UserContextKey, "jwt")
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
 				}
-				return
 			}
 
-			ctx := context.WithValue(r.Context(), UserContextKey, "authenticated")
-			ctx = context.WithValue(ctx, AuthMethodKey, "jwt")
-			next.ServeHTTP(w, r.WithContext(ctx))
+			response.Unauthorized(w, "invalid or missing authentication")
 		})
 	}
 }
@@ -70,13 +53,14 @@ func extractAPIKey(r *http.Request) string {
 	return r.URL.Query().Get("api_key")
 }
 
-// extractToken extracts the JWT token from the request
+// extractToken extracts JWT token from request
 func extractToken(r *http.Request) string {
-	// Check Authorization header first
-	authHeader := r.Header.Get("Authorization")
-	if authHeader != "" {
-		return strings.TrimPrefix(authHeader, "Bearer ")
+	// Check Authorization header (Bearer token)
+	if authHeader := r.Header.Get("Authorization"); authHeader != "" {
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			return strings.TrimPrefix(authHeader, "Bearer ")
+		}
 	}
-	// Fall back to query parameter (for WebSocket connections)
+	// Fall back to query parameter
 	return r.URL.Query().Get("token")
 }

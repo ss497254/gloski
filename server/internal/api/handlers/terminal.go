@@ -37,18 +37,22 @@ func (h *TerminalHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	apiKey := r.URL.Query().Get("api_key")
 	token := r.URL.Query().Get("token")
 
+	authenticated := false
+
 	if apiKey != "" {
-		if err := h.authService.ValidateAPIKey(apiKey); err != nil {
-			http.Error(w, "invalid API key", http.StatusUnauthorized)
-			return
+		if err := h.authService.ValidateAPIKey(apiKey); err == nil {
+			authenticated = true
 		}
-	} else if token != "" {
-		if err := h.authService.ValidateToken(token); err != nil {
-			http.Error(w, "invalid token", http.StatusUnauthorized)
-			return
+	}
+
+	if !authenticated && token != "" {
+		if err := h.authService.ValidateToken(token); err == nil {
+			authenticated = true
 		}
-	} else {
-		http.Error(w, "missing authorization", http.StatusUnauthorized)
+	}
+
+	if !authenticated {
+		http.Error(w, "invalid or missing authentication", http.StatusUnauthorized)
 		return
 	}
 

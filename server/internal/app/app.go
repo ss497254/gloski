@@ -52,7 +52,11 @@ func New(cfg *config.Config) (*App, error) {
 	app.statsCollector.Start()
 
 	// Initialize core services (always available)
-	app.Auth = auth.NewService(cfg)
+	authService, err := auth.NewService(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize auth service: %w", err)
+	}
+	app.Auth = authService
 	app.Files = files.NewService(cfg)
 	app.System = system.NewService(statsStore)
 	app.Tasks = tasks.NewService()

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type Config struct {
@@ -15,10 +13,11 @@ type Config struct {
 	Port int    `json:"port"`
 
 	// Authentication
-	PasswordHash string `json:"password_hash"`
-	JWTSecret    string `json:"jwt_secret"`
-	TokenExpiry  int    `json:"token_expiry"` // in hours
-	APIKey       string `json:"api_key"`      // API key for direct auth (fallback)
+	APIKey string `json:"api_key"` // API key for authentication
+
+	// JWT Authentication (asymmetric - public key only for verification)
+	JWTPublicKey     string `json:"jwt_public_key"`      // PEM-encoded RSA public key
+	JWTPublicKeyFile string `json:"jwt_public_key_file"` // Path to PEM file (alternative to inline key)
 
 	// Security
 	AllowedOrigins []string `json:"allowed_origins"`
@@ -35,7 +34,6 @@ func DefaultConfig() *Config {
 	return &Config{
 		Host:           "127.0.0.1",
 		Port:           8080,
-		TokenExpiry:    24,
 		AllowedOrigins: []string{"*"},
 		AllowedPaths:   []string{},
 		Shell:          getDefaultShell(),
@@ -79,13 +77,6 @@ func (c *Config) loadFromEnv() {
 	if v := os.Getenv("GLOSKI_PORT"); v != "" {
 		fmt.Sscanf(v, "%d", &c.Port)
 	}
-	if v := os.Getenv("GLOSKI_PASSWORD"); v != "" {
-		hash, _ := bcrypt.GenerateFromPassword([]byte(v), bcrypt.DefaultCost)
-		c.PasswordHash = string(hash)
-	}
-	if v := os.Getenv("GLOSKI_JWT_SECRET"); v != "" {
-		c.JWTSecret = v
-	}
 	if v := os.Getenv("GLOSKI_SHELL"); v != "" {
 		c.Shell = v
 	}
@@ -95,7 +86,12 @@ func (c *Config) loadFromEnv() {
 	if v := os.Getenv("GLOSKI_API_KEY"); v != "" {
 		c.APIKey = v
 	}
-	c.APIKey = "1234"
+	if v := os.Getenv("GLOSKI_JWT_PUBLIC_KEY"); v != "" {
+		c.JWTPublicKey = v
+	}
+	if v := os.Getenv("GLOSKI_JWT_PUBLIC_KEY_FILE"); v != "" {
+		c.JWTPublicKeyFile = v
+	}
 }
 
 func (c *Config) validate() error {
@@ -103,22 +99,21 @@ func (c *Config) validate() error {
 		return fmt.Errorf("invalid port: %d", c.Port)
 	}
 
-	// If no password hash is set, generate one from default password
-	if c.PasswordHash == "" {
-		defaultPassword := os.Getenv("GLOSKI_PASSWORD")
-		if defaultPassword == "" {
-			defaultPassword = "gloski" // Default for development only
-		}
-		hash, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
-		if err != nil {
-			return fmt.Errorf("failed to hash password: %w", err)
-		}
-		c.PasswordHash = string(hash)
+	// At least one auth method is required
+	hasAPIKey := c.APIKey != ""
+	hasJWT := c.JWTPublicKey != "" || c.JWTPublicKeyFile != ""
+
+	if !hasAPIKey && !hasJWT {
+		return fmt.Errorf("at least one authentication method is required (set GLOSKI_API_KEY or GLOSKI_JWT_PUBLIC_KEY)")
 	}
 
-	// Generate JWT secret if not provided
-	if c.JWTSecret == "" {
-		c.JWTSecret = generateRandomString(32)
+	// Load JWT public key from file if specified
+	if c.JWTPublicKeyFile != "" && c.JWTPublicKey == "" {
+		data, err := os.ReadFile(c.JWTPublicKeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to read JWT public key file: %w", err)
+		}
+		c.JWTPublicKey = string(data)
 	}
 
 	return nil
@@ -176,13 +171,4 @@ func getDefaultShell() string {
 		return shell
 	}
 	return "/bin/bash"
-}
-
-func generateRandomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[i%len(letters)]
-	}
-	return string(b)
 }

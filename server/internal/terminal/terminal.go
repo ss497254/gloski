@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
@@ -127,8 +129,27 @@ func (t *Terminal) Close() {
 	}
 	t.closed = true
 
+	// Close PTY to signal EOF to shell
 	t.ptmx.Close()
-	t.cmd.Process.Kill()
-	t.cmd.Wait()
+
+	// Kill entire process group
+	if t.cmd.Process != nil {
+			// Negative PID kills the entire process group
+			syscall.Kill(-t.cmd.Process.Pid, syscall.SIGTERM)
+
+			// Give processes time to cleanup
+			done := make(chan error, 1)
+			go func() { done <- t.cmd.Wait() }()
+
+			select {
+			case <-done:
+					// Clean exit
+			case <-time.After(2 * time.Second):
+					// Force kill
+					syscall.Kill(-t.cmd.Process.Pid, syscall.SIGKILL)
+					<-done
+			}
+	}
+
 	t.ws.Close()
 }

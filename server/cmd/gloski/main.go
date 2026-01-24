@@ -11,7 +11,6 @@ import (
 
 	"github.com/ss497254/gloski/internal/api"
 	"github.com/ss497254/gloski/internal/app"
-	"github.com/ss497254/gloski/internal/auth"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/logger"
 )
@@ -25,22 +24,11 @@ func main() {
 	// Command line flags
 	configPath := flag.String("config", "", "Path to config file")
 	showVersion := flag.Bool("version", false, "Show version information")
-	genPassword := flag.String("gen-password", "", "Generate password hash and exit")
 	flag.Parse()
 
 	// Show version
 	if *showVersion {
 		logger.Info("Gloski %s (built %s)", version, buildTime)
-		os.Exit(0)
-	}
-
-	// Generate password hash
-	if *genPassword != "" {
-		hash, err := auth.HashPassword(*genPassword)
-		if err != nil {
-			logger.Fatal("Failed to hash password: %v", err)
-		}
-		logger.Info("Password hash: %s", hash)
 		os.Exit(0)
 	}
 

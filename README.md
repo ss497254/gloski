@@ -49,7 +49,7 @@ A control center for managing multiple Linux servers with terminal access, file 
 **Server (Go):**
 - Go 1.22+ (uses new router patterns)
 - Minimal dependencies
-- JWT + API key authentication
+- API key + JWT (RS256) authentication
 - WebSocket for terminal
 - Background stats collector with time-series history
 
@@ -88,10 +88,12 @@ Open http://localhost:5173:
 | `GLOSKI_HOST` | `127.0.0.1` | Server bind address |
 | `GLOSKI_PORT` | `8080` | Server port |
 | `GLOSKI_API_KEY` | (none) | API key for authentication |
-| `GLOSKI_PASSWORD` | `gloski` | Password for JWT login |
-| `GLOSKI_JWT_SECRET` | (auto-generated) | JWT signing secret |
+| `GLOSKI_JWT_PUBLIC_KEY` | (none) | PEM-encoded RSA public key for JWT verification |
+| `GLOSKI_JWT_PUBLIC_KEY_FILE` | (none) | Path to PEM file with RSA public key |
 | `GLOSKI_LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
 | `GLOSKI_SHELL` | `$SHELL` or `/bin/bash` | Shell for terminal |
+
+> **Note:** At least one authentication method (`GLOSKI_API_KEY` or `GLOSKI_JWT_PUBLIC_KEY`) is required.
 
 ### Server Config File
 
@@ -102,6 +104,7 @@ Create `~/.config/gloski/config.json`:
   "host": "0.0.0.0",
   "port": 8080,
   "api_key": "your-secure-api-key",
+  "jwt_public_key_file": "/path/to/public-key.pem",
   "allowed_origins": ["https://your-frontend.example.com"],
   "allowed_paths": ["/home/user/projects"],
   "log_level": "info"
@@ -120,7 +123,7 @@ gloski/
 │       │   ├── middleware/         # Auth, CORS, logging
 │       │   └── routes/             # Route definitions
 │       ├── app/                    # Application container & lifecycle
-│       ├── auth/                   # JWT + API key authentication
+│       ├── auth/                   # API key + JWT authentication
 │       ├── config/                 # Configuration loading
 │       ├── cron/                   # Cron job management
 │       ├── files/                  # File operations service
@@ -216,12 +219,19 @@ gloski/
 
 ### Authentication
 
-Requests can authenticate via:
-- **API Key**: `X-API-Key` header or `api_key` query param
-- **JWT**: `Authorization: Bearer <token>` header or `token` query param
+Requests authenticate via API Key or JWT token:
+
+**API Key:**
+- Header: `X-API-Key: your-api-key`
+- Query param: `?api_key=your-api-key`
+
+**JWT Token (RS256, asymmetric):**
+- Header: `Authorization: Bearer <token>`
+- Query param: `?token=<jwt-token>`
+
+The server verifies JWT tokens using a configured RSA public key. Tokens are signed externally (e.g., by a central auth service) and only verified by Gloski servers.
 
 ```
-POST /api/auth/login        { "password": "string" }
 GET  /api/auth/status       { "authenticated": true }
 ```
 

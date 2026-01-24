@@ -67,7 +67,6 @@ func Setup(cfg Config) http.Handler {
 	mux.HandleFunc("GET /api/health/live", healthHandler.Live)
 
 	// Auth routes
-	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
 	mux.Handle("GET /api/auth/status", requireAuth(http.HandlerFunc(authHandler.Status)))
 
 	// System routes (protected)
