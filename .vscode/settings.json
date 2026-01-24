@@ -1,5 +1,11 @@
 {
-    "cSpell.words": [
-        "gloski"
-    ]
+  "cSpell.words": ["gloski"],
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[go]": {
+    "editor.defaultFormatter": "golang.go"
+  },
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+  "typescript.tsdk": "web/node_modules/typescript/lib",
+  "eslint.workingDirectories": ["web"]
 }
