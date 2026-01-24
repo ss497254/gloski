@@ -56,16 +56,5 @@ lint: ## Run linters
 	cd server && golangci-lint run ./...
 	cd web && npm run lint
 
-# Utilities
-gen-password: ## Generate password hash (usage: make gen-password PASSWORD=mypassword)
-	@cd server && go run ./cmd/gloski -gen-password "$(PASSWORD)"
-
 clean: ## Clean build artifacts
 	rm -rf bin/ web/dist/ server/coverage.out server/coverage.html
-
-# Docker
-docker-build: ## Build Docker image
-	docker build -t gloski:$(VERSION) .
-
-docker-run: ## Run Docker container
-	docker run -d -p 8080:8080 --name gloski gloski:$(VERSION)
