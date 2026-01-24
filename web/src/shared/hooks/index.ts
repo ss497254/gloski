@@ -1,2 +1,5 @@
 export { useAsync } from './use-async'
 export { useInterval } from './use-interval'
+export { useFilter } from './use-filter'
+export { useDialog } from './use-dialog'
+export { useSelection } from './use-selection'
