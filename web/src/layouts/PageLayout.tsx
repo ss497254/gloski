@@ -23,15 +23,19 @@ export function PageLayout({
   return (
     <div className={cn('flex flex-col', fullHeight && 'h-full')}>
       {/* Header */}
-      <header className="border-b px-6 py-4 shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">{title}</h1>
+      <header className="border-b px-4 py-3 md:px-6 md:py-4 shrink-0">
+        <div className="flex items-start md:items-center justify-between gap-3 flex-col sm:flex-row">
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-xl font-semibold truncate">{title}</h1>
             {description && (
-              <p className="text-sm text-muted-foreground mt-1">{description}</p>
+              <p className="text-xs md:text-sm text-muted-foreground mt-0.5 md:mt-1 line-clamp-2">{description}</p>
             )}
           </div>
-          {actions && <div className="flex items-center gap-2">{actions}</div>}
+          {actions && (
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              {actions}
+            </div>
+          )}
         </div>
       </header>
 
@@ -39,7 +43,7 @@ export function PageLayout({
       <div
         className={cn(
           'flex-1 overflow-auto',
-          !noPadding && 'p-6',
+          !noPadding && 'p-4 md:p-6',
           className
         )}
       >
