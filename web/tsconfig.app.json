@@ -19,7 +19,8 @@
     /* Path alias */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@gloski/sdk": ["../js-sdk/src/index.ts"]
     },
 
     /* Linting */
