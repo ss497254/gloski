@@ -37,12 +37,6 @@ export type {
   JobsResponse,
   JobLogsResponse,
 
-  // Systemd types
-  SystemdUnit,
-  SystemdResponse,
-  SystemdLogsResponse,
-  SystemdAction,
-
   // Package types
   PackageManagerInfo,
   Package,

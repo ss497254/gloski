@@ -15,11 +15,7 @@ interface UseSelectionReturn<T> {
   isSelected: (id: string) => boolean
 }
 
-export function useSelection<T>({
-  items,
-  getId,
-  onSelect,
-}: UseSelectionOptions<T>): UseSelectionReturn<T> {
+export function useSelection<T>({ items, getId, onSelect }: UseSelectionOptions<T>): UseSelectionReturn<T> {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const selectedItem = useMemo(() => {
@@ -50,10 +46,7 @@ export function useSelection<T>({
     onSelect?.(null)
   }, [onSelect])
 
-  const isSelected = useCallback(
-    (id: string) => selectedId === id,
-    [selectedId]
-  )
+  const isSelected = useCallback((id: string) => selectedId === id, [selectedId])
 
   return {
     selectedId,

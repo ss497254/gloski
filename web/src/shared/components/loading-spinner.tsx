@@ -13,15 +13,7 @@ export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) 
     lg: 'h-12 w-12 border-3',
   }
 
-  return (
-    <div
-      className={cn(
-        'animate-spin rounded-full border-primary border-t-transparent',
-        sizes[size],
-        className
-      )}
-    />
-  )
+  return <div className={cn('animate-spin rounded-full border-primary border-t-transparent', sizes[size], className)} />
 }
 
 interface PageLoaderProps {
@@ -42,9 +34,7 @@ export function PageLoader({ message = 'Loading...', submessage }: PageLoaderPro
       </div>
       <div className="text-center">
         <p className="text-sm font-medium text-foreground">{message}</p>
-        {submessage && (
-          <p className="text-xs text-muted-foreground mt-0.5">{submessage}</p>
-        )}
+        {submessage && <p className="text-xs text-muted-foreground mt-0.5">{submessage}</p>}
       </div>
     </div>
   )

@@ -10,16 +10,14 @@ interface UseDialogReturn<T> {
   isOpen: boolean
   isEditing: boolean
   editingItem: T | null
-  
+
   // Actions
   open: (item?: T) => void
   close: () => void
   submit: (data: T) => void
 }
 
-export function useDialog<T extends { id: string }>({
-  onSubmit,
-}: UseDialogOptions<T> = {}): UseDialogReturn<T> {
+export function useDialog<T extends { id: string }>({ onSubmit }: UseDialogOptions<T> = {}): UseDialogReturn<T> {
   const [isOpen, setIsOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<T | null>(null)
 

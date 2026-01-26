@@ -65,15 +65,9 @@ export function ProgressRing({
       {(showValue || label) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           {showValue && (
-            <span className={cn('text-2xl font-bold', valueClassName)}>
-              {Math.round(normalizedValue)}%
-            </span>
+            <span className={cn('text-2xl font-bold', valueClassName)}>{Math.round(normalizedValue)}%</span>
           )}
-          {label && (
-            <span className={cn('text-xs text-muted-foreground', labelClassName)}>
-              {label}
-            </span>
-          )}
+          {label && <span className={cn('text-xs text-muted-foreground', labelClassName)}>{label}</span>}
         </div>
       )}
     </div>

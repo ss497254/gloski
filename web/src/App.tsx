@@ -3,10 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/layouts'
 import { PageLoader } from '@/shared/components'
 import { Toaster } from '@/ui/sonner'
-import {
-  features,
-  serverFeatures,
-} from '@/app/feature-registry'
+import { features, serverFeatures } from '@/app/feature-registry'
 
 // Special pages not in registry
 import { AddServerPage } from '@/features/servers'

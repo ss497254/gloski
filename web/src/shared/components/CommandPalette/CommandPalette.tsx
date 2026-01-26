@@ -3,11 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent } from '@/ui/dialog'
 import { Input } from '@/ui/input'
 import { ScrollArea } from '@/ui/scroll-area'
-import {
-  features,
-  getMainFeatures,
-  getWorkspaceFeatures,
-} from '@/app/feature-registry'
+import { features, getMainFeatures, getWorkspaceFeatures } from '@/app/feature-registry'
 import { useServersStore } from '@/features/servers'
 import { cn } from '@/shared/lib/utils'
 import { Search, ArrowRight, Plus, Moon, Sun, Server } from 'lucide-react'
@@ -195,9 +191,7 @@ export function CommandPalette() {
           {Object.entries(grouped).length > 0 ? (
             Object.entries(grouped).map(([category, items]) => (
               <div key={category} className="p-2">
-                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  {category}
-                </div>
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{category}</div>
                 {items.map((item) => {
                   const flatIndex = getFlatIndex(item)
                   return (
@@ -210,9 +204,7 @@ export function CommandPalette() {
                       onMouseEnter={() => setSelectedIndex(flatIndex)}
                       className={cn(
                         'w-full flex items-center gap-3 px-2 py-2 rounded-md text-sm transition-colors',
-                        flatIndex === selectedIndex
-                          ? 'bg-accent text-accent-foreground'
-                          : 'hover:bg-accent/50'
+                        flatIndex === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
                       )}
                     >
                       <item.icon className="h-4 w-4 text-muted-foreground shrink-0" />

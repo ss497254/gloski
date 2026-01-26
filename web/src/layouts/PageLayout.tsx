@@ -31,24 +31,12 @@ export function PageLayout({
               <p className="text-xs md:text-sm text-muted-foreground mt-0.5 md:mt-1 line-clamp-2">{description}</p>
             )}
           </div>
-          {actions && (
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
-              {actions}
-            </div>
-          )}
+          {actions && <div className="flex items-center gap-2 flex-wrap shrink-0">{actions}</div>}
         </div>
       </header>
 
       {/* Content */}
-      <div
-        className={cn(
-          'flex-1 overflow-auto',
-          !noPadding && 'p-4 md:p-6',
-          className
-        )}
-      >
-        {children}
-      </div>
+      <div className={cn('flex-1 overflow-auto', !noPadding && 'p-4 md:p-6', className)}>{children}</div>
     </div>
   )
 }

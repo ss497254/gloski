@@ -36,23 +36,14 @@ export function EmptyState({
   const styles = variantStyles[variant]
 
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center py-12 px-4 text-center',
-        className
-      )}
-    >
+    <div className={cn('flex flex-col items-center justify-center py-12 px-4 text-center', className)}>
       {Icon && (
         <div className={cn('mb-4 rounded-2xl p-4', styles.container)}>
           <Icon className={cn('h-8 w-8', styles.icon)} />
         </div>
       )}
       <h3 className="text-lg font-semibold">{title}</h3>
-      {description && (
-        <p className="mt-2 text-sm text-muted-foreground max-w-md leading-relaxed">
-          {description}
-        </p>
-      )}
+      {description && <p className="mt-2 text-sm text-muted-foreground max-w-md leading-relaxed">{description}</p>}
       {action && <div className="mt-6">{action}</div>}
     </div>
   )

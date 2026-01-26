@@ -12,14 +12,14 @@ interface UseFilterReturn<T> {
   // State
   search: string
   filter: string | null
-  
+
   // Setters
   setSearch: (search: string) => void
   setFilter: (filter: string | null) => void
-  
+
   // Results
   filteredItems: T[]
-  
+
   // Helpers
   clearSearch: () => void
   clearFilter: () => void
@@ -53,9 +53,7 @@ export function useFilter<T>({
               return value.toLowerCase().includes(searchLower)
             }
             if (Array.isArray(value)) {
-              return value.some(
-                (v) => typeof v === 'string' && v.toLowerCase().includes(searchLower)
-              )
+              return value.some((v) => typeof v === 'string' && v.toLowerCase().includes(searchLower))
             }
             return false
           })

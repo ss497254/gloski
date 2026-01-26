@@ -3,9 +3,7 @@ import { GloskiClient } from '@gloski/sdk'
 /**
  * Check server health (static, no auth required)
  */
-export async function checkServerHealth(
-  serverUrl: string
-): Promise<{ status: string }> {
+export async function checkServerHealth(serverUrl: string): Promise<{ status: string }> {
   return GloskiClient.checkHealth(serverUrl, 5000)
 }
 

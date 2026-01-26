@@ -12,30 +12,18 @@ interface NavItemProps {
   badge?: number | null
 }
 
-export function NavItem({
-  to,
-  icon: Icon,
-  label,
-  end,
-  collapsed,
-  badge,
-}: NavItemProps) {
+export function NavItem({ to, icon: Icon, label, end, collapsed, badge }: NavItemProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <NavLink
-          to={to}
-          end={end}
-        >
+        <NavLink to={to} end={end}>
           {({ isActive }) => (
             <div
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 'hover:bg-accent hover:text-accent-foreground',
                 collapsed && 'justify-center px-2',
-                isActive
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground'
+                isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
@@ -45,7 +33,8 @@ export function NavItem({
                   {badge > 99 ? '99+' : badge}
                 </span>
               )}
-            </div>)}
+            </div>
+          )}
         </NavLink>
       </TooltipTrigger>
       {collapsed && <TooltipContent side="right">{label}</TooltipContent>}

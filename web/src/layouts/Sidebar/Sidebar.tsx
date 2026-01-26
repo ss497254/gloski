@@ -2,11 +2,7 @@ import { NavLink, useParams, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { NavItem } from './NavItem'
 import { ServerNav } from './ServerNav'
-import {
-  getMainFeatures,
-  getWorkspaceFeatures,
-  getSettingsFeature,
-} from '@/app/feature-registry'
+import { getMainFeatures, getWorkspaceFeatures, getSettingsFeature } from '@/app/feature-registry'
 import { useSettingsStore } from '@/features/settings'
 import { useMessagesStore } from '@/features/messages'
 import { useServersStore } from '@/features/servers'
@@ -42,9 +38,7 @@ export function Sidebar({ className }: SidebarProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
             <Layers className="h-4 w-4" />
           </div>
-          {!sidebarCollapsed && (
-            <span className="font-semibold text-foreground">Gloski</span>
-          )}
+          {!sidebarCollapsed && <span className="font-semibold text-foreground">Gloski</span>}
         </NavLink>
         {!sidebarCollapsed && (
           <button
@@ -73,9 +67,7 @@ export function Sidebar({ className }: SidebarProps) {
           >
             <Command className="h-3.5 w-3.5" />
             <span className="flex-1 text-left">Search...</span>
-            <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">
-              ⌘K
-            </kbd>
+            <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
           </button>
         </div>
       )}
@@ -138,9 +130,7 @@ export function Sidebar({ className }: SidebarProps) {
                       currentServer.status === 'unauthorized' && 'bg-red-500'
                     )}
                   />
-                  <span className="text-[11px] text-muted-foreground truncate max-w-20">
-                    {currentServer.name}
-                  </span>
+                  <span className="text-[11px] text-muted-foreground truncate max-w-20">{currentServer.name}</span>
                 </div>
               </div>
             )}
@@ -168,19 +158,16 @@ export function Sidebar({ className }: SidebarProps) {
             {sidebarCollapsed && <div className="border-t my-3" />}
             <div className="space-y-1">
               {servers.slice(0, 4).map((server) => (
-                <NavLink
-                  key={server.id}
-                  to={`/servers/${server.id}`}
-                >
+                <NavLink key={server.id} to={`/servers/${server.id}`}>
                   {({ isActive }) => (
-                    <div className={cn(
-                      'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
-                      'hover:bg-accent hover:text-accent-foreground',
-                      sidebarCollapsed && 'justify-center px-2',
-                      isActive
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground'
-                    )}>
+                    <div
+                      className={cn(
+                        'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+                        'hover:bg-accent hover:text-accent-foreground',
+                        sidebarCollapsed && 'justify-center px-2',
+                        isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
+                      )}
+                    >
                       <span
                         className={cn(
                           'h-2 w-2 rounded-full shrink-0',
@@ -190,9 +177,7 @@ export function Sidebar({ className }: SidebarProps) {
                           server.status === 'unauthorized' && 'bg-red-500'
                         )}
                       />
-                      {!sidebarCollapsed && (
-                        <span className="truncate">{server.name}</span>
-                      )}
+                      {!sidebarCollapsed && <span className="truncate">{server.name}</span>}
                     </div>
                   )}
                 </NavLink>
@@ -281,20 +266,13 @@ export function MobileSidebar() {
   return (
     <div className="md:hidden fixed inset-0 z-50">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-        onClick={() => setMobileSidebarOpen(false)}
-      />
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
 
       {/* Drawer */}
       <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] flex flex-col border-r bg-background shadow-xl animate-in slide-in-from-left duration-200">
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-4 border-b">
-          <NavLink
-            to="/"
-            className="flex items-center gap-2.5"
-            onClick={() => setMobileSidebarOpen(false)}
-          >
+          <NavLink to="/" className="flex items-center gap-2.5" onClick={() => setMobileSidebarOpen(false)}>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
               <Layers className="h-4 w-4" />
             </div>
@@ -327,9 +305,7 @@ export function MobileSidebar() {
           >
             <Command className="h-3.5 w-3.5" />
             <span className="flex-1 text-left">Search...</span>
-            <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">
-              ⌘K
-            </kbd>
+            <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
           </button>
         </div>
 
@@ -387,9 +363,7 @@ export function MobileSidebar() {
                       currentServer.status === 'unauthorized' && 'bg-red-500'
                     )}
                   />
-                  <span className="text-[11px] text-muted-foreground truncate max-w-20">
-                    {currentServer.name}
-                  </span>
+                  <span className="text-[11px] text-muted-foreground truncate max-w-20">{currentServer.name}</span>
                 </div>
               </div>
               <ServerNav collapsed={false} />
@@ -412,18 +386,15 @@ export function MobileSidebar() {
               </div>
               <div className="space-y-1">
                 {servers.slice(0, 4).map((server) => (
-                  <NavLink
-                    key={server.id}
-                    to={`/servers/${server.id}`}
-                  >
+                  <NavLink key={server.id} to={`/servers/${server.id}`}>
                     {({ isActive }) => (
-                      <div className={cn(
-                        'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
-                        'hover:bg-accent hover:text-accent-foreground',
-                        isActive
-                          ? 'bg-accent text-accent-foreground'
-                          : 'text-muted-foreground'
-                      )}>
+                      <div
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+                          'hover:bg-accent hover:text-accent-foreground',
+                          isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
+                        )}
+                      >
                         <span
                           className={cn(
                             'h-2 w-2 rounded-full shrink-0',

@@ -56,11 +56,7 @@ export function ProgressBar({
       )}
       <div className={cn('w-full rounded-full bg-muted overflow-hidden', sizes[size])}>
         <div
-          className={cn(
-            'h-full rounded-full transition-all duration-500',
-            getVariantClass(),
-            barClassName
-          )}
+          className={cn('h-full rounded-full transition-all duration-500', getVariantClass(), barClassName)}
           style={{ width: `${percentage}%` }}
         />
       </div>
