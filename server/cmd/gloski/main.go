@@ -79,9 +79,34 @@ func main() {
 
 	logger.Info("Received signal %v, shutting down...", sig)
 
-	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Get shutdown timeout
+	shutdownTimeout := cfg.ShutdownTimeout
+	if shutdownTimeout <= 0 {
+		shutdownTimeout = 5
+	}
+
+	// Graceful shutdown with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(shutdownTimeout)*time.Second)
 	defer cancel()
+
+	countdownDone := make(chan struct{})
+
+	// Start countdown in background (visual indicator during shutdown)
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		remaining := shutdownTimeout
+		for remaining > 0 {
+			select {
+			case <-countdownDone:
+				return
+			case <-ticker.C:
+				logger.Info("Shutdown in progress... %ds remaining", remaining)
+				remaining--
+			}
+		}
+	}()
 
 	// Shutdown HTTP server
 	if err := srv.Shutdown(ctx); err != nil {
@@ -93,5 +118,8 @@ func main() {
 		logger.Error("Application shutdown error: %v", err)
 	}
 
-	logger.Info("Server stopped")
+	// Stop countdown and log appropriate message
+	close(countdownDone)
+
+	logger.Info("Shutdown complete")
 }
