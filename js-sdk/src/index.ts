@@ -14,7 +14,6 @@ export {
   FilesResource,
   PinnedSubResource,
   JobsResource,
-  SystemdResource,
   SearchResource,
   TerminalResource,
   TerminalConnection,
@@ -65,12 +64,6 @@ export type {
   Job,
   JobsResponse,
   JobLogsResponse,
-
-  // Systemd types
-  SystemdUnit,
-  SystemdResponse,
-  SystemdLogsResponse,
-  SystemdAction,
 
   // Package types
   PackageManagerInfo,

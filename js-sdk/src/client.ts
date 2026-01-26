@@ -5,7 +5,6 @@ import {
   SystemResource,
   FilesResource,
   JobsResource,
-  SystemdResource,
   SearchResource,
   TerminalResource,
   PackagesResource,
@@ -52,9 +51,6 @@ export class GloskiClient {
   /** Job management (ad-hoc command execution) */
   readonly jobs: JobsResource
 
-  /** Systemd service management */
-  readonly systemd: SystemdResource
-
   /** File search */
   readonly search: SearchResource
 
@@ -93,7 +89,6 @@ export class GloskiClient {
     this.system = new SystemResource(this.http)
     this.files = new FilesResource(this.http)
     this.jobs = new JobsResource(this.http)
-    this.systemd = new SystemdResource(this.http)
     this.search = new SearchResource(this.http)
     this.terminal = new TerminalResource(this.http)
     this.packages = new PackagesResource(this.http)

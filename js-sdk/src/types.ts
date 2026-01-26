@@ -262,29 +262,6 @@ export interface JobLogsResponse {
 }
 
 // =============================================================================
-// Systemd Types
-// =============================================================================
-
-export interface SystemdUnit {
-  name: string
-  description: string
-  load_state: string
-  active_state: string
-  sub_state: string
-  enabled: boolean
-}
-
-export interface SystemdResponse {
-  units: SystemdUnit[]
-}
-
-export interface SystemdLogsResponse {
-  logs: string
-}
-
-export type SystemdAction = 'start' | 'stop' | 'restart' | 'enable' | 'disable'
-
-// =============================================================================
 // Package Types
 // =============================================================================
 
