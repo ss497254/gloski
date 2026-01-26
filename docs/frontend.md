@@ -236,7 +236,7 @@ await client.files.pinned.unpin(pinned.id)
 
 // Jobs
 const jobs = await client.jobs.list()
-const job = await client.jobs.start('npm run build', '/home/user/project')
+const job = await client.jobs.start('bun run build', '/home/user/project')
 const logs = await client.jobs.getLogs(job.id)
 await client.jobs.stop(job.id)
 
@@ -524,14 +524,14 @@ interface APIResponse {
 cd web
 
 # Development
-npm run dev
+bun run dev
 
 # Type checking
-npm run typecheck
+bun run typecheck
 
 # Linting
-npm run lint
+bun run lint
 
 # Production build
-npm run build
+bun run build
 ```

@@ -44,25 +44,25 @@ term.write('ls -la\n')
 interface GloskiClientConfig {
   /** Server URL (e.g., "https://server.example.com") */
   url: string
-  
+
   /** API key for authentication */
   apiKey?: string
-  
+
   /** JWT token for authentication */
   token?: string
-  
+
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number
-  
+
   /** API path prefix (default: "/api") */
   apiPrefix?: string
-  
+
   /** Called when server returns 401 Unauthorized */
   onUnauthorized?: () => void
-  
+
   /** Called when server is unreachable (network error) */
   onOffline?: () => void
-  
+
   /** Called when server comes back online */
   onOnline?: () => void
 }
@@ -76,7 +76,7 @@ If your server uses a different API path prefix, you can configure it:
 const client = new GloskiClient({
   url: 'https://server.example.com',
   apiKey: 'your-api-key',
-  apiPrefix: '/v1',  // Instead of default "/api"
+  apiPrefix: '/v1', // Instead of default "/api"
 })
 ```
 
@@ -84,18 +84,18 @@ const client = new GloskiClient({
 
 The client provides namespaced access to different API resources:
 
-| Resource | Description |
-|----------|-------------|
-| `client.auth` | Authentication status |
-| `client.system` | System stats and monitoring |
-| `client.files` | File operations (includes pinned folders) |
-| `client.jobs` | Job/process management |
-| `client.systemd` | Systemd service management |
-| `client.search` | File search |
-| `client.terminal` | Terminal WebSocket connections |
-| `client.packages` | Package management (optional) |
-| `client.cron` | Cron job management (optional) |
-| `client.downloads` | Download manager |
+| Resource           | Description                               |
+| ------------------ | ----------------------------------------- |
+| `client.auth`      | Authentication status                     |
+| `client.system`    | System stats and monitoring               |
+| `client.files`     | File operations (includes pinned folders) |
+| `client.jobs`      | Job/process management                    |
+| `client.systemd`   | Systemd service management                |
+| `client.search`    | File search                               |
+| `client.terminal`  | Terminal WebSocket connections            |
+| `client.packages`  | Package management (optional)             |
+| `client.cron`      | Cron job management (optional)            |
+| `client.downloads` | Download manager                          |
 
 ### System Resource
 
@@ -158,7 +158,7 @@ const url = client.files.getDownloadUrl('/tmp/file.zip')
 const jobs = await client.jobs.list()
 
 // Start a job
-const job = await client.jobs.start('npm run build', '/home/user/project')
+const job = await client.jobs.start('bun run build', '/home/user/project')
 
 // Get job details
 const job = await client.jobs.get('job-id')
@@ -311,7 +311,7 @@ try {
   if (error instanceof GloskiError) {
     console.log('Status:', error.status)
     console.log('Message:', error.message)
-    
+
     if (error.isUnauthorized) {
       // Handle 401
     } else if (error.isForbidden) {
@@ -345,14 +345,14 @@ All types are exported from the SDK:
 import type {
   // Client config
   GloskiClientConfig,
-  
+
   // System types
   SystemStats,
   CPUStats,
   MemoryStats,
   ProcessInfo,
   SystemInfo,
-  
+
   // File types
   FileEntry,
   ListResponse,
@@ -360,20 +360,20 @@ import type {
   SearchResult,
   PinnedFolder,
   PinnedFoldersResponse,
-  
+
   // Job types
   Job,
   JobStatus,
-  
+
   // Systemd types
   SystemdUnit,
   SystemdAction,
-  
+
   // Terminal types
   TerminalOptions,
   TerminalState,
   TerminalEvents,
-  
+
   // Download types
   Download,
   DownloadStatus,
@@ -406,20 +406,12 @@ import type {
 ```bash
 cd js-sdk
 
-# Build
-npm run build
-
-# Watch mode (development)
-npm run dev
-
 # Type check
-npm run typecheck
-
-# Clean
-npm run clean
+bun run typecheck
 ```
 
 The build outputs:
+
 - `dist/index.js` - ESM bundle
 - `dist/index.cjs` - CommonJS bundle
 - `dist/index.d.ts` - TypeScript declarations
