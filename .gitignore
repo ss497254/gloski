@@ -10,9 +10,9 @@ server/coverage.out
 server/coverage.html
 
 # Node
-web/node_modules/
-web/dist/
-web/.cache/
+node_modules/
+dist/
+.cache/
 
 # IDE
 .idea/
