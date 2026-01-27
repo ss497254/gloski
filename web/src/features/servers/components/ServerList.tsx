@@ -20,25 +20,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/dialog'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/ui/tooltip'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
 import { useState } from 'react'
 
-const statusConfig: Record<
-  ServerStatus,
-  { color: string; pulseColor?: string; label: string; icon: typeof Wifi }
-> = {
+const statusConfig: Record<ServerStatus, { color: string; pulseColor?: string; label: string; icon: typeof Wifi }> = {
   online: {
     color: 'bg-emerald-500',
     label: 'Online',
@@ -76,42 +62,30 @@ function ServerItem({ server, isActive, onDelete }: ServerItemProps) {
     <div
       className={cn(
         'group relative flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-150',
-        isActive
-          ? 'bg-accent shadow-sm'
-          : 'hover:bg-accent/60'
+        isActive ? 'bg-accent shadow-sm' : 'hover:bg-accent/60'
       )}
     >
-      <Link
-        to={`/servers/${server.id}`}
-        className="flex items-center gap-2.5 flex-1 min-w-0"
-      >
+      <Link to={`/servers/${server.id}`} className="flex items-center gap-2.5 flex-1 min-w-0">
         {/* Server Icon with Status */}
-        <div className="relative flex-shrink-0">
-          <div className={cn(
-            'h-8 w-8 rounded-md flex items-center justify-center transition-colors',
-            isActive ? 'bg-primary/10' : 'bg-muted/50 group-hover:bg-muted'
-          )}>
-            <ServerIcon className={cn(
-              'h-4 w-4 transition-colors',
-              isActive ? 'text-primary' : 'text-muted-foreground'
-            )} />
+        <div className="relative shrink-0">
+          <div
+            className={cn(
+              'h-8 w-8 rounded-md flex items-center justify-center transition-colors',
+              isActive ? 'bg-primary/10' : 'bg-muted/50 group-hover:bg-muted'
+            )}
+          >
+            <ServerIcon
+              className={cn('h-4 w-4 transition-colors', isActive ? 'text-primary' : 'text-muted-foreground')}
+            />
           </div>
           {/* Status Indicator */}
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="absolute -bottom-0.5 -right-0.5 block">
-                <span
-                  className={cn(
-                    'block h-2.5 w-2.5 rounded-full border-2 border-card',
-                    status.color
-                  )}
-                />
+                <span className={cn('block h-2.5 w-2.5 rounded-full border-2 border-card', status.color)} />
                 {status.pulseColor && (
                   <span
-                    className={cn(
-                      'absolute inset-0 rounded-full animate-ping',
-                      status.pulseColor
-                    )}
+                    className={cn('absolute inset-0 rounded-full animate-ping', status.pulseColor)}
                     style={{ animationDuration: '1.5s' }}
                   />
                 )}
@@ -128,10 +102,12 @@ function ServerItem({ server, isActive, onDelete }: ServerItemProps) {
 
         {/* Server Name */}
         <div className="flex-1 min-w-0">
-          <span className={cn(
-            'block truncate text-sm font-medium transition-colors',
-            isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
-          )}>
+          <span
+            className={cn(
+              'block truncate text-sm font-medium transition-colors',
+              isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
+            )}
+          >
             {server.name}
           </span>
         </div>
@@ -144,7 +120,7 @@ function ServerItem({ server, isActive, onDelete }: ServerItemProps) {
             variant="ghost"
             size="icon"
             className={cn(
-              'h-7 w-7 flex-shrink-0 transition-opacity',
+              'h-7 w-7 shrink-0 transition-opacity',
               isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
             )}
           >
@@ -204,12 +180,7 @@ export function ServerList() {
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
-              asChild
-            >
+            <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 hover:text-primary" asChild>
               <Link to="/add-server">
                 <Plus className="h-3.5 w-3.5" />
               </Link>
@@ -226,9 +197,7 @@ export function ServerList() {
             <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center mx-auto mb-2">
               <ServerIcon className="h-5 w-5 text-muted-foreground" />
             </div>
-            <p className="text-xs text-muted-foreground mb-2">
-              No servers yet
-            </p>
+            <p className="text-xs text-muted-foreground mb-2">No servers yet</p>
             <Button variant="outline" size="sm" asChild>
               <Link to="/add-server">
                 <Plus className="h-3 w-3 mr-1.5" />
@@ -254,8 +223,8 @@ export function ServerList() {
           <DialogHeader>
             <DialogTitle>Remove Server</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove <strong>"{deleteServer?.name}"</strong>?
-              This will only remove it from your list and won't affect the server itself.
+              Are you sure you want to remove <strong>"{deleteServer?.name}"</strong>? This will only remove it from
+              your list and won't affect the server itself.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

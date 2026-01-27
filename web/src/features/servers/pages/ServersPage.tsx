@@ -6,13 +6,7 @@ import { PageLayout } from '@/layouts'
 import { useServersStore, type Server } from '../stores/servers'
 import { checkServerHealth } from '@/shared/services/api'
 import { cn } from '@/shared/lib/utils'
-import {
-  Server as ServerIcon,
-  Plus,
-  Trash2,
-  ExternalLink,
-  Circle,
-} from 'lucide-react'
+import { Server as ServerIcon, Plus, Trash2, ExternalLink, Circle } from 'lucide-react'
 
 const statusColors: Record<string, string> = {
   online: 'bg-green-500',
@@ -47,12 +41,8 @@ function ServerCard({ server }: { server: Server }) {
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-medium truncate">{server.name}</h3>
               <div className="flex items-center gap-1.5">
-                <Circle
-                  className={cn('h-2 w-2 fill-current', statusColors[server.status])}
-                />
-                <span className="text-xs text-muted-foreground">
-                  {statusLabels[server.status]}
-                </span>
+                <Circle className={cn('h-2 w-2 fill-current', statusColors[server.status])} />
+                <span className="text-xs text-muted-foreground">{statusLabels[server.status]}</span>
               </div>
             </div>
             <p className="text-sm text-muted-foreground truncate">{server.url}</p>
@@ -122,9 +112,7 @@ export function ServersPage() {
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <ServerIcon className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">No servers configured</h3>
-          <p className="text-muted-foreground mb-4">
-            Add a server to start managing it from here
-          </p>
+          <p className="text-muted-foreground mb-4">Add a server to start managing it from here</p>
           <Button asChild>
             <Link to="/servers/add">
               <Plus className="h-4 w-4 mr-2" />

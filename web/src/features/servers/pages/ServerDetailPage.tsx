@@ -1,28 +1,13 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import {
-  RefreshCw,
-  FolderOpen,
-  Terminal,
-  ListTodo,
-  Search,
-  WifiOff,
-  ShieldAlert,
-} from 'lucide-react'
+import { RefreshCw, MonitorCog, WifiOff, ShieldAlert } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Card, CardContent, CardHeader } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
 import { Badge } from '@/ui/badge'
 import { EmptyState } from '@/shared/components'
-import {
-  SystemOverview,
-  QuickStats,
-  DiskUsage,
-  NetworkStatsWidget,
-  MemoryWidget,
-} from '@/features/dashboard'
+import { SystemOverview, QuickStats, DiskUsage, NetworkStatsWidget, MemoryWidget } from '@/features/dashboard'
 import { useServersStore } from '../stores/servers'
-import { createServerApi } from '@/shared/services/api'
 import type { SystemStats } from '@/shared/lib/types'
 import { cn } from '@/shared/lib/utils'
 
@@ -110,11 +95,12 @@ export function ServerDetailPage() {
   const [stats, setStats] = useState<SystemStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const fetchInProgressRef = useRef(false)
 
   const fetchStats = useCallback(async () => {
     // Get fresh server data from store
     const currentServer = serverId ? useServersStore.getState().getServer(serverId) : undefined
-    if (!currentServer) return
+    if (!currentServer || fetchInProgressRef.current) return
 
     if (!currentServer.apiKey && !currentServer.token) {
       setError('No authentication configured. Add an API key to connect.')
@@ -123,8 +109,8 @@ export function ServerDetailPage() {
     }
 
     try {
-      const api = createServerApi(currentServer)
-      const data = await api.stats()
+      fetchInProgressRef.current = true
+      const data = await currentServer.getClient().system.getStats()
       setStats(data)
       setError(null)
       // Only update status if it changed
@@ -142,6 +128,7 @@ export function ServerDetailPage() {
       }
     } finally {
       setLoading(false)
+      fetchInProgressRef.current = false
     }
   }, [serverId, updateServer])
 
@@ -214,12 +201,7 @@ export function ServerDetailPage() {
     return null
   }
 
-  const quickActions = [
-    { to: `/servers/${serverId}/files`, icon: FolderOpen, label: 'Files' },
-    { to: `/servers/${serverId}/terminal`, icon: Terminal, label: 'Terminal' },
-    { to: `/servers/${serverId}/tasks`, icon: ListTodo, label: 'Tasks' },
-    { to: `/servers/${serverId}/search`, icon: Search, label: 'Search' },
-  ]
+  const quickActions = [{ to: `/servers/${serverId}/os`, icon: MonitorCog, label: 'OS' }]
 
   return (
     <div className="h-full overflow-auto">
@@ -233,7 +215,9 @@ export function ServerDetailPage() {
                 Online
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{stats.hostname} &middot; {server.url}</p>
+            <p className="text-sm text-muted-foreground">
+              {stats.hostname} &middot; {server.url}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {/* Quick Actions */}
@@ -245,12 +229,7 @@ export function ServerDetailPage() {
                 </Link>
               </Button>
             ))}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchStats}
-              disabled={loading}
-            >
+            <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}>
               <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
               Refresh
             </Button>

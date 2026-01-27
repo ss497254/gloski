@@ -20,12 +20,7 @@ import {
   Key,
   HelpCircle,
 } from 'lucide-react'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/tooltip'
 
 type ConnectionStatus = 'idle' | 'checking' | 'success' | 'error' | 'warning'
 
@@ -117,9 +112,7 @@ export function AddServerPage() {
     const serverName = form.name.trim() || new URL(serverUrl).hostname
 
     // Check for duplicate URLs
-    const existingServer = servers.find(
-      (s) => s.url.replace(/\/$/, '').toLowerCase() === serverUrl.toLowerCase()
-    )
+    const existingServer = servers.find((s) => s.url.replace(/\/$/, '').toLowerCase() === serverUrl.toLowerCase())
     if (existingServer) {
       setErrors({ url: `Server already exists as "${existingServer.name}"` })
       return
@@ -188,19 +181,15 @@ export function AddServerPage() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted/30 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-background to-muted/30 p-4">
         <Card className="w-full max-w-lg shadow-lg">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center">
               <Server className="h-7 w-7 text-primary" />
             </div>
-            <CardTitle className="text-2xl">
-              {hasServers ? 'Add Server' : 'Welcome to Gloski'}
-            </CardTitle>
+            <CardTitle className="text-2xl">{hasServers ? 'Add Server' : 'Welcome to Gloski'}</CardTitle>
             <CardDescription className="text-base">
-              {hasServers
-                ? 'Connect to another Gloski server'
-                : 'Add your first server to get started'}
+              {hasServers ? 'Connect to another Gloski server' : 'Add your first server to get started'}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
@@ -222,9 +211,7 @@ export function AddServerPage() {
                     onChange={(e) => updateField('url', e.target.value)}
                     disabled={loading}
                     autoFocus
-                    className={cn(
-                      errors.url && 'border-destructive focus-visible:ring-destructive'
-                    )}
+                    className={cn(errors.url && 'border-destructive focus-visible:ring-destructive')}
                   />
                   <Button
                     type="button"
@@ -232,16 +219,12 @@ export function AddServerPage() {
                     onClick={testConnection}
                     disabled={loading || connectionStatus === 'checking' || !form.url.trim()}
                   >
-                    {connectionStatus === 'checking' ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      'Test'
-                    )}
+                    {connectionStatus === 'checking' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Test'}
                   </Button>
                 </div>
                 {errors.url ? (
                   <p className="text-sm text-destructive flex items-start gap-1.5">
-                    <XCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                    <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                     <span className="whitespace-pre-line">{errors.url}</span>
                   </p>
                 ) : connectionMessage && connectionStatus !== 'idle' ? (
@@ -253,9 +236,9 @@ export function AddServerPage() {
                       connectionStatus === 'error' && 'text-destructive'
                     )}
                   >
-                    {connectionStatus === 'success' && <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />}
-                    {connectionStatus === 'warning' && <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />}
-                    {connectionStatus === 'error' && <XCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />}
+                    {connectionStatus === 'success' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />}
+                    {connectionStatus === 'warning' && <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />}
+                    {connectionStatus === 'error' && <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />}
                     <span className="whitespace-pre-line">{connectionMessage}</span>
                   </div>
                 ) : null}
@@ -291,8 +274,8 @@ export function AddServerPage() {
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs">
                       <p>
-                        Set <code className="bg-muted px-1 rounded">GLOSKI_API_KEY</code> on
-                        your server and enter the same value here for authentication.
+                        Set <code className="bg-muted px-1 rounded">GLOSKI_API_KEY</code> on your server and enter the
+                        same value here for authentication.
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -306,7 +289,7 @@ export function AddServerPage() {
                 />
                 {connectionStatus === 'warning' && !form.apiKey && (
                   <p className="text-xs text-yellow-600 flex items-center gap-1.5">
-                    <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
                     This server requires authentication. Enter your API key above.
                   </p>
                 )}
@@ -314,11 +297,7 @@ export function AddServerPage() {
 
               {/* Submit */}
               <div className="pt-2 space-y-3">
-                <Button
-                  type="submit"
-                  className="w-full h-11"
-                  disabled={loading}
-                >
+                <Button type="submit" className="w-full h-11" disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
