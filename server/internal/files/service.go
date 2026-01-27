@@ -185,6 +185,44 @@ func (s *Service) Delete(path string) error {
 	return os.RemoveAll(absPath)
 }
 
+// Rename renames/moves a file or directory
+func (s *Service) Rename(oldPath, newPath string) error {
+	absOldPath, err := s.validatePath(oldPath)
+	if err != nil {
+		return err
+	}
+
+	absNewPath, err := s.validatePath(newPath)
+	if err != nil {
+		return err
+	}
+
+	// Safety checks - don't allow renaming system paths
+	dangerousPaths := []string{"/", "/etc", "/usr", "/bin", "/sbin", "/var", "/boot", "/lib", "/lib64"}
+	for _, dp := range dangerousPaths {
+		if absOldPath == dp || absNewPath == dp {
+			return ErrDangerousPath
+		}
+	}
+
+	homeDir := os.Getenv("HOME")
+	if homeDir != "" && (absOldPath == homeDir || absNewPath == homeDir) {
+		return ErrDangerousPath
+	}
+
+	// Check if source exists
+	if _, err := os.Stat(absOldPath); os.IsNotExist(err) {
+		return errors.New("source path does not exist")
+	}
+
+	// Check if destination already exists
+	if _, err := os.Stat(absNewPath); err == nil {
+		return errors.New("destination path already exists")
+	}
+
+	return os.Rename(absOldPath, absNewPath)
+}
+
 func (s *Service) Stat(path string) (os.FileInfo, error) {
 	absPath, err := s.validatePath(path)
 	if err != nil {
@@ -236,10 +274,19 @@ func (s *Service) Upload(destPath, filename string, reader io.Reader) error {
 
 	// Clean filename to prevent path traversal
 	filename = filepath.Base(filename)
+	if filename == "" || filename == "." || filename == ".." {
+		return errors.New("invalid filename")
+	}
+
 	fullPath := filepath.Join(absPath, filename)
 
-	// Create the file
-	f, err := os.Create(fullPath)
+	// Validate the full path is also allowed (safety check)
+	if _, err := s.validatePath(fullPath); err != nil {
+		return err
+	}
+
+	// Create the file with explicit permissions
+	f, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
