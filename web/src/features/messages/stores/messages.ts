@@ -29,7 +29,8 @@ const initialMessages: Message[] = [
   {
     id: '1',
     title: 'Welcome to Gloski',
-    content: 'Thank you for using Gloski Control Center. This is your central hub for managing servers, files, and more. Get started by adding your first server!',
+    content:
+      'Thank you for using Gloski Control Center. This is your central hub for managing servers, files, and more. Get started by adding your first server!',
     read: false,
     starred: true,
     type: 'info',
@@ -38,7 +39,8 @@ const initialMessages: Message[] = [
   {
     id: '2',
     title: 'Server "production-1" is online',
-    content: 'Your server production-1 has come online and is ready for connections. All health checks passed successfully.',
+    content:
+      'Your server production-1 has come online and is ready for connections. All health checks passed successfully.',
     read: false,
     starred: false,
     type: 'success',
@@ -47,7 +49,8 @@ const initialMessages: Message[] = [
   {
     id: '3',
     title: 'High CPU usage detected',
-    content: 'Server "staging-2" is experiencing high CPU usage (95%). Consider scaling up or investigating running processes.',
+    content:
+      'Server "staging-2" is experiencing high CPU usage (95%). Consider scaling up or investigating running processes.',
     read: false,
     starred: false,
     type: 'warning',
@@ -74,7 +77,8 @@ const initialMessages: Message[] = [
   {
     id: '6',
     title: 'New version available',
-    content: 'Gloski v2.1.0 is now available with new features including improved terminal performance and better file search.',
+    content:
+      'Gloski v2.1.0 is now available with new features including improved terminal performance and better file search.',
     read: true,
     starred: true,
     type: 'info',
@@ -83,7 +87,8 @@ const initialMessages: Message[] = [
   {
     id: '7',
     title: 'Disk space warning',
-    content: 'Server "production-2" has less than 10% disk space remaining. Consider cleaning up old files or expanding storage.',
+    content:
+      'Server "production-2" has less than 10% disk space remaining. Consider cleaning up old files or expanding storage.',
     read: true,
     starred: false,
     type: 'warning',
@@ -99,7 +104,6 @@ const initialMessages: Message[] = [
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), // 5 days ago
   },
 ]
-
 
 export const useMessagesStore = create<MessagesState>()(
   persist(
@@ -122,9 +126,7 @@ export const useMessagesStore = create<MessagesState>()(
 
       markAsRead: (id) =>
         set((state) => ({
-          messages: state.messages.map((m) =>
-            m.id === id ? { ...m, read: true } : m
-          ),
+          messages: state.messages.map((m) => (m.id === id ? { ...m, read: true } : m)),
         })),
 
       markAllAsRead: () =>
@@ -134,9 +136,7 @@ export const useMessagesStore = create<MessagesState>()(
 
       toggleStar: (id) =>
         set((state) => ({
-          messages: state.messages.map((m) =>
-            m.id === id ? { ...m, starred: !m.starred } : m
-          ),
+          messages: state.messages.map((m) => (m.id === id ? { ...m, starred: !m.starred } : m)),
         })),
 
       deleteMessage: (id) =>
