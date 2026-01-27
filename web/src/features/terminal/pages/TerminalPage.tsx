@@ -1,13 +1,15 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
-import { useSearchParams, Navigate } from 'react-router-dom'
-import { Terminal } from '@xterm/xterm'
+import { useServer } from '@/features/servers/hooks/use-server'
+import { cn } from '@/shared/lib/utils'
+import { Button } from '@/ui/button'
+import type { TerminalConnection } from '@gloski/sdk'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { useServer } from '@/features/servers/hooks/use-server'
-import { Button } from '@/ui/button'
-import { cn } from '@/shared/lib/utils'
-import { Plus, X, Terminal as TerminalIcon } from 'lucide-react'
+import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
+import 'https://www.nerdfonts.com/assets/css/webfont.css'
+import { Plus, Terminal as TerminalIcon, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Navigate, useSearchParams } from 'react-router-dom'
 
 interface TerminalTab {
   id: string
@@ -18,50 +20,28 @@ interface TerminalTab {
 interface TerminalInstance {
   terminal: Terminal
   fitAddon: FitAddon
-  ws: WebSocket | null
+  connection: TerminalConnection | null
 }
 
 export function TerminalPage() {
-  const { server, api } = useServer()
+  const { server } = useServer()
   const [searchParams] = useSearchParams()
   const initialCwd = searchParams.get('cwd') || ''
 
-  const [tabs, setTabs] = useState<TerminalTab[]>([
-    { id: '1', title: 'Terminal 1', cwd: initialCwd },
-  ])
+  const [tabs, setTabs] = useState<TerminalTab[]>([{ id: '1', title: 'Terminal 1', cwd: initialCwd }])
   const [activeTab, setActiveTab] = useState('1')
 
   const terminalRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const instancesRef = useRef<Map<string, TerminalInstance>>(new Map())
 
-  // Redirect if no server
-  if (!server || !api) {
-    return <Navigate to="/" replace />
-  }
-
-  const sendResize = useCallback(
-    (ws: WebSocket | null, cols: number, rows: number) => {
-      if (ws?.readyState === WebSocket.OPEN) {
-        const data = new Uint8Array(5)
-        data[0] = 1
-        data[1] = (cols >> 8) & 0xff
-        data[2] = cols & 0xff
-        data[3] = (rows >> 8) & 0xff
-        data[4] = rows & 0xff
-        ws.send(data)
-      }
-    },
-    []
-  )
-
   const createTerminalInstance = useCallback(
     (tabId: string, container: HTMLDivElement, cwd?: string) => {
-      if (!api) return
+      if (!server) return
 
       const term = new Terminal({
         cursorBlink: true,
         fontSize: 14,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        fontFamily: 'NerdFontsSymbols Nerd Font, Menlo, Monaco, "Courier New", monospace',
         theme: {
           background: '#0d1117',
           foreground: '#c9d1d9',
@@ -95,51 +75,56 @@ export function TerminalPage() {
       term.open(container)
       fitAddon.fit()
 
-      // Connect WebSocket using the API helper
-      const wsUrl = api.getTerminalUrl(cwd)
-      const ws = new WebSocket(wsUrl)
-      ws.binaryType = 'arraybuffer'
+      // Connect using SDK's TerminalConnection with auto-reconnect
+      const connection = server.getClient().terminal.connect({
+        cwd,
+        autoReconnect: true,
+        maxReconnectAttempts: 5,
+        reconnectDelay: 1000,
+      })
 
-      ws.onopen = () => {
-        sendResize(ws, term.cols, term.rows)
-      }
+      connection.on('open', () => {
+        connection.resize(term.cols, term.rows)
+      })
 
-      ws.onmessage = (event) => {
-        if (event.data instanceof ArrayBuffer) {
-          term.write(new TextDecoder().decode(event.data))
-        } else {
-          term.write(event.data)
-        }
-      }
+      connection.on('data', (data: string) => {
+        term.write(data)
+      })
 
-      ws.onclose = () => {
+      connection.on('close', () => {
         term.writeln('')
         term.writeln('\x1b[31mConnection closed\x1b[0m')
-      }
+      })
 
-      ws.onerror = () => {
+      connection.on('error', () => {
         term.writeln('\x1b[31mConnection error\x1b[0m')
-      }
+      })
+
+      connection.on('reconnecting', (attempt: number) => {
+        term.writeln(`\x1b[33mReconnecting (attempt ${attempt})...\x1b[0m`)
+      })
+
+      connection.on('reconnected', () => {
+        term.writeln('\x1b[32mReconnected!\x1b[0m')
+      })
 
       term.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(new TextEncoder().encode(data))
-        }
+        connection.write(data)
       })
 
       term.onResize(({ cols, rows }) => {
-        sendResize(ws, cols, rows)
+        connection.resize(cols, rows)
       })
 
-      instancesRef.current.set(tabId, { terminal: term, fitAddon, ws })
+      instancesRef.current.set(tabId, { terminal: term, fitAddon, connection })
     },
-    [api, sendResize]
+    [server]
   )
 
   const destroyTerminalInstance = useCallback((tabId: string) => {
     const instance = instancesRef.current.get(tabId)
     if (instance) {
-      instance.ws?.close()
+      instance.connection?.close()
       instance.terminal.dispose()
       instancesRef.current.delete(tabId)
     }
@@ -174,41 +159,56 @@ export function TerminalPage() {
       const instance = instancesRef.current.get(activeTab)
       if (instance) {
         instance.fitAddon.fit()
-        sendResize(instance.ws, instance.terminal.cols, instance.terminal.rows)
+        instance.connection?.resize(instance.terminal.cols, instance.terminal.rows)
       }
     }
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [activeTab, sendResize])
+  }, [activeTab])
 
   // Cleanup on unmount
   useEffect(() => {
+    const instances = instancesRef.current
     return () => {
-      instancesRef.current.forEach((_, tabId) => destroyTerminalInstance(tabId))
+      instances.forEach((_, tabId) => destroyTerminalInstance(tabId))
     }
   }, [destroyTerminalInstance])
 
-  const addTab = () => {
+  const addTab = useCallback(() => {
     const newId = String(Date.now())
     setTabs((prev) => [...prev, { id: newId, title: `Terminal ${prev.length + 1}` }])
     setActiveTab(newId)
-  }
+  }, [])
 
-  const closeTab = (tabId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const closeTab = useCallback(
+    (tabId: string, e: React.MouseEvent) => {
+      e.stopPropagation()
 
-    if (tabs.length === 1) return // Don't close last tab
+      setTabs((prevTabs) => {
+        if (prevTabs.length === 1) return prevTabs // Don't close last tab
 
-    destroyTerminalInstance(tabId)
-    terminalRefs.current.delete(tabId)
+        destroyTerminalInstance(tabId)
+        terminalRefs.current.delete(tabId)
 
-    const newTabs = tabs.filter((t) => t.id !== tabId)
-    setTabs(newTabs)
+        const newTabs = prevTabs.filter((t) => t.id !== tabId)
 
-    if (activeTab === tabId) {
-      setActiveTab(newTabs[newTabs.length - 1].id)
-    }
+        setActiveTab((prevActive) => {
+          if (prevActive === tabId) {
+            return newTabs[newTabs.length - 1].id
+          }
+          return prevActive
+        })
+
+        return newTabs
+      })
+    },
+    [destroyTerminalInstance]
+  )
+
+  // Redirect if no server (after all hooks)
+  if (!server) {
+    return <Navigate to="/" replace />
   }
 
   return (
@@ -258,10 +258,7 @@ export function TerminalPage() {
             ref={(el) => {
               if (el) terminalRefs.current.set(tab.id, el)
             }}
-            className={cn(
-              'absolute inset-0 p-1',
-              activeTab === tab.id ? 'visible' : 'invisible'
-            )}
+            className={cn('absolute inset-0 p-1', activeTab === tab.id ? 'visible' : 'invisible')}
           />
         ))}
       </div>
