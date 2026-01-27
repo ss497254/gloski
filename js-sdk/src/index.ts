@@ -49,6 +49,9 @@ export type {
   StatsSample,
   StatsHistoryResponse,
   SystemInfo,
+  ServerStatus,
+  GoRuntimeInfo,
+  HealthCheck,
 
   // File types
   FileEntry,

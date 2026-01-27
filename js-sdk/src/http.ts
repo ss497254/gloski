@@ -290,7 +290,7 @@ export async function checkHealth(
   url: string,
   timeout = 5000,
   apiPrefix = DEFAULT_API_PREFIX
-): Promise<{ status: string; version?: string; features?: Record<string, boolean> }> {
+): Promise<{ status: string }> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 

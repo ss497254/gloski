@@ -4,6 +4,7 @@ import type {
   StatsHistoryResponse,
   SystemInfo,
   ProcessInfo,
+  ServerStatus,
 } from '../types'
 
 /**
@@ -14,6 +15,13 @@ export class SystemResource {
 
   constructor(http: HttpClient) {
     this.http = http
+  }
+
+  /**
+   * Get server status (health checks, version, uptime, runtime info)
+   */
+  async getStatus(): Promise<ServerStatus> {
+    return this.http.request<ServerStatus>('/system/status')
   }
 
   /**

@@ -33,8 +33,6 @@ export interface APIResponse<T = unknown> {
 
 export interface HealthResponse {
   status: string
-  version?: string
-  features?: Record<string, boolean>
 }
 
 // =============================================================================
@@ -164,6 +162,28 @@ export interface SystemInfo {
   uptime: number
   boot_time: number
   features: Record<string, boolean>
+}
+
+export interface ServerStatus {
+  status: 'healthy' | 'degraded'
+  version: string
+  uptime: number
+  timestamp: number
+  go: GoRuntimeInfo
+  features?: Record<string, boolean>
+  checks: Record<string, HealthCheck>
+}
+
+export interface GoRuntimeInfo {
+  version: string
+  num_cpu: number
+  goroutines: number
+  memory_mb: number
+}
+
+export interface HealthCheck {
+  status: 'healthy' | 'unhealthy' | 'warning' | 'unavailable'
+  message?: string
 }
 
 // =============================================================================
