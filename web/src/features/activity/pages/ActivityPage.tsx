@@ -1,27 +1,27 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '@/ui/button'
 import { Badge } from '@/ui/badge'
 import { ScrollArea } from '@/ui/scroll-area'
 import { PageLayout } from '@/layouts'
-import { FilterSidebar, EmptyState } from '@/shared/components'
-import { useActivityStore, type ActivityAction, type ActivityItem } from '../stores/activity'
+import { ConfirmDialog, EmptyState, FilterSidebar } from '@/shared/components'
+import { type ActivityAction, type ActivityItem, useActivityStore } from '../stores/activity'
 import { cn, formatDate, formatRelativeTime } from '@/shared/lib/utils'
 import {
   Activity,
-  Server,
-  File,
-  FileText,
-  FilePlus,
-  FileX,
-  Upload,
-  Download,
-  Terminal,
-  Play,
-  CheckCircle,
   Bookmark,
+  CheckCircle,
   Code2,
+  Download,
+  File,
+  FilePlus,
+  FileText,
+  FileX,
+  Play,
+  Server,
   Settings,
+  Terminal,
   Trash2,
+  Upload,
 } from 'lucide-react'
 
 const actionIcons: Record<ActivityAction, React.ComponentType<{ className?: string }>> = {
@@ -130,8 +130,11 @@ function groupByDate(items: ActivityItem[]): Record<string, ActivityItem[]> {
 }
 
 export function ActivityPage() {
-  const { items, clearAll, clearOlderThan } = useActivityStore()
+  const items = useActivityStore((s) => s.items)
+  const clearAll = useActivityStore((s) => s.clearAll)
+  const clearOlderThan = useActivityStore((s) => s.clearOlderThan)
   const [filter, setFilter] = useState<FilterCategory>('all')
+  const [showClearAllDialog, setShowClearAllDialog] = useState(false)
 
   const filteredItems = useMemo(() => {
     if (filter === 'all') return items
@@ -149,13 +152,7 @@ export function ActivityPage() {
           <Button variant="outline" size="sm" onClick={() => clearOlderThan(7)}>
             Clear older than 7 days
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (confirm('Clear all activity?')) clearAll()
-            }}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowClearAllDialog(true)}>
             <Trash2 className="h-4 w-4 mr-2" />
             Clear all
           </Button>
@@ -209,6 +206,16 @@ export function ActivityPage() {
           )}
         </ScrollArea>
       </div>
+
+      <ConfirmDialog
+        open={showClearAllDialog}
+        onOpenChange={setShowClearAllDialog}
+        title="Clear all activity?"
+        description="This will permanently remove all activity history. This action cannot be undone."
+        confirmLabel="Clear all"
+        variant="destructive"
+        onConfirm={clearAll}
+      />
     </PageLayout>
   )
 }

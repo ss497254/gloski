@@ -1,6 +1,6 @@
-import { Network, ArrowDownToLine, ArrowUpFromLine, Wifi, WifiOff } from 'lucide-react'
+import type { NetworkInterface, NetworkStats } from '@/shared/lib/types'
 import { cn, formatBytes } from '@/shared/lib/utils'
-import type { NetworkStats, NetworkInterface } from '@/shared/lib/types'
+import { ArrowDownToLine, ArrowUpFromLine, Network, Wifi, WifiOff } from 'lucide-react'
 
 interface NetworkStatsWidgetProps {
   network: NetworkStats

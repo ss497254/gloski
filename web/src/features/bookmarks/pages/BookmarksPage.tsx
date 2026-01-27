@@ -1,9 +1,9 @@
 import { Button } from '@/ui/button'
 import { PageLayout } from '@/layouts'
-import { SearchInput, FilterSidebar, EmptyState } from '@/shared/components'
+import { EmptyState, FilterSidebar, SearchInput } from '@/shared/components'
 import { useBookmarksPage } from '../hooks/use-bookmarks-page'
 import { BookmarkCard, BookmarkDialog } from '../components'
-import { Plus, Folder, Globe } from 'lucide-react'
+import { Folder, Globe, Plus } from 'lucide-react'
 
 export function BookmarksPage() {
   const {
@@ -66,8 +66,8 @@ export function BookmarksPage() {
                 <BookmarkCard
                   key={bookmark.id}
                   bookmark={bookmark}
-                  onEdit={() => openDialog(bookmark)}
-                  onDelete={() => deleteBookmark(bookmark.id)}
+                  onEdit={openDialog}
+                  onDelete={deleteBookmark}
                 />
               ))}
             </div>

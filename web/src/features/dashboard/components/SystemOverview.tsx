@@ -1,6 +1,6 @@
-import { Cpu, MemoryStick, HardDrive, Activity } from 'lucide-react'
 import { ProgressRing } from '@/shared/components'
 import type { SystemStats } from '@/shared/lib/types'
+import { Activity, Cpu, HardDrive, MemoryStick } from 'lucide-react'
 
 interface SystemOverviewProps {
   stats: SystemStats

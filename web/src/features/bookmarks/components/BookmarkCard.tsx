@@ -1,6 +1,6 @@
+import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
 import { Card, CardContent } from '@/ui/card'
-import { Badge } from '@/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,16 +8,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
-import { ExternalLink, Folder, MoreVertical, Pencil, Trash2, Globe } from 'lucide-react'
+import { ExternalLink, Folder, Globe, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import type { Bookmark } from '../stores/bookmarks'
 
 interface BookmarkCardProps {
   bookmark: Bookmark
-  onEdit: () => void
-  onDelete: () => void
+  onEdit: (bookmark: Bookmark) => void
+  onDelete: (id: string) => void
 }
 
 export function BookmarkCard({ bookmark, onEdit, onDelete }: BookmarkCardProps) {
+  const handleEdit = () => onEdit(bookmark)
+  const handleDelete = () => onDelete(bookmark.id)
+
   return (
     <Card className="group hover:border-primary/50 transition-colors">
       <CardContent className="p-4">
@@ -51,12 +54,12 @@ export function BookmarkCard({ bookmark, onEdit, onDelete }: BookmarkCardProps) 
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={onEdit}>
+                  <DropdownMenuItem onClick={handleEdit}>
                     <Pencil className="h-4 w-4 mr-2" />
                     Edit
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                  <DropdownMenuItem onClick={handleDelete} className="text-destructive">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
                   </DropdownMenuItem>

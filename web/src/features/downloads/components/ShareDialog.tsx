@@ -1,9 +1,9 @@
-import { useState } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog'
-import { Button } from '@/ui/button'
 import type { Download, ShareLink } from '@/shared/lib/types'
-import { Copy, Trash2, Link2, Clock, Loader2, Plus } from 'lucide-react'
 import { formatRelativeTime } from '@/shared/lib/utils'
+import { Button } from '@/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog'
+import { Clock, Copy, Link2, Loader2, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 interface ShareDialogProps {

@@ -1,24 +1,24 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { type Server, getSortedServers, useServersStore } from '@/features/servers'
+import type { SystemStats } from '@/shared/lib/types'
+import { cn } from '@/shared/lib/utils'
+import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
 import { Card, CardContent } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
-import { Badge } from '@/ui/badge'
-import { useServersStore, getSortedServers, type Server } from '@/features/servers'
-import type { SystemStats } from '@/shared/lib/types'
-import { cn } from '@/shared/lib/utils'
 import {
-  Server as ServerIcon,
-  Plus,
+  ChevronRight,
+  Clock,
   Cpu,
   HardDrive,
   MemoryStick,
-  Clock,
+  Plus,
+  Server as ServerIcon,
+  ShieldAlert,
   Wifi,
   WifiOff,
-  ShieldAlert,
-  ChevronRight,
 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 interface ServerWithStats extends Server {
   stats?: SystemStats | null
@@ -59,6 +59,34 @@ function UsageBar({ value, color }: { value: number; color?: string }) {
     </div>
   )
 }
+
+// Status config moved outside component to avoid recreation on every render
+const SERVER_STATUS_CONFIG = {
+  online: {
+    icon: Wifi,
+    label: 'Online',
+    variant: 'default' as const,
+    className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+  },
+  connecting: {
+    icon: Wifi,
+    label: 'Connecting',
+    variant: 'secondary' as const,
+    className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20 animate-pulse',
+  },
+  unauthorized: {
+    icon: ShieldAlert,
+    label: 'Auth Error',
+    variant: 'destructive' as const,
+    className: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+  },
+  offline: {
+    icon: WifiOff,
+    label: 'Offline',
+    variant: 'destructive' as const,
+    className: 'bg-red-500/10 text-red-600 border-red-500/20',
+  },
+} as const
 
 function ServerCardSkeleton() {
   return (
@@ -109,34 +137,7 @@ function ServerCardSkeleton() {
 function ServerCard(props: ServerWithStats) {
   const { stats, statsLoading, statsError, ...server } = props
 
-  const statusConfig = {
-    online: {
-      icon: Wifi,
-      label: 'Online',
-      variant: 'default' as const,
-      className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-    },
-    connecting: {
-      icon: Wifi,
-      label: 'Connecting',
-      variant: 'secondary' as const,
-      className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20 animate-pulse',
-    },
-    unauthorized: {
-      icon: ShieldAlert,
-      label: 'Auth Error',
-      variant: 'destructive' as const,
-      className: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-    },
-    offline: {
-      icon: WifiOff,
-      label: 'Offline',
-      variant: 'destructive' as const,
-      className: 'bg-red-500/10 text-red-600 border-red-500/20',
-    },
-  }
-
-  const status = statusConfig[server.status]
+  const status = SERVER_STATUS_CONFIG[server.status]
   const StatusIcon = status.icon
 
   if (statsLoading && !stats) {
@@ -315,11 +316,15 @@ export function DashboardPage() {
     return () => clearInterval(interval)
   }, [serverIds, updateServer])
 
-  // Merge sorted order with stats
-  const displayServers = sortedServers.map((server) => {
-    const withStats = serversWithStats.find((s) => s.id === server.id)
-    return withStats || { ...server, statsLoading: true }
-  })
+  // Merge sorted order with stats - memoized to avoid unnecessary recalculations
+  const displayServers = useMemo(
+    () =>
+      sortedServers.map((server) => {
+        const withStats = serversWithStats.find((s) => s.id === server.id)
+        return withStats || { ...server, statsLoading: true }
+      }),
+    [sortedServers, serversWithStats]
+  )
 
   const onlineCount = serversWithStats.filter((s) => s.status === 'online').length
   const offlineCount = serversWithStats.filter((s) => s.status !== 'online' && s.status !== 'connecting').length

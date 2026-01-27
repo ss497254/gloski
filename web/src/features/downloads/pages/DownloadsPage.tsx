@@ -1,13 +1,20 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Navigate } from 'react-router-dom'
-import { useServer } from '@/features/servers/hooks/use-server'
+import { useServer } from '@/features/servers/context'
 import { PageLayout } from '@/layouts/PageLayout'
-import { Button } from '@/ui/button'
 import { EmptyState } from '@/shared/components'
 import type { Download } from '@/shared/lib/types'
-import { Download as DownloadIcon, Plus, RefreshCw, Loader2 } from 'lucide-react'
+import { Button } from '@/ui/button'
+import { Download as DownloadIcon, Loader2, Plus, RefreshCw } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { DownloadItem, AddDownloadDialog, ShareDialog } from '../components'
+import { AddDownloadDialog, DownloadItem, ShareDialog } from '../components'
+
+// Filter buttons config moved outside component to avoid recreation
+const FILTER_BUTTONS = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'failed', label: 'Failed' },
+] as const
 
 export function DownloadsPage() {
   const { server, serverId } = useServer()

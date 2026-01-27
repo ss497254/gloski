@@ -1,6 +1,6 @@
-import { Server, Clock, Cpu, Activity } from 'lucide-react'
 import { StatCard } from '@/shared/components'
 import type { SystemStats } from '@/shared/lib/types'
+import { Activity, Clock, Cpu, Server } from 'lucide-react'
 
 interface QuickStatsProps {
   stats: SystemStats

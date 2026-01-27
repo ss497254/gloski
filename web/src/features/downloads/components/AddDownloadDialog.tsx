@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
-import { Button } from '@/ui/button'
-import { Input } from '@/ui/input'
 import type { Server } from '@/features/servers'
 import type { FileEntry } from '@/shared/lib/types'
-import { Folder, FolderOpen, ChevronRight, Home, Download, HardDrive, Loader2, ArrowLeft } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
+import { Button } from '@/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
+import { Input } from '@/ui/input'
+import { ArrowLeft, ChevronRight, Download, Folder, FolderOpen, HardDrive, Home, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface AddDownloadDialogProps {
   open: boolean

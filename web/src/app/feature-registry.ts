@@ -1,19 +1,19 @@
-import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
+import { type ComponentType, type LazyExoticComponent, lazy } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
-  LayoutDashboard,
-  Server,
-  Bookmark,
-  MessageSquare,
-  FileText,
-  Code2,
   Activity,
-  Settings,
-  FolderOpen,
-  Search,
-  Terminal,
-  ListTodo,
+  Bookmark,
+  Code2,
   Download,
+  FileText,
+  FolderOpen,
+  LayoutDashboard,
+  ListTodo,
+  MessageSquare,
+  Search,
+  Server,
+  Settings,
+  Terminal,
 } from 'lucide-react'
 
 export type FeatureSection = 'main' | 'workspace' | 'server'

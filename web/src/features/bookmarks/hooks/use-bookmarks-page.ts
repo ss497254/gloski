@@ -1,9 +1,13 @@
-import { useMemo, useCallback } from 'react'
-import { useFilter, useDialog } from '@/shared/hooks'
-import { useBookmarksStore, type Bookmark } from '../stores/bookmarks'
+import { useCallback, useMemo } from 'react'
+import { useDialog, useFilter } from '@/shared/hooks'
+import { type Bookmark, useBookmarksStore } from '../stores/bookmarks'
 
 export function useBookmarksPage() {
-  const { bookmarks, folders, addBookmark, updateBookmark, deleteBookmark } = useBookmarksStore()
+  const bookmarks = useBookmarksStore((s) => s.bookmarks)
+  const folders = useBookmarksStore((s) => s.folders)
+  const addBookmark = useBookmarksStore((s) => s.addBookmark)
+  const updateBookmark = useBookmarksStore((s) => s.updateBookmark)
+  const deleteBookmark = useBookmarksStore((s) => s.deleteBookmark)
 
   // Filter and search logic
   const {

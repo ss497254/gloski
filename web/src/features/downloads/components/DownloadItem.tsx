@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import type { Download } from '@/shared/lib/types'
+import { cn, formatBytes, formatRelativeTime } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import {
   DropdownMenu,
@@ -7,25 +8,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
-import type { Download } from '@/shared/lib/types'
-import { cn, formatBytes, formatRelativeTime } from '@/shared/lib/utils'
 import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Download as DownloadIcon,
+  FileIcon,
+  Link2,
+  Loader2,
+  MoreVertical,
   Pause,
   Play,
-  X,
   RotateCcw,
-  Trash2,
-  Download as DownloadIcon,
   Share2,
-  MoreVertical,
-  FileIcon,
-  CheckCircle2,
+  Trash2,
+  X,
   XCircle,
-  Clock,
-  Loader2,
-  Link2,
-  AlertCircle,
 } from 'lucide-react'
+import { memo, useState } from 'react'
 import { DownloadProgress } from './DownloadProgress'
 
 interface DownloadItemProps {
@@ -36,7 +36,7 @@ interface DownloadItemProps {
   onRetry: (id: string) => void
   onDelete: (id: string, deleteFile: boolean) => void
   onDownload: (download: Download) => void
-  onShare: () => void
+  onShare: (download: Download) => void
 }
 
 const statusConfig: Record<
@@ -88,7 +88,7 @@ const statusConfig: Record<
   },
 }
 
-export function DownloadItem({
+export const DownloadItem = memo(function DownloadItem({
   download,
   onPause,
   onResume,
@@ -99,6 +99,8 @@ export function DownloadItem({
   onShare,
 }: DownloadItemProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  const handleShare = () => onShare(download)
 
   const status = statusConfig[download.status]
   const StatusIcon = status.icon
@@ -208,7 +210,7 @@ export function DownloadItem({
             </Button>
           )}
           {canShare && (
-            <Button variant="ghost" size="icon" onClick={onShare} title="Share">
+            <Button variant="ghost" size="icon" onClick={handleShare} title="Share">
               <Share2 className="h-4 w-4" />
             </Button>
           )}
@@ -228,7 +230,7 @@ export function DownloadItem({
                 </DropdownMenuItem>
               )}
               {canShare && (
-                <DropdownMenuItem onClick={onShare}>
+                <DropdownMenuItem onClick={handleShare}>
                   <Share2 className="h-4 w-4 mr-2" />
                   Share
                 </DropdownMenuItem>
@@ -281,4 +283,4 @@ export function DownloadItem({
       )}
     </div>
   )
-}
+})

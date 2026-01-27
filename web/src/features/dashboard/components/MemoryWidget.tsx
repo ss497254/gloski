@@ -1,4 +1,4 @@
-import { MemoryStick, Database } from 'lucide-react'
+import { Database, MemoryStick } from 'lucide-react'
 import { ProgressBar } from '@/shared/components'
 import { formatBytes } from '@/shared/lib/utils'
 import type { MemoryStats, SwapStats } from '@/shared/lib/types'
