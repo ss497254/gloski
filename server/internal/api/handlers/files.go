@@ -270,7 +270,7 @@ func (h *FilesHandler) handleFileError(w http.ResponseWriter, err error) {
 	case os.IsNotExist(err):
 		BadRequest(w, "path does not exist")
 	default:
-		InternalError(w, err.Error())
+		InternalError(w, "file operation failed", err.Error())
 	}
 }
 
@@ -289,7 +289,7 @@ type PinnedFolder struct {
 // ListPinned handles GET /api/files/pinned - list all pinned folders.
 func (h *FilesHandler) ListPinned(w http.ResponseWriter, r *http.Request) {
 	if h.db == nil {
-		InternalError(w, "database not configured")
+		InternalError(w, "database not configured", "")
 		return
 	}
 
@@ -299,7 +299,7 @@ func (h *FilesHandler) ListPinned(w http.ResponseWriter, r *http.Request) {
 		ORDER BY created_at ASC
 	`)
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to query pinned folders", err.Error())
 		return
 	}
 	defer rows.Close()
@@ -308,7 +308,7 @@ func (h *FilesHandler) ListPinned(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var f PinnedFolder
 		if err := rows.Scan(&f.ID, &f.Path, &f.Name, &f.CreatedAt); err != nil {
-			InternalError(w, err.Error())
+			InternalError(w, "failed to scan pinned folder", err.Error())
 			return
 		}
 		folders = append(folders, f)
@@ -325,7 +325,7 @@ func (h *FilesHandler) ListPinned(w http.ResponseWriter, r *http.Request) {
 // CreatePinned handles POST /api/files/pinned - pin a folder.
 func (h *FilesHandler) CreatePinned(w http.ResponseWriter, r *http.Request) {
 	if h.db == nil {
-		InternalError(w, "database not configured")
+		InternalError(w, "database not configured", "")
 		return
 	}
 
@@ -370,7 +370,7 @@ func (h *FilesHandler) CreatePinned(w http.ResponseWriter, r *http.Request) {
 		VALUES (?, ?, ?, ?)
 	`, id, req.Path, req.Name, createdAt)
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to create pinned folder", err.Error())
 		return
 	}
 
@@ -385,7 +385,7 @@ func (h *FilesHandler) CreatePinned(w http.ResponseWriter, r *http.Request) {
 // DeletePinned handles DELETE /api/files/pinned/{id} - unpin a folder.
 func (h *FilesHandler) DeletePinned(w http.ResponseWriter, r *http.Request) {
 	if h.db == nil {
-		InternalError(w, "database not configured")
+		InternalError(w, "database not configured", "")
 		return
 	}
 
@@ -397,7 +397,7 @@ func (h *FilesHandler) DeletePinned(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.db.Exec("DELETE FROM pinned_folders WHERE id = ?", id)
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to delete pinned folder", err.Error())
 		return
 	}
 

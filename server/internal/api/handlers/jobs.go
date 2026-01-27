@@ -25,7 +25,7 @@ func NewJobsHandler(jobService *jobs.Service) *JobsHandler {
 func (h *JobsHandler) List(w http.ResponseWriter, r *http.Request) {
 	jobList, err := h.jobService.List()
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to list jobs", err.Error())
 		return
 	}
 	Success(w, map[string]interface{}{"jobs": jobList})
@@ -50,7 +50,7 @@ func (h *JobsHandler) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := uuid.New().String()[:8]
+	id := uuid.New().String()
 	job, err := h.jobService.Start(id, req.Command, req.Cwd)
 	if err != nil {
 		BadRequest(w, err.Error())

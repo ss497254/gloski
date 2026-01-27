@@ -50,7 +50,7 @@ func (h *PackagesHandler) ListInstalled(w http.ResponseWriter, r *http.Request) 
 
 	pkgs, err := h.service.ListInstalled(limit)
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to list installed packages", err.Error())
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *PackagesHandler) CheckUpgrades(w http.ResponseWriter, r *http.Request) 
 
 	info, err := h.service.CheckUpgrades()
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to check upgrades", err.Error())
 		return
 	}
 
@@ -99,7 +99,7 @@ func (h *PackagesHandler) Search(w http.ResponseWriter, r *http.Request) {
 
 	pkgs, err := h.service.Search(query, limit)
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to search packages", err.Error())
 		return
 	}
 
@@ -124,7 +124,7 @@ func (h *PackagesHandler) GetPackageInfo(w http.ResponseWriter, r *http.Request)
 
 	pkg, err := h.service.GetPackageInfo(name)
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to get package info", err.Error())
 		return
 	}
 

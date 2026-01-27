@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -79,10 +78,9 @@ func NewService(db *database.Database, config Config) (*Service, error) {
 }
 
 // Start starts a new job
+// Commands are executed through the shell to support pipes, redirects, and shell features
 func (s *Service) Start(id, command, cwd string) (*Job, error) {
-	// Parse command
-	parts := parseCommand(command)
-	if len(parts) == 0 {
+	if command == "" {
 		return nil, fmt.Errorf("empty command")
 	}
 
@@ -102,8 +100,13 @@ func (s *Service) Start(id, command, cwd string) (*Job, error) {
 		job.LogFile = filepath.Join(s.config.LogsDir, fmt.Sprintf("%s.log", id))
 	}
 
-	// Create the command
-	cmd := exec.Command(parts[0], parts[1:]...)
+	// Create the command using shell for proper handling of pipes, redirects, etc.
+	// This is intentional - jobs are meant to run arbitrary shell commands
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	cmd := exec.Command(shell, "-c", command)
 	cmd.Dir = cwd
 	cmd.Env = os.Environ()
 
@@ -354,40 +357,4 @@ func (s *Service) cleanup() {
 	if len(oldJobs) > 0 {
 		logger.Debug("Cleaned up %d old jobs", len(oldJobs))
 	}
-}
-
-// parseCommand splits a command string into parts, respecting quotes
-func parseCommand(command string) []string {
-	var parts []string
-	var current strings.Builder
-	inQuote := false
-	quoteChar := rune(0)
-
-	for _, r := range command {
-		switch {
-		case r == '"' || r == '\'':
-			if inQuote && r == quoteChar {
-				inQuote = false
-				quoteChar = 0
-			} else if !inQuote {
-				inQuote = true
-				quoteChar = r
-			} else {
-				current.WriteRune(r)
-			}
-		case r == ' ' && !inQuote:
-			if current.Len() > 0 {
-				parts = append(parts, current.String())
-				current.Reset()
-			}
-		default:
-			current.WriteRune(r)
-		}
-	}
-
-	if current.Len() > 0 {
-		parts = append(parts, current.String())
-	}
-
-	return parts
 }

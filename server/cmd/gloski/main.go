@@ -113,6 +113,9 @@ func main() {
 		logger.Error("HTTP server forced to shutdown: %v", err)
 	}
 
+	// Shutdown API server resources (terminal sessions, etc.)
+	apiServer.Shutdown()
+
 	// Shutdown application services
 	if err := application.Shutdown(ctx); err != nil {
 		logger.Error("Application shutdown error: %v", err)

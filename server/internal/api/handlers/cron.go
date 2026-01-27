@@ -44,7 +44,7 @@ func (h *CronHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to list cron jobs", err.Error())
 		return
 	}
 
@@ -82,7 +82,7 @@ func (h *CronHandler) AddJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.AddJob(req.Schedule, req.Command); err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to add cron job", err.Error())
 		return
 	}
 
@@ -111,7 +111,7 @@ func (h *CronHandler) RemoveJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.RemoveJob(req.Schedule, req.Command); err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to remove cron job", err.Error())
 		return
 	}
 

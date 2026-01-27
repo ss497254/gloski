@@ -84,9 +84,8 @@ func (c *Collector) collect() {
 	// CPU info
 	stats.CPU = c.getCPUStats()
 
-	// Memory
-	stats.Memory = c.getMemoryStats()
-	stats.Swap = c.getSwapStats()
+	// Memory and Swap (read from same file)
+	stats.Memory, stats.Swap = c.getMemoryAndSwapStats()
 
 	// Disks
 	stats.Disks = c.getDiskStats()
@@ -183,12 +182,14 @@ func (c *Collector) readCPUTimes() (CPUTimes, error) {
 	return times, nil
 }
 
-func (c *Collector) getMemoryStats() MemoryStats {
-	stats := MemoryStats{}
+// getMemoryAndSwapStats reads both memory and swap stats from /proc/meminfo in a single read
+func (c *Collector) getMemoryAndSwapStats() (MemoryStats, SwapStats) {
+	memStats := MemoryStats{}
+	swapStats := SwapStats{}
 
 	file, err := os.Open("/proc/meminfo")
 	if err != nil {
-		return stats
+		return memStats, swapStats
 	}
 	defer file.Close()
 
@@ -203,50 +204,27 @@ func (c *Collector) getMemoryStats() MemoryStats {
 		}
 	}
 
-	stats.Total = memInfo["MemTotal"]
-	stats.Free = memInfo["MemFree"]
-	stats.Available = memInfo["MemAvailable"]
-	stats.Buffers = memInfo["Buffers"]
-	stats.Cached = memInfo["Cached"]
-	stats.Used = stats.Total - stats.Available
+	// Memory stats
+	memStats.Total = memInfo["MemTotal"]
+	memStats.Free = memInfo["MemFree"]
+	memStats.Available = memInfo["MemAvailable"]
+	memStats.Buffers = memInfo["Buffers"]
+	memStats.Cached = memInfo["Cached"]
+	memStats.Used = memStats.Total - memStats.Available
 
-	if stats.Total > 0 {
-		stats.UsedPercent = float64(stats.Used) / float64(stats.Total) * 100
+	if memStats.Total > 0 {
+		memStats.UsedPercent = float64(memStats.Used) / float64(memStats.Total) * 100
 	}
 
-	return stats
-}
-
-func (c *Collector) getSwapStats() SwapStats {
-	stats := SwapStats{}
-
-	file, err := os.Open("/proc/meminfo")
-	if err != nil {
-		return stats
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) >= 2 {
-			key := strings.TrimSuffix(fields[0], ":")
-			value, _ := strconv.ParseUint(fields[1], 10, 64)
-			switch key {
-			case "SwapTotal":
-				stats.Total = value * 1024
-			case "SwapFree":
-				stats.Free = value * 1024
-			}
-		}
+	// Swap stats
+	swapStats.Total = memInfo["SwapTotal"]
+	swapStats.Free = memInfo["SwapFree"]
+	swapStats.Used = swapStats.Total - swapStats.Free
+	if swapStats.Total > 0 {
+		swapStats.UsedPercent = float64(swapStats.Used) / float64(swapStats.Total) * 100
 	}
 
-	stats.Used = stats.Total - stats.Free
-	if stats.Total > 0 {
-		stats.UsedPercent = float64(stats.Used) / float64(stats.Total) * 100
-	}
-
-	return stats
+	return memStats, swapStats
 }
 
 func (c *Collector) getDiskStats() []DiskStats {

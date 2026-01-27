@@ -3,7 +3,19 @@ package response
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/ss497254/gloski/internal/logger"
 )
+
+// Config holds response configuration
+var config struct {
+	DetailedErrors bool
+}
+
+// SetDetailedErrors configures whether detailed error messages are included in responses
+func SetDetailedErrors(enabled bool) {
+	config.DetailedErrors = enabled
+}
 
 // Response represents a standard API response
 type Response struct {
@@ -54,7 +66,15 @@ func NotFound(w http.ResponseWriter, message string) {
 	Error(w, http.StatusNotFound, message)
 }
 
-// InternalError writes a 500 error response
-func InternalError(w http.ResponseWriter, message string) {
+// InternalError writes a 500 error response with context
+// Always logs the detailed error, but only includes it in response if DetailedErrors is enabled
+func InternalError(w http.ResponseWriter, context string, detail string) {
+	logger.Error("%s: %s", context, detail)
+
+	message := context
+	if config.DetailedErrors && detail != "" {
+		message = context + ": " + detail
+	}
+
 	Error(w, http.StatusInternalServerError, message)
 }

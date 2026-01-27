@@ -35,6 +35,10 @@ type Config struct {
 	// Logging
 	LogLevel string `json:"log_level"` // debug, info, warn, error
 
+	// API settings
+	DetailedErrors  bool  `json:"detailed_errors"`    // Include detailed error messages in API responses (useful for development)
+	MaxJSONBodySize int64 `json:"max_json_body_size"` // Maximum size for JSON request bodies in bytes (default: 1MB)
+
 	// Downloads
 	Downloads DownloadsConfig `json:"downloads"`
 
@@ -161,6 +165,12 @@ func (c *Config) loadFromEnv() {
 	}
 	if v := os.Getenv("GLOSKI_SHUTDOWN_TIMEOUT"); v != "" {
 		fmt.Sscanf(v, "%d", &c.ShutdownTimeout)
+	}
+	if v := os.Getenv("GLOSKI_DETAILED_ERRORS"); v != "" {
+		c.DetailedErrors = v == "true" || v == "1"
+	}
+	if v := os.Getenv("GLOSKI_MAX_JSON_BODY_SIZE"); v != "" {
+		fmt.Sscanf(v, "%d", &c.MaxJSONBodySize)
 	}
 }
 

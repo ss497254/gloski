@@ -30,7 +30,7 @@ func (h *SystemHandler) SetFeatures(features map[string]bool) {
 func (h *SystemHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.systemService.GetStats()
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to get system stats", err.Error())
 		return
 	}
 	Success(w, stats)
@@ -40,7 +40,7 @@ func (h *SystemHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 func (h *SystemHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 	info, err := h.systemService.GetServerInfo()
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to get server info", err.Error())
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *SystemHandler) GetProcesses(w http.ResponseWriter, r *http.Request) {
 
 	processes, err := h.systemService.GetProcesses(limit)
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to get processes", err.Error())
 		return
 	}
 

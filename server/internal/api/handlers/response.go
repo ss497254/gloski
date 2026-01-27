@@ -50,7 +50,9 @@ func NotFound(w http.ResponseWriter, message string) {
 	response.NotFound(w, message)
 }
 
-// InternalError writes a 500 error response
-func InternalError(w http.ResponseWriter, message string) {
-	response.InternalError(w, message)
+// InternalError writes a 500 error response with context
+// context: brief description of what failed (always shown)
+// detail: detailed error message (only shown if DetailedErrors is enabled)
+func InternalError(w http.ResponseWriter, context string, detail string) {
+	response.InternalError(w, context, detail)
 }

@@ -62,7 +62,7 @@ func (h *DownloadsHandler) Add(w http.ResponseWriter, r *http.Request) {
 
 	download, err := h.downloadService.Add(req.URL, req.Destination, req.Filename)
 	if err != nil {
-		InternalError(w, err.Error())
+		InternalError(w, "failed to add download", err.Error())
 		return
 	}
 
@@ -257,7 +257,7 @@ func (h *ShareHandler) Download(w http.ResponseWriter, r *http.Request) {
 	// Get file info for Content-Length
 	fileInfo, err := os.Stat(download.FilePath)
 	if err != nil {
-		InternalError(w, "failed to get file info")
+		InternalError(w, "failed to get file info", err.Error())
 		return
 	}
 

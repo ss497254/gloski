@@ -37,9 +37,11 @@ func Open(path string) (*Database, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Set connection pool settings
-	db.SetMaxOpenConns(1) // SQLite doesn't handle multiple writers well
-	db.SetMaxIdleConns(1)
+	// Set connection pool settings for SQLite with WAL mode
+	// WAL mode allows concurrent reads with a single writer
+	// We allow multiple connections for reads, SQLite will serialize writes
+	db.SetMaxOpenConns(10) // Allow concurrent reads
+	db.SetMaxIdleConns(5)  // Keep some connections ready
 
 	d := &Database{
 		db:   db,

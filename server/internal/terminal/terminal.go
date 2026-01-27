@@ -132,22 +132,26 @@ func (t *Terminal) Close() {
 	// Close PTY to signal EOF to shell
 	t.ptmx.Close()
 
-	// Kill entire process group
-	if t.cmd.Process != nil {
-		// Negative PID kills the entire process group
-		syscall.Kill(-t.cmd.Process.Pid, syscall.SIGTERM)
+	// Kill entire process group - safely capture PID first
+	if t.cmd != nil && t.cmd.Process != nil {
+		if pid := t.cmd.Process.Pid; pid > 0 {
+			// Negative PID kills the entire process group
+			syscall.Kill(-pid, syscall.SIGTERM)
 
-		// Give processes time to cleanup
-		done := make(chan error, 1)
-		go func() { done <- t.cmd.Wait() }()
+			// Give processes time to cleanup
+			done := make(chan error, 1)
+			go func() { done <- t.cmd.Wait() }()
 
-		select {
-		case <-done:
-			// Clean exit
-		case <-time.After(2 * time.Second):
-			// Force kill
-			syscall.Kill(-t.cmd.Process.Pid, syscall.SIGKILL)
-			<-done
+			select {
+			case <-done:
+				// Clean exit
+			case <-time.After(2 * time.Second):
+				// Force kill - check PID again in case process already exited
+				if pid > 0 {
+					syscall.Kill(-pid, syscall.SIGKILL)
+				}
+				<-done
+			}
 		}
 	}
 
