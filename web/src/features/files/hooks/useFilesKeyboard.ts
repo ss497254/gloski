@@ -1,41 +1,33 @@
-import type { FileEntry } from '@/shared/lib/types'
 import { useCallback, useEffect } from 'react'
+import { useFiles } from '../context'
+import { useFilesStore } from '../stores/files'
 
-interface UseFilesKeyboardOptions {
-  entries: FileEntry[]
-  focusedIndex: number
-  selectedPaths: Set<string>
-  onFocusChange: (index: number) => void
-  onOpen: (entry: FileEntry) => void
-  onNavigateUp: () => void
-  onDelete: (entries: FileEntry[]) => void
-  onRename: (entry: FileEntry) => void
-  onToggleSelection: (path: string) => void
-  onSelectAll: () => void
-  onClearSelection: () => void
-  onSelectRange: (path: string) => void
-  onCopyPath: (entry: FileEntry) => void
-  onClosePreview: () => void
-  disabled?: boolean
-}
+/**
+ * Keyboard navigation hook for the files feature.
+ * Consumes FilesContext for all state and actions.
+ */
+export function useFilesKeyboard() {
+  const {
+    sortedAndFilteredEntries: entries,
+    focusedIndex,
+    setFocusedIndex,
+    handleEntrySelect,
+    goUp,
+    setDeleteDialog,
+    setBulkDeleteDialog,
+    handleRenameEntry,
+    handleSelectAll,
+    copyPath,
+    closePreview,
+    isDialogOpen,
+  } = useFiles()
 
-export function useFilesKeyboard({
-  entries,
-  focusedIndex,
-  selectedPaths,
-  onFocusChange,
-  onOpen,
-  onNavigateUp,
-  onDelete,
-  onRename,
-  onToggleSelection,
-  onSelectAll,
-  onClearSelection,
-  onSelectRange,
-  onCopyPath,
-  onClosePreview,
-  disabled = false,
-}: UseFilesKeyboardOptions) {
+  // Use selectors for store values
+  const selectedPaths = useFilesStore((s) => s.selectedPaths)
+  const toggleSelection = useFilesStore((s) => s.toggleSelection)
+  const clearSelection = useFilesStore((s) => s.clearSelection)
+  const selectRange = useFilesStore((s) => s.selectRange)
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       // Don't handle if typing in an input or textarea
@@ -44,7 +36,7 @@ export function useFilesKeyboard({
         return
       }
 
-      if (disabled || entries.length === 0) return
+      if (isDialogOpen || entries.length === 0) return
 
       const focusedEntry = entries[focusedIndex]
 
@@ -53,9 +45,12 @@ export function useFilesKeyboard({
           e.preventDefault()
           if (focusedIndex > 0) {
             if (e.shiftKey && focusedEntry) {
-              onSelectRange(entries[focusedIndex - 1].path)
+              selectRange(
+                entries.map((entry) => entry.path),
+                entries[focusedIndex - 1].path
+              )
             }
-            onFocusChange(focusedIndex - 1)
+            setFocusedIndex(focusedIndex - 1)
           }
           break
 
@@ -63,52 +58,59 @@ export function useFilesKeyboard({
           e.preventDefault()
           if (focusedIndex < entries.length - 1) {
             if (e.shiftKey && focusedEntry) {
-              onSelectRange(entries[focusedIndex + 1].path)
+              selectRange(
+                entries.map((entry) => entry.path),
+                entries[focusedIndex + 1].path
+              )
             }
-            onFocusChange(focusedIndex + 1)
+            setFocusedIndex(focusedIndex + 1)
           }
           break
 
         case 'Enter':
           e.preventDefault()
           if (focusedEntry) {
-            onOpen(focusedEntry)
+            handleEntrySelect(focusedEntry)
           }
           break
 
         case 'Backspace':
           e.preventDefault()
-          onNavigateUp()
+          goUp()
           break
 
         case 'Delete':
           e.preventDefault()
-          if (selectedPaths.size > 0) {
-            const selectedEntries = entries.filter((e) => selectedPaths.has(e.path))
-            onDelete(selectedEntries)
+          if (selectedPaths.size > 1) {
+            setBulkDeleteDialog(true)
+          } else if (selectedPaths.size === 1) {
+            const selectedEntry = entries.find((entry) => selectedPaths.has(entry.path))
+            if (selectedEntry) {
+              setDeleteDialog(selectedEntry)
+            }
           } else if (focusedEntry) {
-            onDelete([focusedEntry])
+            setDeleteDialog(focusedEntry)
           }
           break
 
         case 'F2':
           e.preventDefault()
           if (focusedEntry) {
-            onRename(focusedEntry)
+            handleRenameEntry(focusedEntry)
           }
           break
 
         case ' ':
           e.preventDefault()
           if (focusedEntry) {
-            onToggleSelection(focusedEntry.path)
+            toggleSelection(focusedEntry.path)
           }
           break
 
         case 'a':
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault()
-            onSelectAll()
+            handleSelectAll()
           }
           break
 
@@ -116,7 +118,7 @@ export function useFilesKeyboard({
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault()
             if (focusedEntry) {
-              onCopyPath(focusedEntry)
+              copyPath(focusedEntry.path)
             }
           }
           break
@@ -124,39 +126,40 @@ export function useFilesKeyboard({
         case 'Escape':
           e.preventDefault()
           if (selectedPaths.size > 0) {
-            onClearSelection()
+            clearSelection()
           } else {
-            onClosePreview()
+            closePreview()
           }
           break
 
         case 'Home':
           e.preventDefault()
-          onFocusChange(0)
+          setFocusedIndex(0)
           break
 
         case 'End':
           e.preventDefault()
-          onFocusChange(entries.length - 1)
+          setFocusedIndex(entries.length - 1)
           break
       }
     },
     [
       entries,
       focusedIndex,
+      setFocusedIndex,
+      handleEntrySelect,
+      goUp,
+      setDeleteDialog,
+      setBulkDeleteDialog,
+      handleRenameEntry,
+      handleSelectAll,
+      copyPath,
+      closePreview,
+      isDialogOpen,
       selectedPaths,
-      onFocusChange,
-      onOpen,
-      onNavigateUp,
-      onDelete,
-      onRename,
-      onToggleSelection,
-      onSelectAll,
-      onClearSelection,
-      onSelectRange,
-      onCopyPath,
-      onClosePreview,
-      disabled,
+      toggleSelection,
+      clearSelection,
+      selectRange,
     ]
   )
 

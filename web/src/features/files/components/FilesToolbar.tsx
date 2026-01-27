@@ -32,69 +32,45 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import type { RefObject } from 'react'
+import { useFiles } from '../context'
 import { getPathParts } from '../lib/file-utils'
 
 export type ViewMode = 'list' | 'grid'
 export type SortBy = 'name' | 'size' | 'modified'
 export type SortOrder = 'asc' | 'desc'
 
-interface FilesToolbarProps {
-  currentPath: string
-  viewMode: ViewMode
-  sortBy: SortBy
-  sortOrder: SortOrder
-  searchQuery: string
-  loading: boolean
-  uploading: boolean
-  fileInputRef: RefObject<HTMLInputElement | null>
-  selectedCount: number
-  totalCount: number
-  onNavigate: (path: string) => void
-  onGoUp: () => void
-  onRefresh: () => void
-  onViewModeChange: (mode: ViewMode) => void
-  onSortByChange: (sortBy: SortBy) => void
-  onSortOrderToggle: () => void
-  onSearchChange: (query: string) => void
-  onNewFolder: () => void
-  onNewFile: () => void
-  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
-  onToggleSidebar: () => void
-  onSelectAll: () => void
-  onClearSelection: () => void
-  onDeleteSelected: () => void
-  onDownloadSelected: () => void
-}
+export function FilesToolbar() {
+  const {
+    currentPath,
+    viewMode,
+    sortBy,
+    sortOrder,
+    searchQuery,
+    loading,
+    uploading,
+    fileInputRef,
+    selectedPaths,
+    sortedAndFilteredEntries,
+    navigateTo,
+    goUp,
+    refresh,
+    setViewMode,
+    setSortBy,
+    toggleSortOrder,
+    setSearchQuery,
+    setNewFolderDialog,
+    setNewFileDialog,
+    handleUpload,
+    toggleSidebar,
+    handleSelectAll,
+    clearSelection,
+    setBulkDeleteDialog,
+    handleDownloadSelected,
+  } = useFiles()
 
-export function FilesToolbar({
-  currentPath,
-  viewMode,
-  sortBy,
-  sortOrder,
-  searchQuery,
-  loading,
-  uploading,
-  fileInputRef,
-  selectedCount,
-  totalCount,
-  onNavigate,
-  onGoUp,
-  onRefresh,
-  onViewModeChange,
-  onSortByChange,
-  onSortOrderToggle,
-  onSearchChange,
-  onNewFolder,
-  onNewFile,
-  onUpload,
-  onToggleSidebar,
-  onSelectAll,
-  onClearSelection,
-  onDeleteSelected,
-  onDownloadSelected,
-}: FilesToolbarProps) {
   const pathParts = getPathParts(currentPath)
+  const selectedCount = selectedPaths.size
+  const totalCount = sortedAndFilteredEntries.length
   const hasSelection = selectedCount > 0
 
   return (
@@ -102,7 +78,7 @@ export function FilesToolbar({
       {/* Bulk Action Bar - shown when items are selected */}
       {hasSelection ? (
         <div className="flex items-center gap-3 px-4 py-3 bg-accent/50">
-          <Button variant="ghost" size="sm" onClick={onClearSelection} className="gap-2">
+          <Button variant="ghost" size="sm" onClick={clearSelection} className="gap-2">
             <X className="h-4 w-4" />
             Clear
           </Button>
@@ -114,19 +90,19 @@ export function FilesToolbar({
           <Button
             variant="outline"
             size="sm"
-            onClick={selectedCount === totalCount ? onClearSelection : onSelectAll}
+            onClick={selectedCount === totalCount ? clearSelection : handleSelectAll}
             className="gap-2"
           >
             <CheckSquare className="h-4 w-4" />
             {selectedCount === totalCount ? 'Deselect All' : 'Select All'}
           </Button>
 
-          <Button variant="outline" size="sm" onClick={onDownloadSelected} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadSelected} className="gap-2">
             <Download className="h-4 w-4" />
             Download
           </Button>
 
-          <Button variant="destructive" size="sm" onClick={onDeleteSelected} className="gap-2">
+          <Button variant="destructive" size="sm" onClick={() => setBulkDeleteDialog(true)} className="gap-2">
             <Trash2 className="h-4 w-4" />
             Delete
           </Button>
@@ -136,18 +112,18 @@ export function FilesToolbar({
           {/* Navigation Bar */}
           <div className="flex items-center gap-2 px-4 py-3">
             {/* Sidebar toggle (mobile) */}
-            <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="shrink-0 md:hidden">
+            <Button variant="ghost" size="icon" onClick={toggleSidebar} className="shrink-0 md:hidden">
               <Menu className="h-4 w-4" />
             </Button>
 
             {/* Back button */}
-            <Button variant="ghost" size="icon" onClick={onGoUp} disabled={currentPath === '/'} className="shrink-0">
+            <Button variant="ghost" size="icon" onClick={goUp} disabled={currentPath === '/'} className="shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Button>
 
             {/* Breadcrumb */}
             <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto scrollbar-none">
-              <Button variant="ghost" size="sm" className="shrink-0" onClick={() => onNavigate('/')}>
+              <Button variant="ghost" size="sm" className="shrink-0" onClick={() => navigateTo('/')}>
                 <Home className="h-4 w-4" />
               </Button>
               {pathParts.map((part, index) => (
@@ -156,7 +132,7 @@ export function FilesToolbar({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onNavigate('/' + pathParts.slice(0, index + 1).join('/'))}
+                    onClick={() => navigateTo('/' + pathParts.slice(0, index + 1).join('/'))}
                     className="truncate max-w-40"
                   >
                     {part}
@@ -167,10 +143,22 @@ export function FilesToolbar({
 
             {/* Actions */}
             <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" onClick={onNewFolder} title="New Folder" className="hidden sm:flex">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setNewFolderDialog(true)}
+                title="New Folder"
+                className="hidden sm:flex"
+              >
                 <FolderPlus className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={onNewFile} title="New File" className="hidden sm:flex">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setNewFileDialog(true)}
+                title="New File"
+                className="hidden sm:flex"
+              >
                 <FilePlus className="h-4 w-4" />
               </Button>
               <Button
@@ -182,17 +170,17 @@ export function FilesToolbar({
               >
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               </Button>
-              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={onUpload} />
+              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleUpload} />
               <div className="w-px h-6 bg-border mx-1" />
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onViewModeChange(viewMode === 'list' ? 'grid' : 'list')}
+                onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
                 title={viewMode === 'list' ? 'Grid view' : 'List view'}
               >
                 {viewMode === 'list' ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={onRefresh} title="Refresh">
+              <Button variant="ghost" size="icon" onClick={refresh} title="Refresh">
                 <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
               </Button>
             </div>
@@ -205,7 +193,7 @@ export function FilesToolbar({
               <Input
                 placeholder="Filter files..."
                 value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-9"
               />
               {searchQuery && (
@@ -213,7 +201,7 @@ export function FilesToolbar({
                   variant="ghost"
                   size="icon"
                   className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => onSearchChange('')}
+                  onClick={() => setSearchQuery('')}
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -229,23 +217,23 @@ export function FilesToolbar({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onSortByChange('name')}>
+                <DropdownMenuItem onClick={() => setSortBy('name')}>
                   <FileType className="h-4 w-4 mr-2" />
                   Name
                   {sortBy === 'name' && <span className="ml-auto">✓</span>}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortByChange('size')}>
+                <DropdownMenuItem onClick={() => setSortBy('size')}>
                   <HardDrive className="h-4 w-4 mr-2" />
                   Size
                   {sortBy === 'size' && <span className="ml-auto">✓</span>}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortByChange('modified')}>
+                <DropdownMenuItem onClick={() => setSortBy('modified')}>
                   <Clock className="h-4 w-4 mr-2" />
                   Modified
                   {sortBy === 'modified' && <span className="ml-auto">✓</span>}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onSortOrderToggle}>
+                <DropdownMenuItem onClick={toggleSortOrder}>
                   {sortOrder === 'asc' ? (
                     <>
                       <SortDesc className="h-4 w-4 mr-2" />

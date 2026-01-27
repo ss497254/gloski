@@ -1,58 +1,48 @@
-import type { FileEntry } from '@/shared/lib/types'
+import { useServer } from '@/features/servers'
 import { Button } from '@/ui/button'
 import { AlertTriangle, Download, FileText, Loader2, Pencil, Save, X } from 'lucide-react'
 import { useState } from 'react'
+import { useFiles } from '../context'
 import { formatFileSize, getFileType, isTextFile, shouldWarnLargeFile } from '../lib/file-types'
 import { formatDate, formatSize } from '../lib/file-utils'
 import { AudioPreview, BinaryPreview, ImagePreview, PdfPreview, TextPreview, VideoPreview } from './previews'
 
-interface FilePreviewProps {
-  file: FileEntry
-  content: string | null
-  editedContent: string
-  isLoading: boolean
-  isEditing: boolean
-  isSaving: boolean
-  hasUnsavedChanges: boolean
-  downloadUrl: string
-  onEditedContentChange: (content: string) => void
-  onStartEdit: () => void
-  onCancelEdit: () => void
-  onSave: () => void
-  onClose: () => void
-  onLoadContent: () => void
-}
+export function FilePreview() {
+  const { server } = useServer()
+  const {
+    selectedFile,
+    fileContent,
+    editedContent,
+    fileLoading,
+    isEditing,
+    saving,
+    hasUnsavedChanges,
+    setEditedContent,
+    handleSave,
+    closePreview,
+    cancelEdit,
+    startEdit,
+    loadFileContent,
+  } = useFiles()
 
-export function FilePreview({
-  file,
-  content,
-  editedContent,
-  isLoading,
-  isEditing,
-  isSaving,
-  hasUnsavedChanges,
-  downloadUrl,
-  onEditedContentChange,
-  onStartEdit,
-  onCancelEdit,
-  onSave,
-  onClose,
-  onLoadContent,
-}: FilePreviewProps) {
   const [dismissedWarning, setDismissedWarning] = useState(false)
 
-  const fileType = getFileType(file.name)
+  // Don't render if no file is selected
+  if (!selectedFile) return null
+
+  const downloadUrl = server.getClient().files.getDownloadUrl(selectedFile.path)
+  const fileType = getFileType(selectedFile.name)
   const showLargeFileWarning =
-    shouldWarnLargeFile(file.size) && !dismissedWarning && content === null && isTextFile(file.name)
-  const canEdit = isTextFile(file.name)
+    shouldWarnLargeFile(selectedFile.size) && !dismissedWarning && fileContent === null && isTextFile(selectedFile.name)
+  const canEdit = isTextFile(selectedFile.name)
 
   const handleClose = () => {
     if (hasUnsavedChanges) {
       if (window.confirm('You have unsaved changes. Are you sure you want to close?')) {
-        onClose()
+        closePreview()
       }
     } else {
-      onClose()
+      closePreview()
     }
   }
 
@@ -60,9 +50,11 @@ export function FilePreview({
     window.open(downloadUrl, '_blank')
   }
 
+
+
   const renderPreviewContent = () => {
     // Loading state
-    if (isLoading) {
+    if (fileLoading) {
       return (
         <div className="h-full flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -78,7 +70,7 @@ export function FilePreview({
           <div className="space-y-1">
             <h3 className="font-medium">Large File Warning</h3>
             <p className="text-sm text-muted-foreground">
-              This file is {formatFileSize(file.size)}. Opening large files may slow down your browser.
+              This file is {formatFileSize(selectedFile.size)}. Opening large files may slow down your browser.
             </p>
           </div>
           <div className="flex gap-2">
@@ -89,7 +81,7 @@ export function FilePreview({
             <Button
               onClick={() => {
                 setDismissedWarning(true)
-                onLoadContent()
+                loadFileContent(selectedFile)
               }}
             >
               Open Anyway
@@ -102,20 +94,20 @@ export function FilePreview({
     // Route to appropriate preview based on file type
     switch (fileType) {
       case 'image':
-        return <ImagePreview src={downloadUrl} alt={file.name} />
+        return <ImagePreview src={downloadUrl} alt={selectedFile.name} />
 
       case 'video':
-        return <VideoPreview src={downloadUrl} filename={file.name} />
+        return <VideoPreview src={downloadUrl} filename={selectedFile.name} />
 
       case 'audio':
-        return <AudioPreview src={downloadUrl} filename={file.name} />
+        return <AudioPreview src={downloadUrl} filename={selectedFile.name} />
 
       case 'pdf':
-        return <PdfPreview src={downloadUrl} filename={file.name} />
+        return <PdfPreview src={downloadUrl} filename={selectedFile.name} />
 
       case 'code':
       case 'text':
-        if (content === null) {
+        if (fileContent === null) {
           return (
             <div className="h-full flex items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -124,16 +116,16 @@ export function FilePreview({
         }
         return (
           <TextPreview
-            content={isEditing ? editedContent : content}
-            onChange={onEditedContentChange}
+            content={isEditing ? editedContent : fileContent}
+            onChange={setEditedContent}
             readOnly={!isEditing}
-            filename={file.name}
+            filename={selectedFile.name}
           />
         )
 
       case 'binary':
       default:
-        return <BinaryPreview filename={file.name} size={file.size} onDownload={handleDownload} />
+        return <BinaryPreview filename={selectedFile.name} size={selectedFile.size} onDownload={handleDownload} />
     }
   }
 
@@ -144,18 +136,18 @@ export function FilePreview({
         <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">
-            {file.name}
+            {selectedFile.name}
             {hasUnsavedChanges && <span className="text-yellow-500 ml-1">*</span>}
           </p>
           <p className="text-xs text-muted-foreground">
-            {formatSize(file.size)} &bull; {formatDate(file.modified)}
+            {formatSize(selectedFile.size)} &bull; {formatDate(selectedFile.modified)}
           </p>
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-1">
           {canEdit && !isEditing && (
-            <Button variant="outline" size="sm" onClick={onStartEdit}>
+            <Button variant="outline" size="sm" onClick={startEdit}>
               <Pencil className="h-4 w-4 mr-2" />
               Edit
             </Button>
@@ -163,11 +155,11 @@ export function FilePreview({
 
           {isEditing && (
             <>
-              <Button variant="ghost" size="sm" onClick={onCancelEdit}>
+              <Button variant="ghost" size="sm" onClick={cancelEdit}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={onSave} disabled={isSaving}>
-                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              <Button size="sm" onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Save
               </Button>
             </>
