@@ -1,13 +1,6 @@
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import type { FileEntry } from '@/shared/lib/types'
 
 interface NewFolderDialogProps {
@@ -18,13 +11,7 @@ interface NewFolderDialogProps {
   onCreate: () => void
 }
 
-export function NewFolderDialog({
-  open,
-  name,
-  onOpenChange,
-  onNameChange,
-  onCreate,
-}: NewFolderDialogProps) {
+export function NewFolderDialog({ open, name, onOpenChange, onNameChange, onCreate }: NewFolderDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -58,13 +45,7 @@ interface NewFileDialogProps {
   onCreate: () => void
 }
 
-export function NewFileDialog({
-  open,
-  name,
-  onOpenChange,
-  onNameChange,
-  onCreate,
-}: NewFileDialogProps) {
+export function NewFileDialog({ open, name, onOpenChange, onNameChange, onCreate }: NewFileDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -101,12 +82,9 @@ export function DeleteDialog({ entry, onClose, onDelete }: DeleteDialogProps) {
     <Dialog open={!!entry} onOpenChange={() => onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            Delete {entry?.type === 'directory' ? 'Folder' : 'File'}
-          </DialogTitle>
+          <DialogTitle>Delete {entry?.type === 'directory' ? 'Folder' : 'File'}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete "{entry?.name}"? This action cannot be
-            undone.
+            Are you sure you want to delete "{entry?.name}"? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -115,6 +93,78 @@ export function DeleteDialog({ entry, onClose, onDelete }: DeleteDialogProps) {
           </Button>
           <Button variant="destructive" onClick={onDelete}>
             Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface RenameDialogProps {
+  entry: FileEntry | null
+  name: string
+  onClose: () => void
+  onNameChange: (name: string) => void
+  onRename: () => void
+}
+
+export function RenameDialog({ entry, name, onClose, onNameChange, onRename }: RenameDialogProps) {
+  const handleRename = () => {
+    if (!name.trim()) return
+    if (name.includes('/') || name.includes('\\')) return
+    onRename()
+  }
+
+  return (
+    <Dialog open={!!entry} onOpenChange={() => onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Rename {entry?.type === 'directory' ? 'Folder' : 'File'}</DialogTitle>
+          <DialogDescription>Enter a new name for "{entry?.name}"</DialogDescription>
+        </DialogHeader>
+        <Input
+          placeholder="New name"
+          value={name}
+          onChange={(e) => onNameChange(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+          autoFocus
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleRename} disabled={!name.trim() || name === entry?.name}>
+            Rename
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface BulkDeleteDialogProps {
+  count: number
+  open: boolean
+  onClose: () => void
+  onDelete: () => void
+}
+
+export function BulkDeleteDialog({ count, open, onClose, onDelete }: BulkDeleteDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={() => onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete {count} Items</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete {count} selected item{count !== 1 ? 's' : ''}? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onDelete}>
+            Delete {count} Item{count !== 1 ? 's' : ''}
           </Button>
         </DialogFooter>
       </DialogContent>

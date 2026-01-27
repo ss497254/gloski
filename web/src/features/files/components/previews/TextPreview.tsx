@@ -1,15 +1,20 @@
-import { CodeEditor } from '../CodeEditor'
+import { CodeEditor } from '@/shared/components/code-editor'
 
 interface TextPreviewProps {
   content: string
   onChange?: (content: string) => void
   readOnly?: boolean
+  filename?: string
 }
 
-export function TextPreview({ content, onChange, readOnly = true }: TextPreviewProps) {
+export function TextPreview({ content, onChange, readOnly = true, filename }: TextPreviewProps) {
   return (
-    <div className="h-full overflow-auto p-4">
-      <CodeEditor value={content} onChange={onChange} readOnly={readOnly} className="min-h-full" />
-    </div>
+    <CodeEditor
+      value={content}
+      onChange={onChange}
+      readOnly={readOnly}
+      filename={filename}
+      className="h-full border-0 rounded-none"
+    />
   )
 }
