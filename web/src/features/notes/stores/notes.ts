@@ -213,7 +213,6 @@ git clean -fd
 
 const initialFolders = ['Documentation', 'Meetings', 'Reference']
 
-
 export const useNotesStore = create<NotesState>()(
   persist(
     (set) => ({
@@ -242,42 +241,31 @@ export const useNotesStore = create<NotesState>()(
 
       updateNote: (id, data) =>
         set((state) => ({
-          notes: state.notes.map((n) =>
-            n.id === id
-              ? { ...n, ...data, updatedAt: new Date().toISOString() }
-              : n
-          ),
+          notes: state.notes.map((n) => (n.id === id ? { ...n, ...data, updatedAt: new Date().toISOString() } : n)),
         })),
 
       deleteNote: (id) =>
         set((state) => ({
           notes: state.notes.filter((n) => n.id !== id),
-          selectedNoteId:
-            state.selectedNoteId === id ? null : state.selectedNoteId,
+          selectedNoteId: state.selectedNoteId === id ? null : state.selectedNoteId,
         })),
 
       togglePin: (id) =>
         set((state) => ({
-          notes: state.notes.map((n) =>
-            n.id === id ? { ...n, pinned: !n.pinned } : n
-          ),
+          notes: state.notes.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)),
         })),
 
       selectNote: (id) => set({ selectedNoteId: id }),
 
       addFolder: (name) =>
         set((state) => ({
-          folders: state.folders.includes(name)
-            ? state.folders
-            : [...state.folders, name],
+          folders: state.folders.includes(name) ? state.folders : [...state.folders, name],
         })),
 
       deleteFolder: (name) =>
         set((state) => ({
           folders: state.folders.filter((f) => f !== name),
-          notes: state.notes.map((n) =>
-            n.folder === name ? { ...n, folder: undefined } : n
-          ),
+          notes: state.notes.map((n) => (n.folder === name ? { ...n, folder: undefined } : n)),
         })),
     }),
     {

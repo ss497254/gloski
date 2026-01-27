@@ -19,13 +19,7 @@ interface NoteListItemProps {
   onDelete: () => void
 }
 
-export function NoteListItem({
-  note,
-  isSelected,
-  onSelect,
-  onTogglePin,
-  onDelete,
-}: NoteListItemProps) {
+export function NoteListItem({ note, isSelected, onSelect, onTogglePin, onDelete }: NoteListItemProps) {
   return (
     <button
       onClick={onSelect}
@@ -37,18 +31,12 @@ export function NoteListItem({
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            {note.pinned && (
-              <Pin className="h-3 w-3 text-primary shrink-0 fill-current" />
-            )}
+            {note.pinned && <Pin className="h-3 w-3 text-primary shrink-0 fill-current" />}
             <span className="font-medium truncate">{note.title}</span>
           </div>
-          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-            {note.content.slice(0, 100)}
-          </p>
+          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{note.content.slice(0, 100)}</p>
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs text-muted-foreground">
-              {formatRelativeTime(note.updatedAt)}
-            </span>
+            <span className="text-xs text-muted-foreground">{formatRelativeTime(note.updatedAt)}</span>
             {note.folder && (
               <Badge variant="secondary" className="text-xs h-5">
                 {note.folder}

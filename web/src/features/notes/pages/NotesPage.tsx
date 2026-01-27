@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { Button } from '@/ui/button'
 import { ScrollArea } from '@/ui/scroll-area'
 import { PageLayout } from '@/layouts'
 import { SearchInput, FilterSidebar, EmptyState } from '@/shared/components'
 import { useNotesPage } from '../hooks/use-notes-page'
 import { NoteListItem, NoteEditor } from '../components'
-import { Plus, FileText, Folder } from 'lucide-react'
+import { Plus, FileText, Folder, ArrowLeft } from 'lucide-react'
+import { cn } from '@/shared/lib/utils'
 
 export function NotesPage() {
   const {
@@ -26,28 +28,44 @@ export function NotesPage() {
     togglePin,
   } = useNotesPage()
 
+  // Mobile view state: 'list' or 'editor'
+  const [mobileView, setMobileView] = useState<'list' | 'editor'>('list')
+
+  // When selecting a note on mobile, switch to editor view
+  const handleSelectNote = (noteId: string) => {
+    selectNote(noteId)
+    setMobileView('editor')
+  }
+
+  // Go back to list view on mobile
+  const handleBackToList = () => {
+    setMobileView('list')
+  }
+
+  // Handle create note - switch to editor view on mobile
+  const handleCreateNote = () => {
+    createNote()
+    setMobileView('editor')
+  }
+
   return (
     <PageLayout
       title="Notes"
       description={`${totalCount} notes`}
       actions={
-        <Button onClick={createNote}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Note
+        <Button onClick={handleCreateNote} size="sm" className="md:size-default">
+          <Plus className="h-4 w-4 md:mr-2" />
+          <span className="hidden md:inline">New Note</span>
         </Button>
       }
       noPadding
     >
       <div className="flex h-full">
-        {/* Sidebar */}
-        <div className="w-72 border-r flex flex-col">
+        {/* Sidebar / List (hidden on mobile when viewing editor) */}
+        <div className={cn('w-full md:w-80 border-r flex flex-col', mobileView === 'editor' && 'hidden md:flex')}>
           {/* Search */}
           <div className="p-3 border-b">
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Search notes..."
-            />
+            <SearchInput value={search} onChange={setSearch} placeholder="Search notes..." />
           </div>
 
           {/* Folders */}
@@ -79,7 +97,7 @@ export function NotesPage() {
                   key={note.id}
                   note={note}
                   isSelected={selectedNote?.id === note.id}
-                  onSelect={() => selectNote(note.id)}
+                  onSelect={() => handleSelectNote(note.id)}
                   onTogglePin={() => togglePin(note.id)}
                   onDelete={() => deleteNote(note.id)}
                 />
@@ -88,23 +106,28 @@ export function NotesPage() {
           </ScrollArea>
         </div>
 
-        {/* Editor */}
-        <div className="flex-1 flex flex-col">
+        {/* Editor (hidden on mobile when viewing list) */}
+        <div className={cn('flex-1 flex flex-col', mobileView === 'list' && 'hidden md:flex')}>
           {selectedNote ? (
-            <NoteEditor
-              note={selectedNote}
-              title={editTitle}
-              content={editContent}
-              onTitleChange={setEditTitle}
-              onContentChange={setEditContent}
-            />
+            <>
+              {/* Mobile back button */}
+              <div className="md:hidden border-b px-3 py-2">
+                <Button variant="ghost" size="sm" onClick={handleBackToList} className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to notes
+                </Button>
+              </div>
+              <NoteEditor
+                note={selectedNote}
+                title={editTitle}
+                content={editContent}
+                onTitleChange={setEditTitle}
+                onContentChange={setEditContent}
+              />
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <EmptyState
-                icon={FileText}
-                title="No note selected"
-                description="Select a note or create a new one"
-              />
+              <EmptyState icon={FileText} title="No note selected" description="Select a note or create a new one" />
             </div>
           )}
         </div>

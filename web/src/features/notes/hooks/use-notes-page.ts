@@ -1,18 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useFilter } from '@/shared/hooks'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNotesStore, type Note } from '../stores/notes'
 
 export function useNotesPage() {
-  const {
-    notes,
-    folders,
-    selectedNoteId,
-    addNote,
-    updateNote,
-    deleteNote,
-    togglePin,
-    selectNote,
-  } = useNotesStore()
+  const { notes, folders, selectedNoteId, addNote, updateNote, deleteNote, togglePin, selectNote } = useNotesStore()
 
   // Edit state for the selected note
   const [editTitle, setEditTitle] = useState('')
@@ -36,15 +27,11 @@ export function useNotesPage() {
     },
   })
 
-  const selectedNote = useMemo(
-    () => notes.find((n) => n.id === selectedNoteId) || null,
-    [notes, selectedNoteId]
-  )
+  const selectedNote = useMemo(() => notes.find((n) => n.id === selectedNoteId) || null, [notes, selectedNoteId])
 
   // Sync edit state when selected note changes
   useEffect(() => {
     if (selectedNote) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEditTitle(selectedNote.title)
       setEditContent(selectedNote.content)
     }
@@ -61,11 +48,7 @@ export function useNotesPage() {
 
   // Save the current note
   const handleSave = useCallback(() => {
-    if (
-      selectedNoteId &&
-      selectedNote &&
-      (editTitle !== selectedNote.title || editContent !== selectedNote.content)
-    ) {
+    if (selectedNoteId && selectedNote && (editTitle !== selectedNote.title || editContent !== selectedNote.content)) {
       updateNote(selectedNoteId, {
         title: editTitle,
         content: editContent,
