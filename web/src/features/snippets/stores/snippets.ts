@@ -331,9 +331,7 @@ export const useSnippetsStore = create<SnippetsState>()(
 
       updateSnippet: (id, data) =>
         set((state) => ({
-          snippets: state.snippets.map((s) =>
-            s.id === id ? { ...s, ...data } : s
-          ),
+          snippets: state.snippets.map((s) => (s.id === id ? { ...s, ...data } : s)),
         })),
 
       deleteSnippet: (id) =>
@@ -343,9 +341,7 @@ export const useSnippetsStore = create<SnippetsState>()(
 
       toggleFavorite: (id) =>
         set((state) => ({
-          snippets: state.snippets.map((s) =>
-            s.id === id ? { ...s, favorite: !s.favorite } : s
-          ),
+          snippets: state.snippets.map((s) => (s.id === id ? { ...s, favorite: !s.favorite } : s)),
         })),
     }),
     {

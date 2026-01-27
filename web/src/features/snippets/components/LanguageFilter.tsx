@@ -31,25 +31,12 @@ export function LanguageFilter({
 }: LanguageFilterProps) {
   return (
     <div className="flex items-center gap-2">
-      <Button
-        variant={showFavorites ? 'secondary' : 'outline'}
-        size="sm"
-        onClick={onToggleFavorites}
-      >
-        <Star
-          className={cn(
-            'h-4 w-4 mr-2',
-            showFavorites && 'fill-yellow-400 text-yellow-400'
-          )}
-        />
+      <Button variant={showFavorites ? 'secondary' : 'outline'} size="sm" onClick={onToggleFavorites}>
+        <Star className={cn('h-4 w-4 mr-2', showFavorites && 'fill-yellow-400 text-yellow-400')} />
         Favorites
       </Button>
 
-      <Button
-        variant={!selected ? 'secondary' : 'outline'}
-        size="sm"
-        onClick={() => onSelect(null)}
-      >
+      <Button variant={!selected ? 'secondary' : 'outline'} size="sm" onClick={() => onSelect(null)}>
         All
       </Button>
 
@@ -61,12 +48,7 @@ export function LanguageFilter({
           onClick={() => onSelect(lang)}
           className="capitalize"
         >
-          <div
-            className={cn(
-              'h-2 w-2 rounded-full mr-2',
-              languageColors[lang] || 'bg-gray-400'
-            )}
-          />
+          <div className={cn('h-2 w-2 rounded-full mr-2', languageColors[lang] || 'bg-gray-400')} />
           {lang}
         </Button>
       ))}

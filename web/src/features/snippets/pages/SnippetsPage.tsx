@@ -7,8 +7,7 @@ import { SnippetCard, SnippetDialog, LanguageFilter } from '../components'
 import { Plus, Code2 } from 'lucide-react'
 
 export function SnippetsPage() {
-  const { snippets, addSnippet, updateSnippet, deleteSnippet, toggleFavorite } =
-    useSnippetsStore()
+  const { snippets, addSnippet, updateSnippet, deleteSnippet, toggleFavorite } = useSnippetsStore()
 
   const [search, setSearch] = useState('')
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null)
@@ -104,11 +103,7 @@ export function SnippetsPage() {
           <EmptyState
             icon={Code2}
             title="No snippets found"
-            description={
-              search
-                ? 'Try a different search term'
-                : 'Create your first snippet to get started'
-            }
+            description={search ? 'Try a different search term' : 'Create your first snippet to get started'}
           />
         )}
       </div>

@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { CodeEditor } from '@/shared/components/code-editor'
+import { cn } from '@/shared/lib/utils'
+import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
-import { Badge } from '@/ui/badge'
-import { ScrollArea } from '@/ui/scroll-area'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,9 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
-import { Star, Copy, Pencil, Trash2, MoreVertical, Check } from 'lucide-react'
-import { cn } from '@/shared/lib/utils'
+import { Check, Copy, MoreVertical, Pencil, Star, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { toast } from 'sonner'
+import { languageToFilename } from '../lib/language-utils'
 import type { Snippet } from '../stores/snippets'
 
 const languageColors: Record<string, string> = {
@@ -34,12 +35,7 @@ interface SnippetCardProps {
   onToggleFavorite: () => void
 }
 
-export function SnippetCard({
-  snippet,
-  onEdit,
-  onDelete,
-  onToggleFavorite,
-}: SnippetCardProps) {
+export function SnippetCard({ snippet, onEdit, onDelete, onToggleFavorite }: SnippetCardProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -54,27 +50,12 @@ export function SnippetCard({
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                'h-3 w-3 rounded-full',
-                languageColors[snippet.language] || 'bg-gray-400'
-              )}
-            />
+            <div className={cn('h-3 w-3 rounded-full', languageColors[snippet.language] || 'bg-gray-400')} />
             <CardTitle className="text-base">{snippet.title}</CardTitle>
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onToggleFavorite}
-            >
-              <Star
-                className={cn(
-                  'h-4 w-4',
-                  snippet.favorite && 'fill-yellow-400 text-yellow-400'
-                )}
-              />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleFavorite}>
+              <Star className={cn('h-4 w-4', snippet.favorite && 'fill-yellow-400 text-yellow-400')} />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -100,28 +81,26 @@ export function SnippetCard({
             </DropdownMenu>
           </div>
         </div>
-        {snippet.description && (
-          <p className="text-sm text-muted-foreground">{snippet.description}</p>
-        )}
+        {snippet.description && <p className="text-sm text-muted-foreground">{snippet.description}</p>}
       </CardHeader>
       <CardContent>
         <div className="relative">
-          <ScrollArea className="h-40">
-            <pre className="text-xs font-mono bg-muted p-3 rounded-lg overflow-x-auto">
-              <code>{snippet.code}</code>
-            </pre>
-          </ScrollArea>
+          <div className="h-40 overflow-hidden rounded-lg">
+            <CodeEditor
+              value={snippet.code}
+              filename={languageToFilename(snippet.language)}
+              readOnly
+              lineNumbers={false}
+              className="h-full"
+            />
+          </div>
           <Button
             variant="secondary"
             size="sm"
             className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={handleCopy}
           >
-            {copied ? (
-              <Check className="h-3 w-3 mr-1" />
-            ) : (
-              <Copy className="h-3 w-3 mr-1" />
-            )}
+            {copied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
             {copied ? 'Copied' : 'Copy'}
           </Button>
         </div>
