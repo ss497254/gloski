@@ -10,22 +10,28 @@ import (
 	"github.com/ss497254/gloski/internal/auth"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/cron"
+	"github.com/ss497254/gloski/internal/database"
+	"github.com/ss497254/gloski/internal/downloads"
 	"github.com/ss497254/gloski/internal/files"
+	"github.com/ss497254/gloski/internal/jobs"
 	"github.com/ss497254/gloski/internal/logger"
 	"github.com/ss497254/gloski/internal/packages"
 	"github.com/ss497254/gloski/internal/system"
-	"github.com/ss497254/gloski/internal/tasks"
 )
 
 // App is the main application container that holds all services.
 type App struct {
 	Config *config.Config
 
+	// Database
+	DB *database.Database
+
 	// Core services
-	Auth   *auth.Service
-	Files  *files.Service
-	System *system.Service
-	Tasks  *tasks.Service
+	Auth      *auth.Service
+	Files     *files.Service
+	System    *system.Service
+	Jobs      *jobs.Service
+	Downloads *downloads.Service
 
 	// Background services
 	statsCollector *system.Collector
@@ -45,6 +51,14 @@ func New(cfg *config.Config) (*App, error) {
 		Config: cfg,
 	}
 
+	// Initialize database
+	db, err := database.Open(cfg.DatabasePath())
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+	app.DB = db
+	logger.Info("Database initialized at %s", cfg.DatabasePath())
+
 	// Initialize system stats store and collector
 	// Store 150 samples at 2s interval = 5 minutes of history
 	statsStore := system.NewStore(150)
@@ -54,12 +68,41 @@ func New(cfg *config.Config) (*App, error) {
 	// Initialize core services (always available)
 	authService, err := auth.NewService(cfg)
 	if err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to initialize auth service: %w", err)
 	}
 	app.Auth = authService
 	app.Files = files.NewService(cfg)
 	app.System = system.NewService(statsStore)
-	app.Tasks = tasks.NewService()
+
+	// Initialize jobs service if enabled
+	if cfg.Jobs.Enabled {
+		jobsService, err := jobs.NewService(db, jobs.Config{
+			LogsDir: cfg.LogsDir(),
+			MaxJobs: cfg.Jobs.MaxJobs,
+		})
+		if err != nil {
+			logger.Warn("Failed to initialize jobs service: %v", err)
+		} else {
+			app.Jobs = jobsService
+			logger.Info("Jobs service initialized")
+		}
+	}
+
+	// Initialize downloads service if enabled
+	if cfg.Downloads.Enabled {
+		downloadService, err := downloads.NewService(db, downloads.Config{
+			MaxConcurrent: cfg.Downloads.MaxConcurrent,
+			MaxRetries:    cfg.Downloads.MaxRetries,
+			BaseURL:       cfg.BaseURL,
+		})
+		if err != nil {
+			logger.Warn("Failed to initialize downloads service: %v", err)
+		} else {
+			app.Downloads = downloadService
+			logger.Info("Downloads service initialized")
+		}
+	}
 
 	// Initialize optional services (may fail gracefully)
 	app.initOptionalServices()
@@ -108,9 +151,31 @@ func (a *App) Shutdown(ctx context.Context) error {
 		a.statsCollector.Stop()
 	}
 
-	// Shutdown tasks service (kills running tasks)
-	if err := a.Tasks.Shutdown(); err != nil {
-		errs = append(errs, fmt.Errorf("tasks: %w", err))
+	// Shutdown jobs service (kills running jobs)
+	if a.Jobs != nil {
+		if err := a.Jobs.Shutdown(); err != nil {
+			errs = append(errs, fmt.Errorf("jobs: %w", err))
+		}
+	}
+
+	// Shutdown downloads service
+	if a.Downloads != nil {
+		// Calculate remaining time from context deadline
+		timeout := 5 * time.Second
+		if deadline, ok := ctx.Deadline(); ok {
+			remaining := time.Until(deadline)
+			if remaining > 0 {
+				timeout = remaining
+			}
+		}
+		a.Downloads.Shutdown(timeout)
+	}
+
+	// Close database
+	if a.DB != nil {
+		if err := a.DB.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("database: %w", err))
+		}
 	}
 
 	if len(errs) > 0 {
@@ -131,11 +196,22 @@ func (a *App) HasCron() bool {
 	return a.Cron != nil
 }
 
+// HasDownloads returns true if downloads feature is available.
+func (a *App) HasDownloads() bool {
+	return a.Downloads != nil
+}
+
+// HasJobs returns true if jobs feature is available.
+func (a *App) HasJobs() bool {
+	return a.Jobs != nil
+}
+
 // Features returns a map of available features.
 func (a *App) Features() map[string]bool {
 	return map[string]bool{
-		"packages": a.HasPackages(),
-		"cron":     a.HasCron(),
-		"systemd":  a.System.HasSystemd(),
+		"packages":  a.HasPackages(),
+		"cron":      a.HasCron(),
+		"downloads": a.HasDownloads(),
+		"jobs":      a.HasJobs(),
 	}
 }

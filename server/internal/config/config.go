@@ -5,12 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Config struct {
 	// Server settings
-	Host string `json:"host"`
-	Port int    `json:"port"`
+	Host            string `json:"host"`
+	Port            int    `json:"port"`
+	BaseURL         string `json:"base_url"`         // Public URL for share links (e.g., https://example.com)
+	ShutdownTimeout int    `json:"shutdown_timeout"` // Shutdown timeout in seconds (default: 5)
+
+	// Data directory
+	DataDir string `json:"data_dir"` // Directory for database and logs (default: ~/.gloski/data)
 
 	// Authentication
 	APIKey string `json:"api_key"` // API key for authentication
@@ -28,17 +34,60 @@ type Config struct {
 
 	// Logging
 	LogLevel string `json:"log_level"` // debug, info, warn, error
+
+	// Downloads
+	Downloads DownloadsConfig `json:"downloads"`
+
+	// Jobs
+	Jobs JobsConfig `json:"jobs"`
+}
+
+// DownloadsConfig holds configuration for the download manager
+type DownloadsConfig struct {
+	Enabled       bool `json:"enabled"`
+	MaxConcurrent int  `json:"max_concurrent"` // Maximum concurrent downloads (default: 3)
+	MaxRetries    int  `json:"max_retries"`    // Maximum retry attempts (default: 3)
+}
+
+// JobsConfig holds configuration for the jobs manager
+type JobsConfig struct {
+	Enabled bool `json:"enabled"`
+	MaxJobs int  `json:"max_jobs"` // Maximum number of jobs to keep (default: 100)
 }
 
 func DefaultConfig() *Config {
+	homeDir, _ := os.UserHomeDir()
+	dataDir := filepath.Join(homeDir, ".gloski", "data")
+
 	return &Config{
-		Host:           "127.0.0.1",
-		Port:           8080,
-		AllowedOrigins: []string{"*"},
-		AllowedPaths:   []string{},
-		Shell:          getDefaultShell(),
-		LogLevel:       "info",
+		Host:            "127.0.0.1",
+		Port:            8080,
+		ShutdownTimeout: 5,
+		DataDir:         dataDir,
+		AllowedOrigins:  []string{"*"},
+		AllowedPaths:    []string{},
+		Shell:           getDefaultShell(),
+		LogLevel:        "info",
+		Downloads: DownloadsConfig{
+			Enabled:       true,
+			MaxConcurrent: 3,
+			MaxRetries:    3,
+		},
+		Jobs: JobsConfig{
+			Enabled: true,
+			MaxJobs: 100,
+		},
 	}
+}
+
+// DatabasePath returns the path to the SQLite database
+func (c *Config) DatabasePath() string {
+	return filepath.Join(c.DataDir, "gloski.db")
+}
+
+// LogsDir returns the path to the logs directory
+func (c *Config) LogsDir() string {
+	return filepath.Join(c.DataDir, "logs")
 }
 
 func Load(path string) (*Config, error) {
@@ -77,6 +126,12 @@ func (c *Config) loadFromEnv() {
 	if v := os.Getenv("GLOSKI_PORT"); v != "" {
 		fmt.Sscanf(v, "%d", &c.Port)
 	}
+	if v := os.Getenv("GLOSKI_BASE_URL"); v != "" {
+		c.BaseURL = v
+	}
+	if v := os.Getenv("GLOSKI_DATA_DIR"); v != "" {
+		c.DataDir = v
+	}
 	if v := os.Getenv("GLOSKI_SHELL"); v != "" {
 		c.Shell = v
 	}
@@ -91,6 +146,21 @@ func (c *Config) loadFromEnv() {
 	}
 	if v := os.Getenv("GLOSKI_JWT_PUBLIC_KEY_FILE"); v != "" {
 		c.JWTPublicKeyFile = v
+	}
+	if v := os.Getenv("GLOSKI_DOWNLOADS_ENABLED"); v != "" {
+		c.Downloads.Enabled = v == "true" || v == "1"
+	}
+	if v := os.Getenv("GLOSKI_DOWNLOADS_MAX_CONCURRENT"); v != "" {
+		fmt.Sscanf(v, "%d", &c.Downloads.MaxConcurrent)
+	}
+	if v := os.Getenv("GLOSKI_JOBS_ENABLED"); v != "" {
+		c.Jobs.Enabled = v == "true" || v == "1"
+	}
+	if v := os.Getenv("GLOSKI_JOBS_MAX_JOBS"); v != "" {
+		fmt.Sscanf(v, "%d", &c.Jobs.MaxJobs)
+	}
+	if v := os.Getenv("GLOSKI_SHUTDOWN_TIMEOUT"); v != "" {
+		fmt.Sscanf(v, "%d", &c.ShutdownTimeout)
 	}
 }
 
@@ -152,12 +222,17 @@ func (c *Config) IsPathAllowed(path string) bool {
 		if err != nil {
 			continue
 		}
-		// Check if path is under allowed path
+		// Check if path is under allowed path or is the allowed path itself
+		if absPath == allowedAbs {
+			return true
+		}
+		// Check if absPath is a subdirectory of allowedAbs
 		rel, err := filepath.Rel(allowedAbs, absPath)
 		if err != nil {
 			continue
 		}
-		if len(rel) >= 2 && rel[:2] == ".." {
+		// If relative path starts with "..", it's outside the allowed path
+		if strings.HasPrefix(rel, "..") {
 			continue
 		}
 		return true

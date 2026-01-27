@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/ss497254/gloski/internal/api/handlers"
@@ -8,10 +9,11 @@ import (
 	"github.com/ss497254/gloski/internal/auth"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/cron"
+	"github.com/ss497254/gloski/internal/downloads"
 	"github.com/ss497254/gloski/internal/files"
+	"github.com/ss497254/gloski/internal/jobs"
 	"github.com/ss497254/gloski/internal/packages"
 	"github.com/ss497254/gloski/internal/system"
-	"github.com/ss497254/gloski/internal/tasks"
 )
 
 // Config holds all dependencies needed for routing
@@ -19,12 +21,16 @@ type Config struct {
 	Cfg         *config.Config
 	AuthService *auth.Service
 	FileService *files.Service
-	TaskService *tasks.Service
+	JobsService *jobs.Service
 	SysService  *system.Service
+
+	// Database for direct DB handlers
+	DB *sql.DB
 
 	// Optional services
 	PackagesService *packages.Service
 	CronService     *cron.Service
+	DownloadService *downloads.Service
 
 	// Features map for /api/system/info
 	Features map[string]bool
@@ -46,7 +52,6 @@ func Setup(cfg Config) http.Handler {
 	authHandler := handlers.NewAuthHandler(cfg.AuthService)
 	systemHandler := handlers.NewSystemHandler(cfg.SysService)
 	filesHandler := handlers.NewFilesHandler(cfg.FileService)
-	tasksHandler := handlers.NewTasksHandler(cfg.TaskService)
 	terminalHandler := handlers.NewTerminalHandler(cfg.Cfg, cfg.AuthService)
 
 	// Set features if available
@@ -80,9 +85,18 @@ func Setup(cfg Config) http.Handler {
 	mux.Handle("GET /api/files/read", requireAuth(http.HandlerFunc(filesHandler.Read)))
 	mux.Handle("POST /api/files/write", requireAuth(http.HandlerFunc(filesHandler.Write)))
 	mux.Handle("POST /api/files/mkdir", requireAuth(http.HandlerFunc(filesHandler.Mkdir)))
+	mux.Handle("POST /api/files/rename", requireAuth(http.HandlerFunc(filesHandler.Rename)))
 	mux.Handle("DELETE /api/files", requireAuth(http.HandlerFunc(filesHandler.Delete)))
 	mux.Handle("POST /api/files/upload", requireAuth(http.HandlerFunc(filesHandler.Upload)))
 	mux.Handle("GET /api/files/download", requireAuth(http.HandlerFunc(filesHandler.Download)))
+
+	// Pinned folders routes (protected, part of files resource)
+	if cfg.DB != nil {
+		filesHandler.SetDB(cfg.DB)
+		mux.Handle("GET /api/files/pinned", requireAuth(http.HandlerFunc(filesHandler.ListPinned)))
+		mux.Handle("POST /api/files/pinned", requireAuth(http.HandlerFunc(filesHandler.CreatePinned)))
+		mux.Handle("DELETE /api/files/pinned/{id}", requireAuth(http.HandlerFunc(filesHandler.DeletePinned)))
+	}
 
 	// Search route (protected)
 	mux.Handle("GET /api/search", requireAuth(http.HandlerFunc(filesHandler.Search)))
@@ -90,17 +104,16 @@ func Setup(cfg Config) http.Handler {
 	// Terminal WebSocket (auth via query param)
 	mux.HandleFunc("GET /api/terminal", terminalHandler.Handle)
 
-	// Task routes (protected)
-	mux.Handle("GET /api/tasks", requireAuth(http.HandlerFunc(tasksHandler.List)))
-	mux.Handle("POST /api/tasks", requireAuth(http.HandlerFunc(tasksHandler.Start)))
-	mux.Handle("GET /api/tasks/{id}", requireAuth(http.HandlerFunc(tasksHandler.Get)))
-	mux.Handle("GET /api/tasks/{id}/logs", requireAuth(http.HandlerFunc(tasksHandler.GetLogs)))
-	mux.Handle("DELETE /api/tasks/{id}", requireAuth(http.HandlerFunc(tasksHandler.Stop)))
-
-	// Systemd routes (protected)
-	mux.Handle("GET /api/systemd", requireAuth(http.HandlerFunc(tasksHandler.ListSystemd)))
-	mux.Handle("POST /api/systemd/{unit}/{action}", requireAuth(http.HandlerFunc(tasksHandler.SystemdAction)))
-	mux.Handle("GET /api/systemd/{unit}/logs", requireAuth(http.HandlerFunc(tasksHandler.SystemdLogs)))
+	// Jobs routes (protected, optional)
+	if cfg.JobsService != nil {
+		jobsHandler := handlers.NewJobsHandler(cfg.JobsService)
+		mux.Handle("GET /api/jobs", requireAuth(http.HandlerFunc(jobsHandler.List)))
+		mux.Handle("POST /api/jobs", requireAuth(http.HandlerFunc(jobsHandler.Start)))
+		mux.Handle("GET /api/jobs/{id}", requireAuth(http.HandlerFunc(jobsHandler.Get)))
+		mux.Handle("GET /api/jobs/{id}/logs", requireAuth(http.HandlerFunc(jobsHandler.GetLogs)))
+		mux.Handle("POST /api/jobs/{id}/stop", requireAuth(http.HandlerFunc(jobsHandler.Stop)))
+		mux.Handle("DELETE /api/jobs/{id}", requireAuth(http.HandlerFunc(jobsHandler.Delete)))
+	}
 
 	// Package management routes (protected, optional)
 	mux.Handle("GET /api/packages/info", requireAuth(http.HandlerFunc(packagesHandler.Info)))
@@ -113,6 +126,28 @@ func Setup(cfg Config) http.Handler {
 	mux.Handle("GET /api/cron/jobs", requireAuth(http.HandlerFunc(cronHandler.ListJobs)))
 	mux.Handle("POST /api/cron/jobs", requireAuth(http.HandlerFunc(cronHandler.AddJob)))
 	mux.Handle("DELETE /api/cron/jobs", requireAuth(http.HandlerFunc(cronHandler.RemoveJob)))
+
+	// Download manager routes (protected, optional)
+	if cfg.DownloadService != nil {
+		downloadsHandler := handlers.NewDownloadsHandler(cfg.DownloadService)
+		shareHandler := handlers.NewShareHandler(cfg.DownloadService)
+
+		// Download management (protected)
+		mux.Handle("GET /api/downloads", requireAuth(http.HandlerFunc(downloadsHandler.List)))
+		mux.Handle("POST /api/downloads", requireAuth(http.HandlerFunc(downloadsHandler.Add)))
+		mux.Handle("GET /api/downloads/{id}", requireAuth(http.HandlerFunc(downloadsHandler.Get)))
+		mux.Handle("DELETE /api/downloads/{id}", requireAuth(http.HandlerFunc(downloadsHandler.Delete)))
+		mux.Handle("POST /api/downloads/{id}/pause", requireAuth(http.HandlerFunc(downloadsHandler.Pause)))
+		mux.Handle("POST /api/downloads/{id}/resume", requireAuth(http.HandlerFunc(downloadsHandler.Resume)))
+		mux.Handle("POST /api/downloads/{id}/cancel", requireAuth(http.HandlerFunc(downloadsHandler.Cancel)))
+		mux.Handle("POST /api/downloads/{id}/retry", requireAuth(http.HandlerFunc(downloadsHandler.Retry)))
+		mux.Handle("GET /api/downloads/{id}/file", requireAuth(http.HandlerFunc(downloadsHandler.DownloadFile)))
+		mux.Handle("POST /api/downloads/{id}/share", requireAuth(http.HandlerFunc(downloadsHandler.CreateShareLink)))
+		mux.Handle("DELETE /api/downloads/{id}/share/{token}", requireAuth(http.HandlerFunc(downloadsHandler.RevokeShareLink)))
+
+		// Public share endpoint (no auth)
+		mux.HandleFunc("GET /api/share/{token}", shareHandler.Download)
+	}
 
 	// Apply global middleware
 	corsConfig := middleware.CORSConfig{

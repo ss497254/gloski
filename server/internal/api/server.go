@@ -30,10 +30,12 @@ func NewServer(application *app.App, opts ...ServerOptions) *Server {
 		Cfg:             application.Config,
 		AuthService:     application.Auth,
 		FileService:     application.Files,
-		TaskService:     application.Tasks,
+		JobsService:     application.Jobs,
 		SysService:      application.System,
+		DB:              application.DB.DB(),
 		PackagesService: application.Packages,
 		CronService:     application.Cron,
+		DownloadService: application.Downloads,
 		Features:        application.Features(),
 		Version:         version,
 	})
