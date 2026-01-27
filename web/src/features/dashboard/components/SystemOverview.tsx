@@ -24,9 +24,7 @@ export function SystemOverview({ stats }: SystemOverviewProps) {
       label: 'Disk',
       value: stats.disks[0]?.used_percent || 0,
       icon: HardDrive,
-      detail: stats.disks[0]
-        ? formatBytes(stats.disks[0].used) + ' / ' + formatBytes(stats.disks[0].total)
-        : 'N/A',
+      detail: stats.disks[0] ? formatBytes(stats.disks[0].used) + ' / ' + formatBytes(stats.disks[0].total) : 'N/A',
     },
     {
       label: 'Load',
@@ -42,12 +40,7 @@ export function SystemOverview({ stats }: SystemOverviewProps) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
         {metrics.map((metric) => (
           <div key={metric.label} className="flex flex-col items-center text-center">
-            <ProgressRing
-              value={metric.value}
-              size={100}
-              strokeWidth={8}
-              label={metric.label}
-            />
+            <ProgressRing value={metric.value} size={100} strokeWidth={8} label={metric.label} />
             <p className="mt-3 text-xs text-muted-foreground">{metric.detail}</p>
           </div>
         ))}

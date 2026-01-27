@@ -3,8 +3,7 @@ import { useFilter, useDialog } from '@/shared/hooks'
 import { useBookmarksStore, type Bookmark } from '../stores/bookmarks'
 
 export function useBookmarksPage() {
-  const { bookmarks, folders, addBookmark, updateBookmark, deleteBookmark } =
-    useBookmarksStore()
+  const { bookmarks, folders, addBookmark, updateBookmark, deleteBookmark } = useBookmarksStore()
 
   // Filter and search logic
   const {
@@ -43,13 +42,7 @@ export function useBookmarksPage() {
 
   // Handle bookmark submission from form
   const handleSubmit = useCallback(
-    (formData: {
-      title: string
-      url: string
-      description?: string
-      folder?: string
-      tags: string[]
-    }) => {
+    (formData: { title: string; url: string; description?: string; folder?: string; tags: string[] }) => {
       if (dialog.isEditing && dialog.editingItem) {
         updateBookmark(dialog.editingItem.id, formData)
       } else {

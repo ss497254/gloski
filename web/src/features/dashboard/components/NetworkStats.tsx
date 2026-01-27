@@ -1,6 +1,6 @@
 import { Network, ArrowDownToLine, ArrowUpFromLine, Wifi, WifiOff } from 'lucide-react'
 import { cn, formatBytes } from '@/shared/lib/utils'
-import type { NetworkStats } from '@/shared/lib/types'
+import type { NetworkStats, NetworkInterface } from '@/shared/lib/types'
 
 interface NetworkStatsWidgetProps {
   network: NetworkStats
@@ -35,20 +35,15 @@ export function NetworkStatsWidget({ network }: NetworkStatsWidgetProps) {
       {/* Interfaces */}
       <div className="space-y-3">
         <p className="text-sm font-medium text-muted-foreground">Interfaces</p>
-        {network.interfaces.map((iface) => (
-          <div
-            key={iface.name}
-            className="flex items-center justify-between py-2 border-b last:border-0"
-          >
+        {network.interfaces.map((iface: NetworkInterface) => (
+          <div key={iface.name} className="flex items-center justify-between py-2 border-b last:border-0">
             <div className="flex items-center gap-2">
               {iface.up ? (
                 <Wifi className="h-4 w-4 text-green-500" />
               ) : (
                 <WifiOff className="h-4 w-4 text-muted-foreground" />
               )}
-              <span className={cn('text-sm', !iface.up && 'text-muted-foreground')}>
-                {iface.name}
-              </span>
+              <span className={cn('text-sm', !iface.up && 'text-muted-foreground')}>{iface.name}</span>
             </div>
             <div className="flex items-center gap-4 text-xs">
               <span className="text-green-600">

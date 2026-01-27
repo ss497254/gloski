@@ -27,7 +27,7 @@ interface FilterSidebarProps {
 
 export function FilterSidebar({ sections, selected, onSelect, allItem, className }: FilterSidebarProps) {
   return (
-    <div className={cn('w-48 shrink-0 space-y-1', className)}>
+    <div className={cn('shrink-0 space-y-1', className)}>
       {/* All items button */}
       {allItem && (
         <button

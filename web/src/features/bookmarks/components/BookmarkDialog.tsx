@@ -1,13 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/ui/dialog'
 import type { Bookmark } from '../stores/bookmarks'
 
 interface BookmarkDialogProps {
@@ -15,22 +9,10 @@ interface BookmarkDialogProps {
   onOpenChange: (open: boolean) => void
   bookmark: Bookmark | null
   folders: string[]
-  onSubmit: (data: {
-    title: string
-    url: string
-    description?: string
-    folder?: string
-    tags: string[]
-  }) => void
+  onSubmit: (data: { title: string; url: string; description?: string; folder?: string; tags: string[] }) => void
 }
 
-export function BookmarkDialog({
-  open,
-  onOpenChange,
-  bookmark,
-  folders,
-  onSubmit,
-}: BookmarkDialogProps) {
+export function BookmarkDialog({ open, onOpenChange, bookmark, folders, onSubmit }: BookmarkDialogProps) {
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
   const [description, setDescription] = useState('')
@@ -83,20 +65,12 @@ export function BookmarkDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Title</label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="My Bookmark"
-            />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="My Bookmark" />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">URL</label>
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
-            />
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" />
           </div>
 
           <div className="space-y-2">
@@ -125,11 +99,7 @@ export function BookmarkDialog({
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Tags</label>
-            <Input
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="tag1, tag2, tag3"
-            />
+            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="tag1, tag2, tag3" />
           </div>
         </div>
 

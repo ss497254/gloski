@@ -33,9 +33,7 @@ export function DiskUsage({ disks }: DiskUsageProps) {
                 <p className="text-sm font-medium">
                   {formatBytes(disk.used)} / {formatBytes(disk.total)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatBytes(disk.free)} free
-                </p>
+                <p className="text-xs text-muted-foreground">{formatBytes(disk.free)} free</p>
               </div>
             </div>
             <ProgressBar value={disk.used_percent} size="md" />

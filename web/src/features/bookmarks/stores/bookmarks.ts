@@ -119,7 +119,7 @@ const initialBookmarks: Bookmark[] = [
     id: '11',
     title: 'Dribbble',
     url: 'https://dribbble.com',
-    description: 'Discover the world\'s top designers & creatives',
+    description: "Discover the world's top designers & creatives",
     folder: 'Design',
     tags: ['design', 'inspiration'],
     createdAt: '2024-01-05T12:00:00Z',
@@ -157,9 +157,7 @@ export const useBookmarksStore = create<BookmarksState>()(
 
       updateBookmark: (id, data) =>
         set((state) => ({
-          bookmarks: state.bookmarks.map((b) =>
-            b.id === id ? { ...b, ...data } : b
-          ),
+          bookmarks: state.bookmarks.map((b) => (b.id === id ? { ...b, ...data } : b)),
         })),
 
       deleteBookmark: (id) =>
@@ -169,17 +167,13 @@ export const useBookmarksStore = create<BookmarksState>()(
 
       addFolder: (name) =>
         set((state) => ({
-          folders: state.folders.includes(name)
-            ? state.folders
-            : [...state.folders, name],
+          folders: state.folders.includes(name) ? state.folders : [...state.folders, name],
         })),
 
       deleteFolder: (name) =>
         set((state) => ({
           folders: state.folders.filter((f) => f !== name),
-          bookmarks: state.bookmarks.map((b) =>
-            b.folder === name ? { ...b, folder: undefined } : b
-          ),
+          bookmarks: state.bookmarks.map((b) => (b.folder === name ? { ...b, folder: undefined } : b)),
         })),
     }),
     {

@@ -57,11 +57,7 @@ export function BookmarksPage() {
 
         {/* Main content */}
         <div className="flex-1 space-y-4">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search bookmarks..."
-          />
+          <SearchInput value={search} onChange={setSearch} placeholder="Search bookmarks..." />
 
           {/* Bookmarks grid */}
           {bookmarks.length > 0 ? (
@@ -79,11 +75,7 @@ export function BookmarksPage() {
             <EmptyState
               icon={Globe}
               title="No bookmarks found"
-              description={
-                search
-                  ? 'Try a different search term'
-                  : 'Add your first bookmark to get started'
-              }
+              description={search ? 'Try a different search term' : 'Add your first bookmark to get started'}
             />
           )}
         </div>

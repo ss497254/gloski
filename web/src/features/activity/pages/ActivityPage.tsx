@@ -91,9 +91,7 @@ function ActivityItemComponent({ item }: { item: ActivityItem }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm">{item.description}</p>
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-muted-foreground">
-            {formatRelativeTime(item.timestamp)}
-          </span>
+          <span className="text-xs text-muted-foreground">{formatRelativeTime(item.timestamp)}</span>
           {item.serverName && (
             <Badge variant="secondary" className="text-xs">
               <Server className="h-3 w-3 mr-1" />
@@ -148,11 +146,7 @@ export function ActivityPage() {
       description="Recent actions across all features"
       actions={
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => clearOlderThan(7)}
-          >
+          <Button variant="outline" size="sm" onClick={() => clearOlderThan(7)}>
             Clear older than 7 days
           </Button>
           <Button

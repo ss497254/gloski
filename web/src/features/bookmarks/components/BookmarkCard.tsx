@@ -8,14 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
-import {
-  ExternalLink,
-  Folder,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  Globe,
-} from 'lucide-react'
+import { ExternalLink, Folder, MoreVertical, Pencil, Trash2, Globe } from 'lucide-react'
 import type { Bookmark } from '../stores/bookmarks'
 
 interface BookmarkCardProps {
@@ -72,9 +65,7 @@ export function BookmarkCard({ bookmark, onEdit, onDelete }: BookmarkCardProps) 
             </div>
 
             {bookmark.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                {bookmark.description}
-              </p>
+              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{bookmark.description}</p>
             )}
 
             <div className="flex items-center gap-2 mt-2 flex-wrap">
