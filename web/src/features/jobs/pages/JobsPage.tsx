@@ -1,15 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Navigate } from 'react-router-dom'
-import { Button } from '@/ui/button'
-import { Input } from '@/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
-import { useServer } from '@/features/servers/hooks/use-server'
+import { useServer } from '@/features/servers'
 import type { Job } from '@/shared/lib/types'
-import { Play, Square, Trash2, RefreshCw, Terminal, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { Button } from '@/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
+import { Input } from '@/ui/input'
+import { AlertCircle, CheckCircle, Clock, Play, RefreshCw, Square, Terminal, Trash2, XCircle } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 
 export function JobsPage() {
   const { server, serverId } = useServer()
-
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -21,7 +19,6 @@ export function JobsPage() {
   const [jobLogs, setJobLogs] = useState<string[]>([])
 
   const fetchJobs = useCallback(async () => {
-    if (!server) return
     try {
       const result = await server.getClient().jobs.list()
       setJobs(result || [])
@@ -38,7 +35,7 @@ export function JobsPage() {
   }, [fetchJobs])
 
   const startJob = useCallback(async () => {
-    if (!server || !newCommand.trim()) return
+    if (!newCommand.trim()) return
 
     try {
       await server.getClient().jobs.start(newCommand, newCwd || undefined)
@@ -52,7 +49,6 @@ export function JobsPage() {
 
   const stopJob = useCallback(
     async (id: string) => {
-      if (!server) return
       try {
         await server.getClient().jobs.stop(id)
         fetchJobs()
@@ -65,7 +61,6 @@ export function JobsPage() {
 
   const fetchJobLogs = useCallback(
     async (id: string) => {
-      if (!server) return
       try {
         const logs = await server.getClient().jobs.getLogs(id)
         setJobLogs(logs || [])
@@ -79,17 +74,10 @@ export function JobsPage() {
 
   // Initial load and polling
   useEffect(() => {
-    if (!server) return
-
     loadData()
     const interval = setInterval(fetchJobs, 5000)
     return () => clearInterval(interval)
   }, [serverId, server, loadData, fetchJobs])
-
-  // Redirect if no server
-  if (!server) {
-    return <Navigate to="/" replace />
-  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {

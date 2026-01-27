@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from 'react'
 import type { FileEntry } from '@/shared/lib/types'
+import { useCallback, useEffect } from 'react'
 
 interface UseFilesKeyboardOptions {
   entries: FileEntry[]

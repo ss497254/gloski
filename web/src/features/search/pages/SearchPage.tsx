@@ -1,30 +1,29 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { useServer } from '@/features/servers'
+import type { SearchResult } from '@/shared/lib/types'
+import { cn } from '@/shared/lib/utils'
+import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
-import { Badge } from '@/ui/badge'
 import { ScrollArea } from '@/ui/scroll-area'
-import { useServer } from '@/features/servers/hooks/use-server'
-import type { SearchResult } from '@/shared/lib/types'
-import { toast } from 'sonner'
-import { cn } from '@/shared/lib/utils'
 import {
-  Search,
-  Folder,
+  ExternalLink,
   File,
-  FileText,
   FileCode,
-  RefreshCw,
+  FileText,
+  Folder,
   FolderOpen,
-  X,
+  RefreshCw,
+  Search,
   ToggleLeft,
   ToggleRight,
-  ExternalLink,
+  X,
 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 
 export function SearchPage() {
-  const { serverId } = useParams()
-  const { server } = useServer()
+  const { server, serverId } = useServer()
 
   const [searchPath, setSearchPath] = useState('/')
   const [query, setQuery] = useState('')
@@ -98,11 +97,6 @@ export function SearchPage() {
       performSearch(query, searchPath, newValue)
     }
   }, [searchContent, query, searchPath, performSearch])
-
-  // Redirect if no server (after all hooks)
-  if (!server) {
-    return <Navigate to="/" replace />
-  }
 
   const getIcon = (result: SearchResult) => {
     if (result.type === 'directory') return Folder

@@ -1,57 +1,55 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { useSearchParams, Navigate } from 'react-router-dom'
-import { Button } from '@/ui/button'
 import { useServer } from '@/features/servers'
-import type { FileEntry, ListResponse } from '@/shared/lib/types'
-import { toast } from 'sonner'
-import { Folder, Search, Loader2, AlertCircle } from 'lucide-react'
-import { cn } from '@/shared/lib/utils'
 import { EmptyState } from '@/shared/components'
-import { joinPath, getParentPath } from '../lib/file-utils'
-import { getFileType } from '../lib/file-types'
-import { useFilesStore } from '../stores/files'
-import { useFilesKeyboard } from '../hooks/useFilesKeyboard'
+import type { FileEntry, ListResponse } from '@/shared/lib/types'
+import { cn } from '@/shared/lib/utils'
+import { Button } from '@/ui/button'
+import { AlertCircle, Folder, Loader2, Search } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
+  BulkDeleteDialog,
+  DeleteDialog,
+  DropZone,
   FileEntryItem,
   FilePreview,
-  FilesToolbar,
   FilesSidebar,
-  DropZone,
-  NewFolderDialog,
+  FilesToolbar,
   NewFileDialog,
-  DeleteDialog,
+  NewFolderDialog,
   RenameDialog,
-  BulkDeleteDialog,
 } from '../components'
+import { useFilesKeyboard } from '../hooks/useFilesKeyboard'
+import { getFileType } from '../lib/file-types'
+import { getParentPath, joinPath } from '../lib/file-utils'
+import { useFilesStore } from '../stores/files'
 
 export function FilesPage() {
   const { server } = useServer()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryPath = searchParams.get('path') || '/'
 
-  // Files store
-  const {
-    setPinnedFolders,
-    addPinnedFolder,
-    removePinnedFolder,
-    isPinned,
-    getPinnedFolderByPath,
-    selectedPaths,
-    toggleSelection,
-    selectAll,
-    clearSelection,
-    selectRange,
-    isSelected,
-    viewMode,
-    sortBy,
-    sortOrder,
-    setViewMode,
-    setSortBy,
-    toggleSortOrder,
-    sidebarOpen,
-    setSidebarOpen,
-    toggleSidebar,
-  } = useFilesStore()
+  // Files store - use selectors for optimized subscriptions
+  const setPinnedFolders = useFilesStore((s) => s.setPinnedFolders)
+  const addPinnedFolder = useFilesStore((s) => s.addPinnedFolder)
+  const removePinnedFolder = useFilesStore((s) => s.removePinnedFolder)
+  const isPinned = useFilesStore((s) => s.isPinned)
+  const getPinnedFolderByPath = useFilesStore((s) => s.getPinnedFolderByPath)
+  const selectedPaths = useFilesStore((s) => s.selectedPaths)
+  const toggleSelection = useFilesStore((s) => s.toggleSelection)
+  const selectAll = useFilesStore((s) => s.selectAll)
+  const clearSelection = useFilesStore((s) => s.clearSelection)
+  const selectRange = useFilesStore((s) => s.selectRange)
+  const isSelected = useFilesStore((s) => s.isSelected)
+  const viewMode = useFilesStore((s) => s.viewMode)
+  const sortBy = useFilesStore((s) => s.sortBy)
+  const sortOrder = useFilesStore((s) => s.sortOrder)
+  const setViewMode = useFilesStore((s) => s.setViewMode)
+  const setSortBy = useFilesStore((s) => s.setSortBy)
+  const toggleSortOrder = useFilesStore((s) => s.toggleSortOrder)
+  const sidebarOpen = useFilesStore((s) => s.sidebarOpen)
+  const setSidebarOpen = useFilesStore((s) => s.setSidebarOpen)
+  const toggleSidebar = useFilesStore((s) => s.toggleSidebar)
 
   // Data state
   const [data, setData] = useState<ListResponse | null>(null)
@@ -95,7 +93,6 @@ export function FilesPage() {
 
   // Load pinned folders and home directory from server
   useEffect(() => {
-    if (!server) return
     server
       .getClient()
       .files.pinned.list()
@@ -114,7 +111,6 @@ export function FilesPage() {
 
   const loadDirectory = useCallback(
     async (path: string) => {
-      if (!server) return
       setLoading(true)
       setError('')
       try {
@@ -158,7 +154,6 @@ export function FilesPage() {
 
   const loadFileContent = useCallback(
     async (entry: FileEntry) => {
-      if (!server) return
       setFileLoading(true)
       try {
         const result = await server.getClient().files.read(entry.path)
@@ -202,7 +197,7 @@ export function FilesPage() {
   )
 
   const handleSave = useCallback(async () => {
-    if (!server || !selectedFile) return
+    if (!selectedFile) return
     setSaving(true)
     try {
       await server.getClient().files.write(selectedFile.path, editedContent)
@@ -217,7 +212,7 @@ export function FilesPage() {
   }, [server, selectedFile, editedContent])
 
   const handleCreateFolder = useCallback(async () => {
-    if (!server || !newName.trim()) return
+    if (!newName.trim()) return
     try {
       await server.getClient().files.mkdir(joinPath(currentPath, newName))
       toast.success('Folder created')
@@ -230,7 +225,7 @@ export function FilesPage() {
   }, [server, newName, currentPath, loadDirectory])
 
   const handleCreateFile = useCallback(async () => {
-    if (!server || !newName.trim()) return
+    if (!newName.trim()) return
     try {
       await server.getClient().files.write(joinPath(currentPath, newName), '')
       toast.success('File created')
@@ -243,7 +238,7 @@ export function FilesPage() {
   }, [server, newName, currentPath, loadDirectory])
 
   const handleDelete = useCallback(async () => {
-    if (!server || !deleteDialog) return
+    if (!deleteDialog) return
     try {
       await server.getClient().files.delete(deleteDialog.path)
       toast.success(`${deleteDialog.type === 'directory' ? 'Folder' : 'File'} deleted`)
@@ -259,7 +254,7 @@ export function FilesPage() {
   }, [server, deleteDialog, selectedFile?.path, currentPath, loadDirectory])
 
   const handleRename = useCallback(async () => {
-    if (!server || !renameDialog || !newName.trim()) return
+    if (!renameDialog || !newName.trim()) return
     const newPath = joinPath(getParentPath(renameDialog.path), newName)
     try {
       await server.getClient().files.rename(renameDialog.path, newPath)
@@ -277,7 +272,7 @@ export function FilesPage() {
   }, [server, renameDialog, newName, selectedFile?.path, currentPath, loadDirectory])
 
   const handleBulkDelete = useCallback(async () => {
-    if (!server || selectedPaths.size === 0) return
+    if (selectedPaths.size === 0) return
 
     let successCount = 0
     let failCount = 0
@@ -305,7 +300,7 @@ export function FilesPage() {
 
   const handleDropUpload = useCallback(
     async (files: File[]) => {
-      if (!server || files.length === 0) return
+      if (files.length === 0) return
 
       setUploading(true)
       let successCount = 0
@@ -348,7 +343,6 @@ export function FilesPage() {
 
   const handleDownload = useCallback(
     (entry: FileEntry) => {
-      if (!server) return
       const url = server.getClient().files.getDownloadUrl(entry.path)
       const link = document.createElement('a')
       link.href = url
@@ -361,7 +355,7 @@ export function FilesPage() {
   )
 
   const handleDownloadSelected = useCallback(() => {
-    if (!server || !data?.entries) return
+    if (!data?.entries) return
     const selectedEntries = data.entries.filter((e: FileEntry) => selectedPaths.has(e.path) && e.type === 'file')
     selectedEntries.forEach((entry: FileEntry) => handleDownload(entry))
   }, [server, data?.entries, selectedPaths, handleDownload])
@@ -387,13 +381,38 @@ export function FilesPage() {
     setEditedContent(fileContent || '')
   }, [fileContent])
 
+  // Stable callback for sidebar unpin action
+  const handleSidebarUnpin = useCallback(
+    async (id: string) => {
+      try {
+        await server.getClient().files.pinned.unpin(id)
+        removePinnedFolder(id)
+        toast.success('Folder unpinned')
+      } catch {
+        toast.error('Failed to unpin folder')
+      }
+    },
+    [server, removePinnedFolder]
+  )
+
+  // Stable callback for rename action in list
+  const handleRenameEntry = useCallback((entry: FileEntry) => {
+    setRenameDialog(entry)
+    setNewName(entry.name)
+  }, [])
+
+  // Stable callback for refresh
+  const handleRefresh = useCallback(() => {
+    loadDirectory(queryPath)
+  }, [loadDirectory, queryPath])
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Pin/Unpin Folder
   // ─────────────────────────────────────────────────────────────────────────────
 
   const handleTogglePinEntry = useCallback(
     async (entry: FileEntry) => {
-      if (!server || entry.type !== 'directory') return
+      if (entry.type !== 'directory') return
 
       if (isPinned(entry.path)) {
         const folder = getPinnedFolderByPath(entry.path)
@@ -522,11 +541,6 @@ export function FilesPage() {
   // Render
   // ─────────────────────────────────────────────────────────────────────────────
 
-  // Redirect if no server (after all hooks)
-  if (!server) {
-    return <Navigate to="/" replace />
-  }
-
   return (
     <div className="h-full flex">
       {/* Sidebar */}
@@ -534,15 +548,7 @@ export function FilesPage() {
         currentPath={currentPath}
         homeDir={homeDir}
         onNavigate={navigateTo}
-        onUnpin={async (id) => {
-          try {
-            await server.getClient().files.pinned.unpin(id)
-            removePinnedFolder(id)
-            toast.success('Folder unpinned')
-          } catch {
-            toast.error('Failed to unpin folder')
-          }
-        }}
+        onUnpin={handleSidebarUnpin}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -563,7 +569,7 @@ export function FilesPage() {
           totalCount={sortedAndFilteredEntries.length}
           onNavigate={navigateTo}
           onGoUp={goUp}
-          onRefresh={() => loadDirectory(queryPath)}
+          onRefresh={handleRefresh}
           onViewModeChange={setViewMode}
           onSortByChange={setSortBy}
           onSortOrderToggle={toggleSortOrder}
@@ -623,10 +629,7 @@ export function FilesPage() {
                     onNavigate={navigateTo}
                     onDownload={handleDownload}
                     onDelete={setDeleteDialog}
-                    onRename={(entry) => {
-                      setRenameDialog(entry)
-                      setNewName(entry.name)
-                    }}
+                    onRename={handleRenameEntry}
                     onCopyPath={copyPath}
                     onEdit={handleEdit}
                     onToggleCheck={handleToggleCheck}

@@ -1,4 +1,4 @@
-import { Folder, File, FileText, FileCode, FileJson, FileImage, FileArchive, FileCog } from 'lucide-react'
+import { File, FileArchive, FileCode, FileCog, FileImage, FileJson, FileText, Folder } from 'lucide-react'
 
 /**
  * File extension to icon mapping

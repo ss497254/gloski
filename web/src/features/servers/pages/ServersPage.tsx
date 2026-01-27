@@ -1,18 +1,19 @@
-import { useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { PageLayout } from '@/layouts'
+import { ConfirmDialog } from '@/shared/components'
+import { cn } from '@/shared/lib/utils'
+import { checkServerHealth } from '@/shared/services/api'
 import { Button } from '@/ui/button'
 import { Card, CardContent } from '@/ui/card'
-import { PageLayout } from '@/layouts'
-import { useServersStore, type Server } from '../stores/servers'
-import { checkServerHealth } from '@/shared/services/api'
-import { cn } from '@/shared/lib/utils'
-import { Server as ServerIcon, Plus, Trash2, ExternalLink, Circle } from 'lucide-react'
+import { Circle, ExternalLink, Plus, Server as ServerIcon, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { type Server, useServersStore } from '../stores/servers'
 
 const statusColors: Record<string, string> = {
-  online: 'bg-green-500',
-  offline: 'bg-gray-400',
-  connecting: 'bg-yellow-500',
-  unauthorized: 'bg-red-500',
+  online: 'fill-green-500',
+  offline: 'fill-gray-400',
+  connecting: 'fill-yellow-500',
+  unauthorized: 'fill-red-500',
 }
 
 const statusLabels: Record<string, string> = {
@@ -22,8 +23,7 @@ const statusLabels: Record<string, string> = {
   unauthorized: 'Unauthorized',
 }
 
-function ServerCard({ server }: { server: Server }) {
-  const { removeServer } = useServersStore()
+function ServerCard({ server, onDelete }: { server: Server; onDelete: (server: Server) => void }) {
   const navigate = useNavigate()
 
   return (
@@ -41,7 +41,7 @@ function ServerCard({ server }: { server: Server }) {
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-medium truncate">{server.name}</h3>
               <div className="flex items-center gap-1.5">
-                <Circle className={cn('h-2 w-2 fill-current', statusColors[server.status])} />
+                <Circle className={cn('size-2', statusColors[server.status])} />
                 <span className="text-xs text-muted-foreground">{statusLabels[server.status]}</span>
               </div>
             </div>
@@ -64,9 +64,7 @@ function ServerCard({ server }: { server: Server }) {
               size="icon"
               onClick={(e) => {
                 e.stopPropagation()
-                if (confirm(`Remove server "${server.name}"?`)) {
-                  removeServer(server.id)
-                }
+                onDelete(server)
               }}
             >
               <Trash2 className="h-4 w-4 text-destructive" />
@@ -81,6 +79,8 @@ function ServerCard({ server }: { server: Server }) {
 export function ServersPage() {
   const servers = useServersStore((s) => s.servers)
   const updateServer = useServersStore((s) => s.updateServer)
+  const removeServer = useServersStore((s) => s.removeServer)
+  const [deleteServer, setDeleteServer] = useState<Server | null>(null)
 
   // Check server health on mount
   useEffect(() => {
@@ -94,6 +94,13 @@ export function ServersPage() {
       }
     })
   }, []) // Only run on mount
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (deleteServer) {
+      removeServer(deleteServer.id)
+      setDeleteServer(null)
+    }
+  }, [deleteServer, removeServer])
 
   return (
     <PageLayout
@@ -123,10 +130,20 @@ export function ServersPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {servers.map((server) => (
-            <ServerCard key={server.id} server={server} />
+            <ServerCard key={server.id} server={server} onDelete={setDeleteServer} />
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteServer}
+        onOpenChange={(open) => !open && setDeleteServer(null)}
+        title={`Remove server "${deleteServer?.name}"?`}
+        description="This will remove the server from your list. You can add it back later."
+        confirmLabel="Remove"
+        variant="destructive"
+        onConfirm={handleDeleteConfirm}
+      />
     </PageLayout>
   )
 }

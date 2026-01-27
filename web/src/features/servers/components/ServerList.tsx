@@ -1,18 +1,6 @@
-import { Link, useParams, useNavigate } from 'react-router-dom'
-import { Button } from '@/ui/button'
-import { useServersStore, getSortedServers, type Server, type ServerStatus } from '../stores/servers'
 import { cn } from '@/shared/lib/utils'
-import {
-  Server as ServerIcon,
-  Plus,
-  Trash2,
-  MoreVertical,
-  Wifi,
-  WifiOff,
-  ShieldAlert,
-  ExternalLink,
-  Settings2,
-} from 'lucide-react'
+import { Button } from '@/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,9 +8,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
+import {
+  ExternalLink,
+  MoreVertical,
+  Plus,
+  Server as ServerIcon,
+  Settings2,
+  ShieldAlert,
+  Trash2,
+  Wifi,
+  WifiOff,
+} from 'lucide-react'
 import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { type Server, type ServerStatus, getSortedServers, useServersStore } from '../stores/servers'
 
 const statusConfig: Record<ServerStatus, { color: string; pulseColor?: string; label: string; icon: typeof Wifi }> = {
   online: {
@@ -152,7 +152,8 @@ function ServerItem({ server, isActive, onDelete }: ServerItemProps) {
 
 export function ServerList() {
   const { serverId } = useParams()
-  const { servers, removeServer } = useServersStore()
+  const servers = useServersStore((s) => s.servers)
+  const removeServer = useServersStore((s) => s.removeServer)
   const [deleteServer, setDeleteServer] = useState<Server | null>(null)
 
   const sortedServers = getSortedServers(servers)

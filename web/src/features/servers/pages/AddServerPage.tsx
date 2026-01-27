@@ -1,26 +1,26 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Button } from '@/ui/button'
-import { Input } from '@/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
-import { Badge } from '@/ui/badge'
-import { useServersStore } from '../stores/servers'
-import { checkServerHealth } from '@/shared/services/api'
-import { toast } from 'sonner'
 import { cn } from '@/shared/lib/utils'
+import { checkServerHealth } from '@/shared/services/api'
+import { Badge } from '@/ui/badge'
+import { Button } from '@/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
+import { Input } from '@/ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/tooltip'
 import {
-  Loader2,
-  Server,
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Link as LinkIcon,
-  Tag,
-  Key,
   HelpCircle,
+  Key,
+  Link as LinkIcon,
+  Loader2,
+  Server,
+  Tag,
+  XCircle,
 } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/tooltip'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+import { useServersStore } from '../stores/servers'
 
 type ConnectionStatus = 'idle' | 'checking' | 'success' | 'error' | 'warning'
 
@@ -38,7 +38,9 @@ interface ValidationErrors {
 
 export function AddServerPage() {
   const navigate = useNavigate()
-  const { servers, addServer, updateServer } = useServersStore()
+  const servers = useServersStore((s) => s.servers)
+  const addServer = useServersStore((s) => s.addServer)
+  const updateServer = useServersStore((s) => s.updateServer)
 
   const [form, setForm] = useState<FormState>({ url: '', name: '', apiKey: '' })
   const [errors, setErrors] = useState<ValidationErrors>({})

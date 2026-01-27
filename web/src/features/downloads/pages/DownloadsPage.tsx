@@ -18,7 +18,6 @@ const FILTER_BUTTONS = [
 
 export function DownloadsPage() {
   const { server, serverId } = useServer()
-
   const [downloads, setDownloads] = useState<Download[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -26,7 +25,6 @@ export function DownloadsPage() {
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'failed'>('all')
 
   const fetchDownloads = useCallback(async () => {
-    if (!server) return
     try {
       const response = await server.getClient().downloads.list()
       setDownloads(response.downloads || [])
@@ -43,13 +41,11 @@ export function DownloadsPage() {
 
   // Initial load
   useEffect(() => {
-    if (!server) return
     loadData()
   }, [serverId, server, loadData])
 
   // Polling - faster when there are active downloads
   useEffect(() => {
-    if (!server) return
     const hasActive = downloads.some((d) => d.status === 'downloading' || d.status === 'pending')
     const interval = setInterval(fetchDownloads, hasActive ? 1000 : 10000)
     return () => clearInterval(interval)
@@ -57,7 +53,6 @@ export function DownloadsPage() {
 
   const handleAdd = useCallback(
     async (url: string, destination: string, filename?: string) => {
-      if (!server) return
       try {
         await server.getClient().downloads.add(url, destination, filename)
         toast.success('Download added')
@@ -72,7 +67,6 @@ export function DownloadsPage() {
 
   const handlePause = useCallback(
     async (id: string) => {
-      if (!server) return
       try {
         await server.getClient().downloads.pause(id)
         toast.success('Download paused')
@@ -86,7 +80,6 @@ export function DownloadsPage() {
 
   const handleResume = useCallback(
     async (id: string) => {
-      if (!server) return
       try {
         await server.getClient().downloads.resume(id)
         toast.success('Download resumed')
@@ -100,7 +93,6 @@ export function DownloadsPage() {
 
   const handleCancel = useCallback(
     async (id: string) => {
-      if (!server) return
       try {
         await server.getClient().downloads.cancel(id)
         toast.success('Download cancelled')
@@ -114,7 +106,6 @@ export function DownloadsPage() {
 
   const handleRetry = useCallback(
     async (id: string) => {
-      if (!server) return
       try {
         await server.getClient().downloads.retry(id)
         toast.success('Retrying download')
@@ -128,7 +119,6 @@ export function DownloadsPage() {
 
   const handleDelete = useCallback(
     async (id: string, deleteFile: boolean) => {
-      if (!server) return
       try {
         await server.getClient().downloads.delete(id, deleteFile)
         toast.success('Download deleted')
@@ -142,7 +132,6 @@ export function DownloadsPage() {
 
   const handleDownloadFile = useCallback(
     (download: Download) => {
-      if (!server) return
       const url = server.getClient().downloads.getDownloadUrl(download.id)
       window.open(url, '_blank')
     },
@@ -151,7 +140,6 @@ export function DownloadsPage() {
 
   const handleCreateShareLink = useCallback(
     async (id: string, expiresIn?: number) => {
-      if (!server) return
       try {
         const link = await server
           .getClient()
@@ -170,7 +158,6 @@ export function DownloadsPage() {
 
   const handleRevokeShareLink = useCallback(
     async (downloadId: string, token: string) => {
-      if (!server) return
       try {
         await server.getClient().downloads.revokeShareLink(downloadId, token)
         toast.success('Share link revoked')
@@ -182,36 +169,23 @@ export function DownloadsPage() {
     [server, fetchDownloads]
   )
 
-  // Redirect if no server (after all hooks)
-  if (!server) {
-    return <Navigate to="/" replace />
-  }
-
-  // Filter downloads
-  const filteredDownloads = downloads.filter((d) => {
-    switch (filter) {
-      case 'active':
-        return d.status === 'downloading' || d.status === 'pending' || d.status === 'paused'
-      case 'completed':
-        return d.status === 'completed'
-      case 'failed':
-        return d.status === 'failed' || d.status === 'cancelled'
-      default:
-        return true
-    }
-  })
-
-  // Sort by created_at (newest first)
-  const sortedDownloads = [...filteredDownloads].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )
-
-  const filterButtons = [
-    { value: 'all', label: 'All' },
-    { value: 'active', label: 'Active' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'failed', label: 'Failed' },
-  ] as const
+  // Filter and sort downloads - memoized to avoid unnecessary recalculations
+  const sortedDownloads = useMemo(() => {
+    const filtered = downloads.filter((d) => {
+      switch (filter) {
+        case 'active':
+          return d.status === 'downloading' || d.status === 'pending' || d.status === 'paused'
+        case 'completed':
+          return d.status === 'completed'
+        case 'failed':
+          return d.status === 'failed' || d.status === 'cancelled'
+        default:
+          return true
+      }
+    })
+    // Sort by created_at (newest first)
+    return [...filtered].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }, [downloads, filter])
 
   return (
     <PageLayout
@@ -232,7 +206,7 @@ export function DownloadsPage() {
     >
       {/* Filter tabs */}
       <div className="flex gap-1 mb-4 border-b">
-        {filterButtons.map((btn) => (
+        {FILTER_BUTTONS.map((btn) => (
           <button
             key={btn.value}
             onClick={() => setFilter(btn.value)}
@@ -286,7 +260,7 @@ export function DownloadsPage() {
               onRetry={handleRetry}
               onDelete={handleDelete}
               onDownload={handleDownloadFile}
-              onShare={() => setShareDownload(download)}
+              onShare={setShareDownload}
             />
           ))}
         </div>

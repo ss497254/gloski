@@ -65,7 +65,11 @@ function MessageItem({ message, isSelected, onClick }: { message: Message; isSel
 }
 
 export function MessagesPage() {
-  const { messages, markAsRead, markAllAsRead, toggleStar, deleteMessage } = useMessagesStore()
+  const messages = useMessagesStore((s) => s.messages)
+  const markAsRead = useMessagesStore((s) => s.markAsRead)
+  const markAllAsRead = useMessagesStore((s) => s.markAllAsRead)
+  const toggleStar = useMessagesStore((s) => s.toggleStar)
+  const deleteMessage = useMessagesStore((s) => s.deleteMessage)
 
   const [filter, setFilter] = useState<FilterType>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
