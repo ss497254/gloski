@@ -13,6 +13,7 @@ import {
   Search,
   Terminal,
   ListTodo,
+  Download,
 } from 'lucide-react'
 
 export type FeatureSection = 'main' | 'workspace' | 'server'
@@ -151,29 +152,34 @@ export const serverFeatures: FeatureDefinition[] = [
     serverScoped: true,
   },
   {
-    id: 'tasks',
-    name: 'Tasks',
+    id: 'jobs',
+    name: 'Jobs',
     icon: ListTodo,
-    path: '/servers/:serverId/tasks',
-    component: lazy(() => import('@/features/tasks')),
+    path: '/servers/:serverId/jobs',
+    component: lazy(() => import('@/features/jobs')),
+    section: 'server',
+    serverScoped: true,
+  },
+  {
+    id: 'downloads',
+    name: 'Downloads',
+    icon: Download,
+    path: '/servers/:serverId/downloads',
+    component: lazy(() => import('@/features/downloads')),
     section: 'server',
     serverScoped: true,
   },
 ]
 
 // Helper functions
-export const getFeaturesBySection = (section: FeatureSection) =>
-  features.filter((f) => f.section === section)
+export const getFeaturesBySection = (section: FeatureSection) => features.filter((f) => f.section === section)
 
-export const getMainFeatures = () =>
-  features.filter((f) => f.section === 'main' && f.id !== 'settings')
+export const getMainFeatures = () => features.filter((f) => f.section === 'main' && f.id !== 'settings')
 
-export const getWorkspaceFeatures = () =>
-  features.filter((f) => f.section === 'workspace')
+export const getWorkspaceFeatures = () => features.filter((f) => f.section === 'workspace')
 
 export const getSettingsFeature = () => features.find((f) => f.id === 'settings')!
 
 export const getAllFeatures = () => [...features, ...serverFeatures]
 
-export const getFeatureById = (id: string) =>
-  getAllFeatures().find((f) => f.id === id)
+export const getFeatureById = (id: string) => getAllFeatures().find((f) => f.id === id)
