@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
@@ -24,7 +24,7 @@ import {
 
 export function SearchPage() {
   const { serverId } = useParams()
-  const { server, api } = useServer()
+  const { server } = useServer()
 
   const [searchPath, setSearchPath] = useState('/')
   const [query, setQuery] = useState('')
@@ -35,43 +35,44 @@ export function SearchPage() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Redirect if no server
-  if (!server || !api) {
-    return <Navigate to="/" replace />
-  }
+  const performSearch = useCallback(
+    async (q: string, path: string, content: boolean) => {
+      if (!server || !q.trim()) {
+        setResults([])
+        setSearched(false)
+        return
+      }
 
-  const performSearch = async (q: string, path: string, content: boolean) => {
-    if (!api || !q.trim()) {
-      setResults([])
-      setSearched(false)
-      return
-    }
+      setLoading(true)
+      setSearched(true)
 
-    setLoading(true)
-    setSearched(true)
+      try {
+        const searchResults = await server.getClient().search.search({ path, query: q.trim(), content })
+        setResults(searchResults || [])
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Search failed')
+        setResults([])
+      } finally {
+        setLoading(false)
+      }
+    },
+    [server]
+  )
 
-    try {
-      const data = await api.search(path, q.trim(), content)
-      setResults(data.results || [])
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Search failed')
-      setResults([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  const handleQueryChange = useCallback(
+    (value: string) => {
+      setQuery(value)
 
-  const handleQueryChange = (value: string) => {
-    setQuery(value)
-
-    // Debounce the search
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-    }
-    debounceRef.current = setTimeout(() => {
-      performSearch(value, searchPath, searchContent)
-    }, 300)
-  }
+      // Debounce the search
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+      }
+      debounceRef.current = setTimeout(() => {
+        performSearch(value, searchPath, searchContent)
+      }, 300)
+    },
+    [performSearch, searchPath, searchContent]
+  )
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -82,25 +83,31 @@ export function SearchPage() {
     }
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    performSearch(query, searchPath, searchContent)
-  }
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      performSearch(query, searchPath, searchContent)
+    },
+    [performSearch, query, searchPath, searchContent]
+  )
 
-  const toggleContentSearch = () => {
+  const toggleContentSearch = useCallback(() => {
     const newValue = !searchContent
     setSearchContent(newValue)
     if (query.trim()) {
       performSearch(query, searchPath, newValue)
     }
+  }, [searchContent, query, searchPath, performSearch])
+
+  // Redirect if no server (after all hooks)
+  if (!server) {
+    return <Navigate to="/" replace />
   }
 
   const getIcon = (result: SearchResult) => {
     if (result.type === 'directory') return Folder
     const ext = result.name.split('.').pop()?.toLowerCase() || ''
-    if (
-      ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h'].includes(ext)
-    ) {
+    if (['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h'].includes(ext)) {
       return FileCode
     }
     if (['md', 'txt', 'log'].includes(ext)) {
@@ -188,11 +195,7 @@ export function SearchPage() {
               onClick={toggleContentSearch}
               className={cn('gap-2', searchContent && 'bg-primary/10 text-primary')}
             >
-              {searchContent ? (
-                <ToggleRight className="h-4 w-4" />
-              ) : (
-                <ToggleLeft className="h-4 w-4" />
-              )}
+              {searchContent ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
               Search file contents
             </Button>
           </div>
@@ -225,18 +228,14 @@ export function SearchPage() {
                     <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', color)} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium truncate">
-                          {highlightMatch(result.name, query)}
-                        </span>
+                        <span className="font-medium truncate">{highlightMatch(result.name, query)}</span>
                         {result.line_num && (
                           <Badge variant="secondary" className="shrink-0">
                             Line {result.line_num}
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground truncate mb-2">
-                        {result.path}
-                      </p>
+                      <p className="text-sm text-muted-foreground truncate mb-2">{result.path}</p>
                       {result.match && (
                         <div className="bg-muted rounded p-2 text-sm font-mono overflow-x-auto">
                           {highlightMatch(result.match, query)}
@@ -244,9 +243,7 @@ export function SearchPage() {
                       )}
                       <div className="flex gap-2 mt-2">
                         <Button variant="ghost" size="sm" asChild>
-                          <Link
-                            to={`/servers/${serverId}/files?path=${encodeURIComponent(parentPath)}`}
-                          >
+                          <Link to={`/servers/${serverId}/files?path=${encodeURIComponent(parentPath)}`}>
                             <Folder className="h-3 w-3 mr-1" />
                             Open Folder
                           </Link>
@@ -279,8 +276,7 @@ export function SearchPage() {
             <Search className="h-16 w-16 mx-auto mb-4 opacity-30" />
             <p className="text-lg font-medium mb-2">Search Files</p>
             <p className="text-sm max-w-md mx-auto">
-              Search for files by name. Enable "Search file contents" to search
-              inside files too.
+              Search for files by name. Enable "Search file contents" to search inside files too.
             </p>
           </div>
         )}
