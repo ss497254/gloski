@@ -8,6 +8,9 @@ interface SettingsState {
   setTheme: (theme: Theme) => void
   sidebarCollapsed: boolean
   toggleSidebar: () => void
+  mobileSidebarOpen: boolean
+  setMobileSidebarOpen: (open: boolean) => void
+  toggleMobileSidebar: () => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -20,6 +23,9 @@ export const useSettingsStore = create<SettingsState>()(
       },
       sidebarCollapsed: false,
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      mobileSidebarOpen: false,
+      setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
+      toggleMobileSidebar: () => set((state) => ({ mobileSidebarOpen: !state.mobileSidebarOpen })),
     }),
     {
       name: 'gloski-settings',
@@ -29,7 +35,7 @@ export const useSettingsStore = create<SettingsState>()(
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement
-  
+
   if (theme === 'system') {
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     root.classList.toggle('dark', systemTheme === 'dark')

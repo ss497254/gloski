@@ -36,7 +36,11 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
   const { theme, setTheme, sidebarCollapsed, toggleSidebar } = useSettingsStore()
 
-  const tabs: { id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  const tabs: {
+    id: SettingsTab
+    label: string
+    icon: React.ComponentType<{ className?: string }>
+  }[] = [
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
     { id: 'data', label: 'Data', icon: Database },
@@ -54,9 +58,7 @@ export function SettingsPage() {
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                activeTab === tab.id
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50'
+                activeTab === tab.id ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50'
               )}
             >
               <tab.icon className="h-4 w-4" />
@@ -116,9 +118,7 @@ function AppearanceSettings({
                 onClick={() => setTheme(t.id)}
                 className={cn(
                   'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors flex-1',
-                  theme === t.id
-                    ? 'border-primary bg-accent'
-                    : 'border-transparent bg-muted hover:bg-accent/50'
+                  theme === t.id ? 'border-primary bg-accent' : 'border-transparent bg-muted hover:bg-accent/50'
                 )}
               >
                 <t.icon className="h-6 w-6" />
@@ -144,15 +144,10 @@ function AppearanceSettings({
               )}
               <div>
                 <p className="font-medium">Collapsed Sidebar</p>
-                <p className="text-sm text-muted-foreground">
-                  Show icons only in the sidebar
-                </p>
+                <p className="text-sm text-muted-foreground">Show icons only in the sidebar</p>
               </div>
             </div>
-            <Button
-              variant={sidebarCollapsed ? 'default' : 'outline'}
-              onClick={toggleSidebar}
-            >
+            <Button variant={sidebarCollapsed ? 'default' : 'outline'} onClick={toggleSidebar}>
               {sidebarCollapsed ? 'Expanded' : 'Collapse'}
             </Button>
           </div>
@@ -185,17 +180,11 @@ function ShortcutsSettings() {
       <CardContent>
         <div className="space-y-3">
           {shortcuts.map((shortcut, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between py-2 border-b last:border-0"
-            >
+            <div key={i} className="flex items-center justify-between py-2 border-b last:border-0">
               <span className="text-sm">{shortcut.description}</span>
               <div className="flex items-center gap-1">
                 {shortcut.keys.map((key, j) => (
-                  <kbd
-                    key={j}
-                    className="px-2 py-1 text-xs font-mono bg-muted rounded border"
-                  >
+                  <kbd key={j} className="px-2 py-1 text-xs font-mono bg-muted rounded border">
                     {key}
                   </kbd>
                 ))}
@@ -322,9 +311,7 @@ function AboutSettings() {
       <Card>
         <CardHeader>
           <CardTitle>Gloski Control Center</CardTitle>
-          <CardDescription>
-            A modern control center for managing Linux servers
-          </CardDescription>
+          <CardDescription>A modern control center for managing Linux servers</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
@@ -334,8 +321,7 @@ function AboutSettings() {
           <Separator />
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              Built with React, TypeScript, Tailwind CSS, and shadcn/ui.
-              Backend powered by Go.
+              Built with React, TypeScript, Tailwind CSS, and shadcn/ui. Backend powered by Go.
             </p>
           </div>
         </CardContent>
@@ -355,9 +341,7 @@ function AboutSettings() {
             <Github className="h-5 w-5" />
             <div className="flex-1">
               <p className="font-medium">GitHub Repository</p>
-              <p className="text-sm text-muted-foreground">
-                View source code and contribute
-              </p>
+              <p className="text-sm text-muted-foreground">View source code and contribute</p>
             </div>
             <ExternalLink className="h-4 w-4 text-muted-foreground" />
           </a>
