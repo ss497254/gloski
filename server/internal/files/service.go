@@ -2,7 +2,9 @@ package files
 
 import (
 	"bufio"
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -65,6 +67,17 @@ func (s *Service) validatePath(path string) (string, error) {
 }
 
 func (s *Service) List(path string) (*ListResponse, error) {
+	return s.ListWithContext(context.Background(), path)
+}
+
+func (s *Service) ListWithContext(ctx context.Context, path string) (*ListResponse, error) {
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	absPath, err := s.validatePath(path)
 	if err != nil {
 		return nil, err
@@ -77,6 +90,13 @@ func (s *Service) List(path string) (*ListResponse, error) {
 
 	fileEntries := make([]FileEntry, 0, len(entries))
 	for _, entry := range entries {
+		// Check context periodically for large directories
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		info, err := entry.Info()
 		if err != nil {
 			continue
@@ -321,19 +341,69 @@ type SearchResult struct {
 	LineNum int    `json:"line_num,omitempty"` // For content search: line number
 }
 
+// SearchOptions configures search behavior
+type SearchOptions struct {
+	Timeout  time.Duration // Maximum search duration (default: 30s)
+	MaxDepth int           // Maximum directory depth (default: 20)
+}
+
+// DefaultSearchOptions returns default search options
+func DefaultSearchOptions() SearchOptions {
+	return SearchOptions{
+		Timeout:  30 * time.Second,
+		MaxDepth: 20,
+	}
+}
+
 // Search searches for files by name or content
 func (s *Service) Search(path, query string, searchContent bool, limit int) ([]SearchResult, error) {
+	return s.SearchWithOptions(context.Background(), path, query, searchContent, limit, DefaultSearchOptions())
+}
+
+// SearchWithContext searches for files with a context for cancellation
+func (s *Service) SearchWithContext(ctx context.Context, path, query string, searchContent bool, limit int) ([]SearchResult, error) {
+	return s.SearchWithOptions(ctx, path, query, searchContent, limit, DefaultSearchOptions())
+}
+
+// SearchWithOptions searches for files with custom options
+func (s *Service) SearchWithOptions(ctx context.Context, path, query string, searchContent bool, limit int, opts SearchOptions) ([]SearchResult, error) {
 	absPath, err := s.validatePath(path)
 	if err != nil {
 		return nil, err
 	}
 
+	// Create a context with timeout
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
+
 	results := []SearchResult{}
 	query = strings.ToLower(query)
 
+	// Track directory depth
+	baseDepth := strings.Count(absPath, string(os.PathSeparator))
+
 	err = filepath.Walk(absPath, func(filePath string, info os.FileInfo, err error) error {
+		// Check for context cancellation/timeout
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if err != nil {
 			return nil // Skip errors (permission denied, etc.)
+		}
+
+		// Check depth limit
+		currentDepth := strings.Count(filePath, string(os.PathSeparator)) - baseDepth
+		if opts.MaxDepth > 0 && currentDepth > opts.MaxDepth {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		// Skip hidden directories (but not hidden files)
@@ -342,7 +412,7 @@ func (s *Service) Search(path, query string, searchContent bool, limit int) ([]S
 		}
 
 		// Skip node_modules and other large directories
-		skipDirs := []string{"node_modules", ".git", "vendor", "__pycache__", ".cache"}
+		skipDirs := []string{"node_modules", ".git", "vendor", "__pycache__", ".cache", ".chunks"}
 		if info.IsDir() {
 			for _, sd := range skipDirs {
 				if info.Name() == sd {
@@ -391,12 +461,158 @@ func (s *Service) Search(path, query string, searchContent bool, limit int) ([]S
 		return nil
 	})
 
+	// Don't return timeout/cancel errors as failures
+	if err == context.DeadlineExceeded || err == context.Canceled {
+		// Return partial results with no error - results are what we found before timeout
+		return results, nil
+	}
+
 	return results, err
 }
 
 type contentMatch struct {
 	lineNum int
 	line    string
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chunked Upload Support
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ChunkUploadInfo holds information about a chunked upload session
+type ChunkUploadInfo struct {
+	UploadID    string `json:"upload_id"`
+	Filename    string `json:"filename"`
+	Destination string `json:"destination"`
+	TotalSize   int64  `json:"total_size"`
+	ChunkSize   int64  `json:"chunk_size"`
+	TotalChunks int    `json:"total_chunks"`
+}
+
+// InitChunkedUpload creates a new chunked upload session
+func (s *Service) InitChunkedUpload(destPath, filename string, totalSize, chunkSize int64) (*ChunkUploadInfo, error) {
+	absPath, err := s.validatePath(destPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure destination is a directory
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, errors.New("destination must be a directory")
+	}
+
+	// Clean filename
+	filename = filepath.Base(filename)
+	if filename == "" || filename == "." || filename == ".." {
+		return nil, errors.New("invalid filename")
+	}
+
+	// Generate upload ID
+	uploadID := fmt.Sprintf("%d-%s", time.Now().UnixNano(), filename)
+
+	totalChunks := int((totalSize + chunkSize - 1) / chunkSize)
+
+	return &ChunkUploadInfo{
+		UploadID:    uploadID,
+		Filename:    filename,
+		Destination: absPath,
+		TotalSize:   totalSize,
+		ChunkSize:   chunkSize,
+		TotalChunks: totalChunks,
+	}, nil
+}
+
+// UploadChunk uploads a single chunk of a file
+func (s *Service) UploadChunk(destPath, filename, uploadID string, chunkIndex int, reader io.Reader) error {
+	absPath, err := s.validatePath(destPath)
+	if err != nil {
+		return err
+	}
+
+	// Create temp directory for chunks if not exists
+	chunkDir := filepath.Join(absPath, ".chunks", uploadID)
+	if err := os.MkdirAll(chunkDir, 0755); err != nil {
+		return fmt.Errorf("failed to create chunk directory: %w", err)
+	}
+
+	// Write chunk to temp file
+	chunkPath := filepath.Join(chunkDir, fmt.Sprintf("chunk_%06d", chunkIndex))
+	f, err := os.Create(chunkPath)
+	if err != nil {
+		return fmt.Errorf("failed to create chunk file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, reader); err != nil {
+		return fmt.Errorf("failed to write chunk: %w", err)
+	}
+
+	return nil
+}
+
+// CompleteChunkedUpload assembles all chunks into the final file
+func (s *Service) CompleteChunkedUpload(destPath, filename, uploadID string, totalChunks int) error {
+	absPath, err := s.validatePath(destPath)
+	if err != nil {
+		return err
+	}
+
+	chunkDir := filepath.Join(absPath, ".chunks", uploadID)
+
+	// Verify all chunks exist
+	for i := 0; i < totalChunks; i++ {
+		chunkPath := filepath.Join(chunkDir, fmt.Sprintf("chunk_%06d", i))
+		if _, err := os.Stat(chunkPath); os.IsNotExist(err) {
+			return fmt.Errorf("missing chunk %d", i)
+		}
+	}
+
+	// Create final file
+	finalPath := filepath.Join(absPath, filename)
+	finalFile, err := os.Create(finalPath)
+	if err != nil {
+		return fmt.Errorf("failed to create final file: %w", err)
+	}
+	defer finalFile.Close()
+
+	// Assemble chunks
+	for i := 0; i < totalChunks; i++ {
+		chunkPath := filepath.Join(chunkDir, fmt.Sprintf("chunk_%06d", i))
+		chunkFile, err := os.Open(chunkPath)
+		if err != nil {
+			finalFile.Close()
+			os.Remove(finalPath)
+			return fmt.Errorf("failed to open chunk %d: %w", i, err)
+		}
+
+		if _, err := io.Copy(finalFile, chunkFile); err != nil {
+			chunkFile.Close()
+			finalFile.Close()
+			os.Remove(finalPath)
+			return fmt.Errorf("failed to copy chunk %d: %w", i, err)
+		}
+		chunkFile.Close()
+	}
+
+	// Cleanup chunk directory
+	os.RemoveAll(chunkDir)
+
+	return nil
+}
+
+// AbortChunkedUpload cleans up an incomplete chunked upload
+func (s *Service) AbortChunkedUpload(destPath, uploadID string) error {
+	absPath, err := s.validatePath(destPath)
+	if err != nil {
+		return err
+	}
+
+	chunkDir := filepath.Join(absPath, ".chunks", uploadID)
+	return os.RemoveAll(chunkDir)
 }
 
 func (s *Service) searchFileContent(path, query string, maxMatches int) []contentMatch {

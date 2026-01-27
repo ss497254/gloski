@@ -245,7 +245,8 @@ func (h *FilesHandler) Search(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	results, err := h.fileService.Search(path, query, searchContent, limit)
+	// Use request context for cancellation
+	results, err := h.fileService.SearchWithContext(r.Context(), path, query, searchContent, limit)
 	if err != nil {
 		h.handleFileError(w, err)
 		return
@@ -380,6 +381,187 @@ func (h *FilesHandler) CreatePinned(w http.ResponseWriter, r *http.Request) {
 		"name":       req.Name,
 		"created_at": createdAt,
 	})
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chunked Upload Handlers
+// ─────────────────────────────────────────────────────────────────────────────
+
+// InitChunkedUploadRequest represents a request to start a chunked upload
+type InitChunkedUploadRequest struct {
+	Filename    string `json:"filename"`
+	Destination string `json:"destination"`
+	TotalSize   int64  `json:"total_size"`
+	ChunkSize   int64  `json:"chunk_size"`
+}
+
+// InitChunkedUpload handles POST /api/files/upload/init
+func (h *FilesHandler) InitChunkedUpload(w http.ResponseWriter, r *http.Request) {
+	var req InitChunkedUploadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.Filename == "" {
+		BadRequest(w, "filename is required")
+		return
+	}
+
+	if req.Destination == "" {
+		BadRequest(w, "destination is required")
+		return
+	}
+
+	if req.TotalSize <= 0 {
+		BadRequest(w, "total_size must be positive")
+		return
+	}
+
+	// Default chunk size to 5MB if not specified
+	if req.ChunkSize <= 0 {
+		req.ChunkSize = 5 * 1024 * 1024
+	}
+
+	info, err := h.fileService.InitChunkedUpload(req.Destination, req.Filename, req.TotalSize, req.ChunkSize)
+	if err != nil {
+		h.handleFileError(w, err)
+		return
+	}
+
+	Success(w, info)
+}
+
+// UploadChunk handles POST /api/files/upload/chunk
+func (h *FilesHandler) UploadChunk(w http.ResponseWriter, r *http.Request) {
+	// Parse multipart form - limit to chunk size + overhead (10MB max per chunk)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		BadRequest(w, "failed to parse form")
+		return
+	}
+
+	uploadID := r.FormValue("upload_id")
+	if uploadID == "" {
+		BadRequest(w, "upload_id is required")
+		return
+	}
+
+	destination := r.FormValue("destination")
+	if destination == "" {
+		BadRequest(w, "destination is required")
+		return
+	}
+
+	filename := r.FormValue("filename")
+	if filename == "" {
+		BadRequest(w, "filename is required")
+		return
+	}
+
+	chunkIndexStr := r.FormValue("chunk_index")
+	chunkIndex, err := strconv.Atoi(chunkIndexStr)
+	if err != nil || chunkIndex < 0 {
+		BadRequest(w, "invalid chunk_index")
+		return
+	}
+
+	file, _, err := r.FormFile("chunk")
+	if err != nil {
+		BadRequest(w, "chunk file is required")
+		return
+	}
+	defer file.Close()
+
+	if err := h.fileService.UploadChunk(destination, filename, uploadID, chunkIndex, file); err != nil {
+		h.handleFileError(w, err)
+		return
+	}
+
+	Success(w, map[string]interface{}{
+		"chunk_index": chunkIndex,
+		"status":      "uploaded",
+	})
+}
+
+// CompleteChunkedUploadRequest represents a request to complete a chunked upload
+type CompleteChunkedUploadRequest struct {
+	UploadID    string `json:"upload_id"`
+	Destination string `json:"destination"`
+	Filename    string `json:"filename"`
+	TotalChunks int    `json:"total_chunks"`
+}
+
+// CompleteChunkedUpload handles POST /api/files/upload/complete
+func (h *FilesHandler) CompleteChunkedUpload(w http.ResponseWriter, r *http.Request) {
+	var req CompleteChunkedUploadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.UploadID == "" {
+		BadRequest(w, "upload_id is required")
+		return
+	}
+
+	if req.Destination == "" {
+		BadRequest(w, "destination is required")
+		return
+	}
+
+	if req.Filename == "" {
+		BadRequest(w, "filename is required")
+		return
+	}
+
+	if req.TotalChunks <= 0 {
+		BadRequest(w, "total_chunks must be positive")
+		return
+	}
+
+	if err := h.fileService.CompleteChunkedUpload(req.Destination, req.Filename, req.UploadID, req.TotalChunks); err != nil {
+		h.handleFileError(w, err)
+		return
+	}
+
+	logger.Info("Chunked upload completed: %s/%s", req.Destination, req.Filename)
+	Success(w, map[string]interface{}{
+		"status":   "completed",
+		"filename": req.Filename,
+	})
+}
+
+// AbortChunkedUploadRequest represents a request to abort a chunked upload
+type AbortChunkedUploadRequest struct {
+	UploadID    string `json:"upload_id"`
+	Destination string `json:"destination"`
+}
+
+// AbortChunkedUpload handles POST /api/files/upload/abort
+func (h *FilesHandler) AbortChunkedUpload(w http.ResponseWriter, r *http.Request) {
+	var req AbortChunkedUploadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.UploadID == "" {
+		BadRequest(w, "upload_id is required")
+		return
+	}
+
+	if req.Destination == "" {
+		BadRequest(w, "destination is required")
+		return
+	}
+
+	if err := h.fileService.AbortChunkedUpload(req.Destination, req.UploadID); err != nil {
+		h.handleFileError(w, err)
+		return
+	}
+
+	logger.Info("Chunked upload aborted: %s", req.UploadID)
+	SuccessWithMessage(w, nil)
 }
 
 // DeletePinned handles DELETE /api/files/pinned/{id} - unpin a folder.

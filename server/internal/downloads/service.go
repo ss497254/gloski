@@ -219,8 +219,16 @@ func (s *Service) processDownload(id string) {
 		s.mu.Unlock()
 	}
 
-	// Progress callback
+	// Progress callback with throttling to reduce lock contention
+	var lastProgressUpdate time.Time
+	const progressUpdateInterval = 100 * time.Millisecond
 	onProgress := func(downloaded int64) {
+		now := time.Now()
+		if now.Sub(lastProgressUpdate) < progressUpdateInterval {
+			return // Throttle updates
+		}
+		lastProgressUpdate = now
+
 		s.speedMu.Lock()
 		var speed int64
 		if tracker, ok := s.speedTrackers[id]; ok {
@@ -339,8 +347,18 @@ func (s *Service) Add(url, destination, filename string) (*Download, error) {
 	s.downloads[download.ID] = download
 	s.mu.Unlock()
 
-	// Add to queue
-	s.queue <- download.ID
+	// Add to queue with backpressure handling
+	select {
+	case s.queue <- download.ID:
+		// Successfully queued
+	default:
+		// Queue is full - return error instead of blocking
+		s.mu.Lock()
+		delete(s.downloads, download.ID)
+		s.mu.Unlock()
+		s.store.Delete(download.ID)
+		return nil, fmt.Errorf("download queue is full, please try again later")
+	}
 
 	return download, nil
 }
@@ -534,6 +552,7 @@ func (s *Service) CreateShareLink(id string, expiresIn *int) (*ShareLink, error)
 		s.mu.Unlock()
 		return nil, fmt.Errorf("can only share completed downloads")
 	}
+	s.mu.Unlock()
 
 	token := uuid.New().String()
 	shareLink := ShareLink{
@@ -547,13 +566,17 @@ func (s *Service) CreateShareLink(id string, expiresIn *int) (*ShareLink, error)
 		shareLink.ExpiresAt = &expiresAt
 	}
 
-	download.ShareLinks = append(download.ShareLinks, shareLink)
-	s.mu.Unlock()
-
-	// Save to database
+	// Save to database first - if this fails, we don't update memory
 	if err := s.store.InsertShareLink(id, &shareLink); err != nil {
 		return nil, fmt.Errorf("failed to save share link: %w", err)
 	}
+
+	// Only update in-memory state after successful DB write
+	s.mu.Lock()
+	if d, ok := s.downloads[id]; ok {
+		d.ShareLinks = append(d.ShareLinks, shareLink)
+	}
+	s.mu.Unlock()
 
 	return &shareLink, nil
 }

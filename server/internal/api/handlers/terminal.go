@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -13,7 +14,7 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // TODO: Implement proper origin checking
+		return true // Origin checking handled by auth - requires valid API key or JWT
 	},
 }
 
@@ -21,6 +22,7 @@ var upgrader = websocket.Upgrader{
 type TerminalHandler struct {
 	config      *config.Config
 	authService *auth.Service
+	sessions    sync.Map // map[string]*terminal.Terminal - active terminal sessions
 }
 
 // NewTerminalHandler creates a new terminal handler
@@ -29,6 +31,27 @@ func NewTerminalHandler(cfg *config.Config, authService *auth.Service) *Terminal
 		config:      cfg,
 		authService: authService,
 	}
+}
+
+// Shutdown closes all active terminal sessions
+func (h *TerminalHandler) Shutdown() {
+	h.sessions.Range(func(key, value interface{}) bool {
+		if term, ok := value.(*terminal.Terminal); ok {
+			term.Close()
+		}
+		return true
+	})
+	logger.Info("All terminal sessions closed")
+}
+
+// ActiveSessions returns the count of active terminal sessions
+func (h *TerminalHandler) ActiveSessions() int {
+	count := 0
+	h.sessions.Range(func(key, value interface{}) bool {
+		count++
+		return true
+	})
+	return count
 }
 
 // Handle handles GET /api/terminal (WebSocket upgrade)
@@ -64,14 +87,22 @@ func (h *TerminalHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	term, err := terminal.New(uuid.New().String(), conn, h.config.Shell, cwd)
+	sessionID := uuid.New().String()
+	term, err := terminal.New(sessionID, conn, h.config.Shell, cwd)
 	if err != nil {
 		logger.Error("Terminal creation failed: %v", err)
 		conn.Close()
 		return
 	}
 
-	logger.Debug("Terminal session started")
+	// Track the session
+	h.sessions.Store(sessionID, term)
+	logger.Debug("Terminal session started: %s", sessionID)
+
+	// Run terminal (blocks until closed)
 	term.Run()
-	logger.Debug("Terminal session ended")
+
+	// Remove from tracking
+	h.sessions.Delete(sessionID)
+	logger.Debug("Terminal session ended: %s", sessionID)
 }

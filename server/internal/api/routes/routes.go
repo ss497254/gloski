@@ -6,6 +6,7 @@ import (
 
 	"github.com/ss497254/gloski/internal/api/handlers"
 	"github.com/ss497254/gloski/internal/api/middleware"
+	"github.com/ss497254/gloski/internal/api/response"
 	"github.com/ss497254/gloski/internal/auth"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/cron"
@@ -39,24 +40,39 @@ type Config struct {
 	Version string
 }
 
-// Setup configures all routes and returns the root handler
-func Setup(cfg Config) http.Handler {
+// RouteHandlers holds references to handlers that need lifecycle management
+type RouteHandlers struct {
+	TerminalHandler *handlers.TerminalHandler
+}
+
+// Setup configures all routes and returns the root handler and handlers reference
+func Setup(cfg Config) (http.Handler, *RouteHandlers) {
+	// Configure response behavior
+	response.SetDetailedErrors(cfg.Cfg.DetailedErrors)
+
+	// Configure JSON body limit
+	if cfg.Cfg.MaxJSONBodySize > 0 {
+		middleware.SetJSONBodyLimit(cfg.Cfg.MaxJSONBodySize)
+	}
+
 	mux := http.NewServeMux()
 
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler()
-	healthHandler.SetFeatures(cfg.Features)
-	if cfg.Version != "" {
-		healthHandler.SetVersion(cfg.Version)
-	}
 	authHandler := handlers.NewAuthHandler(cfg.AuthService)
 	systemHandler := handlers.NewSystemHandler(cfg.SysService)
 	filesHandler := handlers.NewFilesHandler(cfg.FileService)
 	terminalHandler := handlers.NewTerminalHandler(cfg.Cfg, cfg.AuthService)
 
-	// Set features if available
+	// Configure system handler with features, version, and DB
 	if cfg.Features != nil {
 		systemHandler.SetFeatures(cfg.Features)
+	}
+	if cfg.Version != "" {
+		systemHandler.SetVersion(cfg.Version)
+	}
+	if cfg.DB != nil {
+		systemHandler.SetDB(cfg.DB)
 	}
 
 	// Optional handlers
@@ -75,6 +91,7 @@ func Setup(cfg Config) http.Handler {
 	mux.Handle("GET /api/auth/status", requireAuth(http.HandlerFunc(authHandler.Status)))
 
 	// System routes (protected)
+	mux.Handle("GET /api/system/status", requireAuth(http.HandlerFunc(systemHandler.Status)))
 	mux.Handle("GET /api/system/stats", requireAuth(http.HandlerFunc(systemHandler.GetStats)))
 	mux.Handle("GET /api/system/stats/history", requireAuth(http.HandlerFunc(systemHandler.GetStatsHistory)))
 	mux.Handle("GET /api/system/info", requireAuth(http.HandlerFunc(systemHandler.GetInfo)))
@@ -89,6 +106,12 @@ func Setup(cfg Config) http.Handler {
 	mux.Handle("DELETE /api/files", requireAuth(http.HandlerFunc(filesHandler.Delete)))
 	mux.Handle("POST /api/files/upload", requireAuth(http.HandlerFunc(filesHandler.Upload)))
 	mux.Handle("GET /api/files/download", requireAuth(http.HandlerFunc(filesHandler.Download)))
+
+	// Chunked upload routes (for large files)
+	mux.Handle("POST /api/files/upload/init", requireAuth(http.HandlerFunc(filesHandler.InitChunkedUpload)))
+	mux.Handle("POST /api/files/upload/chunk", requireAuth(http.HandlerFunc(filesHandler.UploadChunk)))
+	mux.Handle("POST /api/files/upload/complete", requireAuth(http.HandlerFunc(filesHandler.CompleteChunkedUpload)))
+	mux.Handle("POST /api/files/upload/abort", requireAuth(http.HandlerFunc(filesHandler.AbortChunkedUpload)))
 
 	// Pinned folders routes (protected, part of files resource)
 	if cfg.DB != nil {
@@ -157,10 +180,15 @@ func Setup(cfg Config) http.Handler {
 		MaxAge:         86400,
 	}
 
-	handler := middleware.Chain(
+	router := middleware.Chain(
 		middleware.Logging,
 		middleware.CORS(corsConfig),
+		middleware.LimitJSONBody, // Limit JSON request bodies (not file uploads)
 	)(mux)
 
-	return handler
+	routeHandlers := &RouteHandlers{
+		TerminalHandler: terminalHandler,
+	}
+
+	return router, routeHandlers
 }

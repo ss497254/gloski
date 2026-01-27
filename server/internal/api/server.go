@@ -9,8 +9,9 @@ import (
 
 // Server represents the HTTP server
 type Server struct {
-	router http.Handler
-	app    *app.App
+	router   http.Handler
+	app      *app.App
+	handlers *routes.RouteHandlers
 }
 
 // ServerOptions contains options for creating a new server.
@@ -26,7 +27,7 @@ func NewServer(application *app.App, opts ...ServerOptions) *Server {
 	}
 
 	// Setup routes with all services from the app
-	handler := routes.Setup(routes.Config{
+	router, handlers := routes.Setup(routes.Config{
 		Cfg:             application.Config,
 		AuthService:     application.Auth,
 		FileService:     application.Files,
@@ -41,12 +42,20 @@ func NewServer(application *app.App, opts ...ServerOptions) *Server {
 	})
 
 	return &Server{
-		router: handler,
-		app:    application,
+		router:   router,
+		app:      application,
+		handlers: handlers,
 	}
 }
 
 // Router returns the HTTP handler for the server
 func (s *Server) Router() http.Handler {
 	return s.router
+}
+
+// Shutdown closes all server resources (terminal sessions, etc.)
+func (s *Server) Shutdown() {
+	if s.handlers != nil && s.handlers.TerminalHandler != nil {
+		s.handlers.TerminalHandler.Shutdown()
+	}
 }
