@@ -1,40 +1,44 @@
-import { useState } from 'react'
-import { Button } from '@/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
-import { Badge } from '@/ui/badge'
-import { Separator } from '@/ui/separator'
-import { PageLayout } from '@/layouts'
-import { useSettingsStore } from '../stores/settings'
+import { useActivityStore } from '@/features/activity'
 import { useBookmarksStore } from '@/features/bookmarks'
 import { useMessagesStore } from '@/features/messages'
 import { useNotesStore } from '@/features/notes'
-import { useSnippetsStore } from '@/features/snippets'
-import { useActivityStore } from '@/features/activity'
 import { useServersStore } from '@/features/servers'
+import { useSnippetsStore } from '@/features/snippets'
+import { PageLayout } from '@/layouts'
+import { ConfirmDialog } from '@/shared/components'
 import { cn } from '@/shared/lib/utils'
+import { Badge } from '@/ui/badge'
+import { Button } from '@/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
+import { Separator } from '@/ui/separator'
 import {
-  Sun,
-  Moon,
-  Monitor,
-  Palette,
-  Keyboard,
   Database,
-  Info,
   Download,
-  Upload,
-  Trash2,
-  Github,
   ExternalLink,
-  PanelLeftClose,
+  Github,
+  Info,
+  Keyboard,
+  Monitor,
+  Moon,
+  Palette,
   PanelLeft,
+  PanelLeftClose,
+  Sun,
+  Trash2,
+  Upload,
 } from 'lucide-react'
+import { useState } from 'react'
 import { toast } from 'sonner'
+import { useSettingsStore } from '../stores/settings'
 
 type SettingsTab = 'appearance' | 'shortcuts' | 'data' | 'about'
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
-  const { theme, setTheme, sidebarCollapsed, toggleSidebar } = useSettingsStore()
+  const theme = useSettingsStore((s) => s.theme)
+  const setTheme = useSettingsStore((s) => s.setTheme)
+  const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed)
+  const toggleSidebar = useSettingsStore((s) => s.toggleSidebar)
 
   const tabs: {
     id: SettingsTab
@@ -204,6 +208,7 @@ function DataSettings() {
   const snippets = useSnippetsStore((s) => s.snippets)
   const activity = useActivityStore((s) => s.items)
   const servers = useServersStore((s) => s.servers)
+  const [showClearDialog, setShowClearDialog] = useState(false)
 
   const handleExport = () => {
     const data = {
@@ -228,11 +233,9 @@ function DataSettings() {
   }
 
   const handleClearAll = () => {
-    if (confirm('This will clear all local data. Are you sure?')) {
-      localStorage.clear()
-      toast.success('All data cleared. Refreshing...')
-      setTimeout(() => window.location.reload(), 1000)
-    }
+    localStorage.clear()
+    toast.success('All data cleared. Refreshing...')
+    setTimeout(() => window.location.reload(), 1000)
   }
 
   return (
@@ -295,12 +298,22 @@ function DataSettings() {
           <CardDescription>Irreversible actions</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="destructive" onClick={handleClearAll}>
+          <Button variant="destructive" onClick={() => setShowClearDialog(true)}>
             <Trash2 className="h-4 w-4 mr-2" />
             Clear All Data
           </Button>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={showClearDialog}
+        onOpenChange={setShowClearDialog}
+        title="Clear all data?"
+        description="This will permanently delete all your servers, bookmarks, notes, snippets, messages, and activity history. This action cannot be undone."
+        confirmLabel="Clear all data"
+        variant="destructive"
+        onConfirm={handleClearAll}
+      />
     </>
   )
 }

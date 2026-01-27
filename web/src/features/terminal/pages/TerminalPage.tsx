@@ -1,4 +1,4 @@
-import { useServer } from '@/features/servers/hooks/use-server'
+import { useServer } from '@/features/servers'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import type { TerminalConnection } from '@gloski/sdk'
@@ -6,10 +6,9 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
-import 'https://www.nerdfonts.com/assets/css/webfont.css'
 import { Plus, Terminal as TerminalIcon, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 
 interface TerminalTab {
   id: string
@@ -36,8 +35,6 @@ export function TerminalPage() {
 
   const createTerminalInstance = useCallback(
     (tabId: string, container: HTMLDivElement, cwd?: string) => {
-      if (!server) return
-
       const term = new Terminal({
         cursorBlink: true,
         fontSize: 14,
@@ -206,15 +203,11 @@ export function TerminalPage() {
     [destroyTerminalInstance]
   )
 
-  // Redirect if no server (after all hooks)
-  if (!server) {
-    return <Navigate to="/" replace />
-  }
-
   return (
     <div className="h-full flex flex-col bg-[#0d1117]">
       {/* Tab bar */}
       <div className="flex items-center border-b border-[#30363d] bg-[#161b22]">
+        <style href="https://www.nerdfonts.com/assets/css/webfont.css" />
         <div className="flex-1 flex items-center overflow-x-auto">
           {tabs.map((tab) => (
             <button
@@ -232,9 +225,10 @@ export function TerminalPage() {
               {tabs.length > 1 && (
                 <button
                   onClick={(e) => closeTab(tab.id, e)}
-                  className="ml-1 p-0.5 rounded hover:bg-[#30363d] transition-colors"
+                  className="ml-1 p-1.5 -m-0.5 rounded hover:bg-[#30363d] transition-colors"
+                  aria-label={`Close ${tab.title}`}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </button>

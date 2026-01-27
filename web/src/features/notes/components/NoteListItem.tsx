@@ -1,5 +1,6 @@
-import { Button } from '@/ui/button'
+import { cn, formatRelativeTime } from '@/shared/lib/utils'
 import { Badge } from '@/ui/badge'
+import { Button } from '@/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,22 +8,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
-import { Pin, Trash2, MoreVertical } from 'lucide-react'
-import { cn, formatRelativeTime } from '@/shared/lib/utils'
+import { MoreVertical, Pin, Trash2 } from 'lucide-react'
 import type { Note } from '../stores/notes'
 
 interface NoteListItemProps {
   note: Note
   isSelected: boolean
-  onSelect: () => void
-  onTogglePin: () => void
-  onDelete: () => void
+  onSelect: (id: string) => void
+  onTogglePin: (id: string) => void
+  onDelete: (id: string) => void
 }
 
 export function NoteListItem({ note, isSelected, onSelect, onTogglePin, onDelete }: NoteListItemProps) {
+  const handleSelect = () => onSelect(note.id)
+  const handleTogglePin = () => onTogglePin(note.id)
+  const handleDelete = () => onDelete(note.id)
   return (
     <button
-      onClick={onSelect}
+      onClick={handleSelect}
       className={cn(
         'w-full text-left p-3 rounded-lg transition-colors group',
         isSelected ? 'bg-accent' : 'hover:bg-muted/50'
@@ -57,12 +60,12 @@ export function NoteListItem({ note, isSelected, onSelect, onTogglePin, onDelete
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onTogglePin}>
+            <DropdownMenuItem onClick={handleTogglePin}>
               <Pin className="h-4 w-4 mr-2" />
               {note.pinned ? 'Unpin' : 'Pin'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-destructive">
+            <DropdownMenuItem onClick={handleDelete} className="text-destructive">
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </DropdownMenuItem>

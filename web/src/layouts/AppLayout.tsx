@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import { TooltipProvider } from '@/ui/tooltip'
-import { Sidebar, MobileSidebar } from './Sidebar'
+import { MobileSidebar, Sidebar } from './Sidebar'
 import { CommandPalette } from '@/shared/components/CommandPalette'
 import { PageLoader } from '@/shared/components'
 import { useSettingsStore } from '@/features/settings'

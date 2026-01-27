@@ -1,24 +1,24 @@
-import { useState, useMemo } from 'react'
-import { Button } from '@/ui/button'
-import { Badge } from '@/ui/badge'
-import { ScrollArea } from '@/ui/scroll-area'
 import { PageLayout } from '@/layouts'
 import { EmptyState } from '@/shared/components'
-import { useMessagesStore, type Message, type MessageType } from '../stores/messages'
 import { cn, formatRelativeTime } from '@/shared/lib/utils'
+import { Badge } from '@/ui/badge'
+import { Button } from '@/ui/button'
+import { ScrollArea } from '@/ui/scroll-area'
 import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCheck,
+  CheckCircle,
+  Filter,
+  Info,
   Mail,
   MailOpen,
   Star,
   Trash2,
-  CheckCheck,
-  Info,
-  AlertTriangle,
-  CheckCircle,
   XCircle,
-  Filter,
-  ArrowLeft,
 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { type Message, type MessageType, useMessagesStore } from '../stores/messages'
 
 const typeIcons: Record<MessageType, React.ComponentType<{ className?: string }>> = {
   info: Info,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent } from '@/ui/dialog'
 import { Input } from '@/ui/input'
@@ -6,7 +6,7 @@ import { ScrollArea } from '@/ui/scroll-area'
 import { features, getMainFeatures, getWorkspaceFeatures } from '@/app/feature-registry'
 import { useServersStore } from '@/features/servers'
 import { cn } from '@/shared/lib/utils'
-import { Search, ArrowRight, Plus, Moon, Sun, Server } from 'lucide-react'
+import { ArrowRight, Moon, Plus, Search, Server, Sun } from 'lucide-react'
 import { useSettingsStore } from '@/features/settings'
 
 interface CommandItem {
@@ -24,7 +24,8 @@ export function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const navigate = useNavigate()
   const servers = useServersStore((s) => s.servers)
-  const { theme, setTheme } = useSettingsStore()
+  const theme = useSettingsStore((s) => s.theme)
+  const setTheme = useSettingsStore((s) => s.setTheme)
 
   const commands = useMemo<CommandItem[]>(() => {
     const items: CommandItem[] = []

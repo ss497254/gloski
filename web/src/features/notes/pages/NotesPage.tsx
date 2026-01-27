@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { PageLayout } from '@/layouts'
+import { EmptyState, FilterSidebar, SearchInput } from '@/shared/components'
+import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import { ScrollArea } from '@/ui/scroll-area'
-import { PageLayout } from '@/layouts'
-import { SearchInput, FilterSidebar, EmptyState } from '@/shared/components'
+import { ArrowLeft, FileText, Folder, Plus } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { NoteEditor, NoteListItem } from '../components'
 import { useNotesPage } from '../hooks/use-notes-page'
-import { NoteListItem, NoteEditor } from '../components'
-import { Plus, FileText, Folder, ArrowLeft } from 'lucide-react'
-import { cn } from '@/shared/lib/utils'
 
 export function NotesPage() {
   const {
@@ -32,21 +32,24 @@ export function NotesPage() {
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list')
 
   // When selecting a note on mobile, switch to editor view
-  const handleSelectNote = (noteId: string) => {
-    selectNote(noteId)
-    setMobileView('editor')
-  }
+  const handleSelectNote = useCallback(
+    (noteId: string) => {
+      selectNote(noteId)
+      setMobileView('editor')
+    },
+    [selectNote]
+  )
 
   // Go back to list view on mobile
-  const handleBackToList = () => {
+  const handleBackToList = useCallback(() => {
     setMobileView('list')
-  }
+  }, [])
 
   // Handle create note - switch to editor view on mobile
-  const handleCreateNote = () => {
+  const handleCreateNote = useCallback(() => {
     createNote()
     setMobileView('editor')
-  }
+  }, [createNote])
 
   return (
     <PageLayout
@@ -97,9 +100,9 @@ export function NotesPage() {
                   key={note.id}
                   note={note}
                   isSelected={selectedNote?.id === note.id}
-                  onSelect={() => handleSelectNote(note.id)}
-                  onTogglePin={() => togglePin(note.id)}
-                  onDelete={() => deleteNote(note.id)}
+                  onSelect={handleSelectNote}
+                  onTogglePin={togglePin}
+                  onDelete={deleteNote}
                 />
               ))}
             </div>

@@ -1,12 +1,12 @@
-import { Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { features, serverFeatures } from '@/app/feature-registry'
 import { AppLayout } from '@/layouts'
 import { PageLoader } from '@/shared/components'
 import { Toaster } from '@/ui/sonner'
-import { features, serverFeatures } from '@/app/feature-registry'
+import { Suspense } from 'react'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
-// Special pages not in registry
-import { AddServerPage } from '@/features/servers'
+// Special pages and providers
+import { AddServerPage, ServerProvider } from '@/features/servers'
 
 function App() {
   return (
@@ -31,15 +31,17 @@ function App() {
               />
             ))}
 
-            {/* Server-scoped features from registry */}
+            {/* Server-scoped features from registry - wrapped with ServerProvider */}
             {serverFeatures.map((feature) => (
               <Route
                 key={feature.id}
                 path={feature.path}
                 element={
-                  <Suspense fallback={<PageLoader />}>
-                    <feature.component />
-                  </Suspense>
+                  <ServerProvider>
+                    <Suspense fallback={<PageLoader />}>
+                      <feature.component />
+                    </Suspense>
+                  </ServerProvider>
                 }
               />
             ))}

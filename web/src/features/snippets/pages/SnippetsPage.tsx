@@ -1,13 +1,17 @@
-import { useState, useMemo } from 'react'
-import { Button } from '@/ui/button'
 import { PageLayout } from '@/layouts'
-import { SearchInput, EmptyState } from '@/shared/components'
-import { useSnippetsStore, type Snippet } from '../stores/snippets'
-import { SnippetCard, SnippetDialog, LanguageFilter } from '../components'
-import { Plus, Code2 } from 'lucide-react'
+import { EmptyState, SearchInput } from '@/shared/components'
+import { Button } from '@/ui/button'
+import { Code2, Plus } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { LanguageFilter, SnippetCard, SnippetDialog } from '../components'
+import { type Snippet, useSnippetsStore } from '../stores/snippets'
 
 export function SnippetsPage() {
-  const { snippets, addSnippet, updateSnippet, deleteSnippet, toggleFavorite } = useSnippetsStore()
+  const snippets = useSnippetsStore((s) => s.snippets)
+  const addSnippet = useSnippetsStore((s) => s.addSnippet)
+  const updateSnippet = useSnippetsStore((s) => s.updateSnippet)
+  const deleteSnippet = useSnippetsStore((s) => s.deleteSnippet)
+  const toggleFavorite = useSnippetsStore((s) => s.toggleFavorite)
 
   const [search, setSearch] = useState('')
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null)

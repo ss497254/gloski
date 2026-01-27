@@ -1,9 +1,16 @@
 import { useFilter } from '@/shared/hooks'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNotesStore, type Note } from '../stores/notes'
+import { type Note, useNotesStore } from '../stores/notes'
 
 export function useNotesPage() {
-  const { notes, folders, selectedNoteId, addNote, updateNote, deleteNote, togglePin, selectNote } = useNotesStore()
+  const notes = useNotesStore((s) => s.notes)
+  const folders = useNotesStore((s) => s.folders)
+  const selectedNoteId = useNotesStore((s) => s.selectedNoteId)
+  const addNote = useNotesStore((s) => s.addNote)
+  const updateNote = useNotesStore((s) => s.updateNote)
+  const deleteNote = useNotesStore((s) => s.deleteNote)
+  const togglePin = useNotesStore((s) => s.togglePin)
+  const selectNote = useNotesStore((s) => s.selectNote)
 
   // Edit state for the selected note
   const [editTitle, setEditTitle] = useState('')

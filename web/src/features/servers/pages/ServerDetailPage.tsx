@@ -1,15 +1,24 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { RefreshCw, MonitorCog, WifiOff, ShieldAlert } from 'lucide-react'
-import { Button } from '@/ui/button'
-import { Card, CardContent, CardHeader } from '@/ui/card'
-import { Skeleton } from '@/ui/skeleton'
-import { Badge } from '@/ui/badge'
+import { DiskUsage, MemoryWidget, NetworkStatsWidget, QuickStats, SystemOverview } from '@/features/dashboard'
 import { EmptyState } from '@/shared/components'
-import { SystemOverview, QuickStats, DiskUsage, NetworkStatsWidget, MemoryWidget } from '@/features/dashboard'
-import { useServersStore } from '../stores/servers'
-import type { SystemStats } from '@/shared/lib/types'
+import type { ServerStatus, SystemStats } from '@/shared/lib/types'
 import { cn } from '@/shared/lib/utils'
+import { Badge } from '@/ui/badge'
+import { Button } from '@/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
+import { Skeleton } from '@/ui/skeleton'
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  CircleDashed,
+  MonitorCog,
+  RefreshCw,
+  ShieldAlert,
+  WifiOff,
+} from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useServersStore } from '../stores/servers'
 
 function ServerDetailSkeleton() {
   return (
@@ -93,6 +102,7 @@ export function ServerDetailPage() {
   const server = serverId ? getServer(serverId) : undefined
 
   const [stats, setStats] = useState<SystemStats | null>(null)
+  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const fetchInProgressRef = useRef(false)
@@ -110,8 +120,11 @@ export function ServerDetailPage() {
 
     try {
       fetchInProgressRef.current = true
-      const data = await currentServer.getClient().system.getStats()
-      setStats(data)
+      const client = currentServer.getClient()
+      // Fetch both stats and status in parallel
+      const [statsData, statusData] = await Promise.all([client.system.getStats(), client.system.getStatus()])
+      setStats(statsData)
+      setServerStatus(statusData)
       setError(null)
       // Only update status if it changed
       if (currentServer.status !== 'online') {
@@ -203,6 +216,19 @@ export function ServerDetailPage() {
 
   const quickActions = [{ to: `/servers/${serverId}/os`, icon: MonitorCog, label: 'OS' }]
 
+  const getHealthCheckIcon = (status: string) => {
+    switch (status) {
+      case 'healthy':
+        return <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+      case 'unhealthy':
+        return <AlertCircle className="h-4 w-4 text-red-500" />
+      case 'warning':
+        return <AlertTriangle className="h-4 w-4 text-yellow-500" />
+      default:
+        return <CircleDashed className="h-4 w-4 text-muted-foreground" />
+    }
+  }
+
   return (
     <div className="h-full overflow-auto">
       {/* Header */}
@@ -211,9 +237,25 @@ export function ServerDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{server.name}</h1>
-              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                Online
+              <Badge
+                variant="outline"
+                className={cn(
+                  serverStatus?.status === 'healthy'
+                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                    : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                )}
+              >
+                {serverStatus?.status === 'healthy'
+                  ? 'Healthy'
+                  : serverStatus?.status === 'degraded'
+                    ? 'Degraded'
+                    : 'Online'}
               </Badge>
+              {serverStatus?.version && (
+                <Badge variant="secondary" className="text-xs">
+                  v{serverStatus.version}
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {stats.hostname} &middot; {server.url}
@@ -251,7 +293,90 @@ export function ServerDetailPage() {
           <DiskUsage disks={stats.disks} />
           <NetworkStatsWidget network={stats.network} />
         </div>
+
+        {/* Server Status & Health Checks */}
+        {serverStatus && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Health Checks */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Health Checks</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Object.entries(serverStatus.checks).map(([name, check]) => (
+                    <div key={name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {getHealthCheckIcon(check.status)}
+                        <span className="text-sm font-medium capitalize">{name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs capitalize',
+                            check.status === 'healthy' && 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+                            check.status === 'unhealthy' && 'bg-red-500/10 text-red-600 border-red-500/20',
+                            check.status === 'warning' && 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+                            check.status === 'unavailable' && 'bg-gray-500/10 text-gray-600 border-gray-500/20'
+                          )}
+                        >
+                          {check.status}
+                        </Badge>
+                        {check.message && <span className="text-xs text-muted-foreground">{check.message}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Go Runtime Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Runtime Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Go Version</p>
+                    <p className="text-sm font-medium">{serverStatus.go.version}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">CPU Cores</p>
+                    <p className="text-sm font-medium">{serverStatus.go.num_cpu}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Goroutines</p>
+                    <p className="text-sm font-medium">{serverStatus.go.goroutines}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Memory Usage</p>
+                    <p className="text-sm font-medium">{serverStatus.go.memory_mb} MB</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Server Uptime</p>
+                    <p className="text-sm font-medium">{formatUptime(serverStatus.uptime)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Server Version</p>
+                    <p className="text-sm font-medium">{serverStatus.version}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   )
+}
+
+function formatUptime(seconds: number): string {
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
 }

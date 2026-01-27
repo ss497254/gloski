@@ -1,13 +1,13 @@
-import { NavLink, useParams, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { NavItem } from './NavItem'
 import { ServerNav } from './ServerNav'
-import { getMainFeatures, getWorkspaceFeatures, getSettingsFeature } from '@/app/feature-registry'
+import { getMainFeatures, getSettingsFeature, getWorkspaceFeatures } from '@/app/feature-registry'
 import { useSettingsStore } from '@/features/settings'
 import { useMessagesStore } from '@/features/messages'
 import { useServersStore } from '@/features/servers'
 import { cn } from '@/shared/lib/utils'
-import { Layers, ChevronLeft, ChevronRight, Plus, Command, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Command, Layers, Plus, X } from 'lucide-react'
 
 interface SidebarProps {
   className?: string
@@ -15,7 +15,8 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const { serverId } = useParams()
-  const { sidebarCollapsed, toggleSidebar } = useSettingsStore()
+  const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed)
+  const toggleSidebar = useSettingsStore((s) => s.toggleSidebar)
   const unreadCount = useMessagesStore((s) => s.messages.filter((m) => !m.read).length)
   const servers = useServersStore((s) => s.servers)
   const currentServer = servers.find((s) => s.id === serverId)
@@ -224,7 +225,8 @@ export function Sidebar({ className }: SidebarProps) {
 export function MobileSidebar() {
   const { serverId } = useParams()
   const location = useLocation()
-  const { mobileSidebarOpen, setMobileSidebarOpen } = useSettingsStore()
+  const mobileSidebarOpen = useSettingsStore((s) => s.mobileSidebarOpen)
+  const setMobileSidebarOpen = useSettingsStore((s) => s.setMobileSidebarOpen)
   const unreadCount = useMessagesStore((s) => s.messages.filter((m) => !m.read).length)
   const servers = useServersStore((s) => s.servers)
   const currentServer = servers.find((s) => s.id === serverId)
