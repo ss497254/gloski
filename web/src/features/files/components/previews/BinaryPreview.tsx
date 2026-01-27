@@ -1,4 +1,4 @@
-import { FileQuestion, Download } from 'lucide-react'
+import { Download, FileQuestion } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { formatFileSize } from '../../lib/file-types'
 

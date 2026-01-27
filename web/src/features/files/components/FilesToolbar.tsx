@@ -1,6 +1,5 @@
-import type { RefObject } from 'react'
+import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
-import { Input } from '@/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,31 +7,32 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
+import { Input } from '@/ui/input'
 import {
-  Home,
-  ChevronRight,
   ArrowLeft,
-  RefreshCw,
-  FolderPlus,
+  CheckSquare,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Download,
   FilePlus,
-  Upload,
+  FileType,
+  FolderPlus,
+  HardDrive,
+  Home,
   LayoutGrid,
   List,
-  Search,
-  X,
-  SortAsc,
-  SortDesc,
-  FileType,
-  HardDrive,
-  Clock,
-  ChevronDown,
   Loader2,
   Menu,
+  RefreshCw,
+  Search,
+  SortAsc,
+  SortDesc,
   Trash2,
-  Download,
-  CheckSquare,
+  Upload,
+  X,
 } from 'lucide-react'
-import { cn } from '@/shared/lib/utils'
+import type { RefObject } from 'react'
 import { getPathParts } from '../lib/file-utils'
 
 export type ViewMode = 'list' | 'grid'

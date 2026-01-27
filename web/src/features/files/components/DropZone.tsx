@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, type DragEvent, type ReactNode } from 'react'
-import { Upload } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
+import { Upload } from 'lucide-react'
+import { type DragEvent, type ReactNode, useCallback, useRef, useState } from 'react'
 
 interface DropZoneProps {
   onDrop: (files: File[]) => void

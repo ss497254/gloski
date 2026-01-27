@@ -105,14 +105,15 @@ export function FileEntryItem({
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
         >
-          {/* Checkbox */}
+          {/* Checkbox - increased touch target with padding */}
           {viewMode === 'list' && (
             <button
               onClick={handleCheckboxClick}
               className={cn(
-                'shrink-0 transition-opacity',
+                'shrink-0 transition-opacity p-1.5 -m-1.5 rounded-md hover:bg-accent/50',
                 showCheckbox || isChecked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
               )}
+              aria-label={isChecked ? 'Deselect file' : 'Select file'}
             >
               {isChecked ? (
                 <CheckSquare className="h-4 w-4 text-primary" />

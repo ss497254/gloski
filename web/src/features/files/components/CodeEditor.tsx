@@ -1,5 +1,5 @@
-import { useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
 import { cn } from '@/shared/lib/utils'
+import { type KeyboardEvent, useCallback, useEffect, useRef } from 'react'
 
 interface CodeEditorProps {
   value: string

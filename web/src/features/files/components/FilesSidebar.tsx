@@ -1,8 +1,8 @@
-import { Home, FolderOpen, Pin, PinOff, X, FolderRoot, FolderDown } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import { ScrollArea } from '@/ui/scroll-area'
-import { useFilesStore, type PinnedFolder } from '../stores/files'
+import { FolderDown, FolderOpen, FolderRoot, Home, Pin, PinOff, X } from 'lucide-react'
+import { type PinnedFolder, useFilesStore } from '../stores/files'
 
 interface FilesSidebarProps {
   currentPath: string

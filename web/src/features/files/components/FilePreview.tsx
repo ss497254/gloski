@@ -1,10 +1,10 @@
-import { useState } from 'react'
-import { Button } from '@/ui/button'
-import { FileText, Pencil, Save, X, Loader2, Download, AlertTriangle } from 'lucide-react'
-import { formatSize, formatDate } from '../lib/file-utils'
-import { getFileType, shouldWarnLargeFile, formatFileSize, isTextFile } from '../lib/file-types'
-import { ImagePreview, VideoPreview, AudioPreview, TextPreview, PdfPreview, BinaryPreview } from './previews'
 import type { FileEntry } from '@/shared/lib/types'
+import { Button } from '@/ui/button'
+import { AlertTriangle, Download, FileText, Loader2, Pencil, Save, X } from 'lucide-react'
+import { useState } from 'react'
+import { formatFileSize, getFileType, isTextFile, shouldWarnLargeFile } from '../lib/file-types'
+import { formatDate, formatSize } from '../lib/file-utils'
+import { AudioPreview, BinaryPreview, ImagePreview, PdfPreview, TextPreview, VideoPreview } from './previews'
 
 interface FilePreviewProps {
   file: FileEntry

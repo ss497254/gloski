@@ -1,5 +1,5 @@
+import { AlertCircle, Loader2, Music } from 'lucide-react'
 import { useState } from 'react'
-import { Loader2, AlertCircle, Music } from 'lucide-react'
 
 interface AudioPreviewProps {
   src: string
@@ -26,10 +26,7 @@ export function AudioPreview({ src, filename }: AudioPreviewProps) {
         </div>
       ) : (
         <>
-          <div
-            className="flex flex-col items-center gap-3"
-            style={{ display: loading ? 'none' : 'flex' }}
-          >
+          <div className="flex flex-col items-center gap-3" style={{ display: loading ? 'none' : 'flex' }}>
             <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center">
               <Music className="h-16 w-16 text-muted-foreground" />
             </div>
