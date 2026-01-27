@@ -5,7 +5,6 @@ import { Card, CardContent } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
 import { Badge } from '@/ui/badge'
 import { useServersStore, getSortedServers, type Server } from '@/features/servers'
-import { createServerApi } from '@/shared/services/api'
 import type { SystemStats } from '@/shared/lib/types'
 import { cn } from '@/shared/lib/utils'
 import {
@@ -147,24 +146,23 @@ function ServerCard(props: ServerWithStats) {
   return (
     <Link to={`/servers/${server.id}`} className="block group">
       <Card className="h-full transition-all duration-200 hover:shadow-md hover:border-primary/30 group-hover:bg-accent/30">
-        <CardContent className="pt-6">
+        <CardContent>
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className={cn(
-                'h-10 w-10 rounded-lg flex items-center justify-center transition-colors',
-                server.status === 'online' ? 'bg-primary/10' : 'bg-muted'
-              )}>
-                <ServerIcon className={cn(
-                  'h-5 w-5',
-                  server.status === 'online' ? 'text-primary' : 'text-muted-foreground'
-                )} />
+              <div
+                className={cn(
+                  'h-10 w-10 rounded-lg flex items-center justify-center transition-colors',
+                  server.status === 'online' ? 'bg-primary/10' : 'bg-muted'
+                )}
+              >
+                <ServerIcon
+                  className={cn('h-5 w-5', server.status === 'online' ? 'text-primary' : 'text-muted-foreground')}
+                />
               </div>
               <div>
-                <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
-                  {server.name}
-                </h3>
-                <p className="text-xs text-muted-foreground truncate max-w-[160px]">
+                <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">{server.name}</h3>
+                <p className="text-xs text-muted-foreground truncate max-w-40">
                   {stats?.hostname || new URL(server.url).hostname}
                 </p>
               </div>
@@ -185,9 +183,7 @@ function ServerCard(props: ServerWithStats) {
                     <Cpu className="h-3 w-3" />
                     CPU
                   </span>
-                  <span className="font-medium tabular-nums">
-                    {stats.cpu.usage_percent.toFixed(1)}%
-                  </span>
+                  <span className="font-medium tabular-nums">{stats.cpu.usage_percent.toFixed(1)}%</span>
                 </div>
                 <UsageBar value={stats.cpu.usage_percent} />
               </div>
@@ -199,9 +195,7 @@ function ServerCard(props: ServerWithStats) {
                     <MemoryStick className="h-3 w-3" />
                     Memory
                   </span>
-                  <span className="font-medium tabular-nums">
-                    {stats.memory.used_percent.toFixed(1)}%
-                  </span>
+                  <span className="font-medium tabular-nums">{stats.memory.used_percent.toFixed(1)}%</span>
                 </div>
                 <UsageBar value={stats.memory.used_percent} />
               </div>
@@ -272,7 +266,7 @@ export function DashboardPage() {
   // Fetch stats for all servers
   useEffect(() => {
     // Get fresh server list from store to avoid stale closures
-    const currentServers = useServersStore.getState().servers
+    const { servers: currentServers } = useServersStore.getState()
 
     const fetchAllStats = async () => {
       const results = await Promise.all(
@@ -282,8 +276,7 @@ export function DashboardPage() {
           }
 
           try {
-            const api = createServerApi(server)
-            const stats = await api.stats()
+            const stats = await server.getClient().system.getStats()
             // Only update if status changed to avoid unnecessary re-renders
             if (server.status !== 'online') {
               updateServer(server.id, { status: 'online' })
@@ -309,7 +302,6 @@ export function DashboardPage() {
     }
 
     if (currentServers.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setServersWithStats([])
       return
     }
@@ -335,8 +327,8 @@ export function DashboardPage() {
   return (
     <div className="h-full overflow-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 border-b">
-        <div className="flex items-center justify-between px-6 h-18">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+        <div className="flex items-center justify-between px-6 h-18 border-b">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
             <p className="text-sm text-muted-foreground">
@@ -344,7 +336,9 @@ export function DashboardPage() {
                 'No servers configured'
               ) : (
                 <span className="flex items-center gap-3">
-                  <span>{servers.length} server{servers.length !== 1 ? 's' : ''}</span>
+                  <span>
+                    {servers.length} server{servers.length !== 1 ? 's' : ''}
+                  </span>
                   {onlineCount > 0 && (
                     <span className="flex items-center gap-1 text-emerald-600">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -362,7 +356,7 @@ export function DashboardPage() {
             </p>
           </div>
           <Button asChild>
-            <Link to="/add-server">
+            <Link to="/servers/add">
               <Plus className="h-4 w-4 mr-2" />
               Add Server
             </Link>
@@ -382,7 +376,7 @@ export function DashboardPage() {
               Add your first server to start monitoring system resources, managing files, and running commands.
             </p>
             <Button asChild size="lg">
-              <Link to="/add-server">
+              <Link to="/servers/add">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Server
               </Link>
