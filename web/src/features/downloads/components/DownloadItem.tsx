@@ -26,17 +26,11 @@ import {
   XCircle,
 } from 'lucide-react'
 import { memo, useState } from 'react'
+import { useDownloads } from '../context'
 import { DownloadProgress } from './DownloadProgress'
 
 interface DownloadItemProps {
   download: Download
-  onPause: (id: string) => void
-  onResume: (id: string) => void
-  onCancel: (id: string) => void
-  onRetry: (id: string) => void
-  onDelete: (id: string, deleteFile: boolean) => void
-  onDownload: (download: Download) => void
-  onShare: (download: Download) => void
 }
 
 const statusConfig: Record<
@@ -88,19 +82,20 @@ const statusConfig: Record<
   },
 }
 
-export const DownloadItem = memo(function DownloadItem({
-  download,
-  onPause,
-  onResume,
-  onCancel,
-  onRetry,
-  onDelete,
-  onDownload,
-  onShare,
-}: DownloadItemProps) {
+export const DownloadItem = memo(function DownloadItem({ download }: DownloadItemProps) {
+  const {
+    handlePause,
+    handleResume,
+    handleCancel,
+    handleRetry,
+    handleDelete,
+    handleDownload,
+    setShareDownload,
+  } = useDownloads()
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const handleShare = () => onShare(download)
+  const handleShare = () => setShareDownload(download)
 
   const status = statusConfig[download.status]
   const StatusIcon = status.icon
@@ -185,27 +180,27 @@ export const DownloadItem = memo(function DownloadItem({
         <div className="flex items-center gap-1">
           {/* Primary actions */}
           {canPause && (
-            <Button variant="ghost" size="icon" onClick={() => onPause(download.id)} title="Pause">
+            <Button variant="ghost" size="icon" onClick={() => handlePause(download.id)} title="Pause">
               <Pause className="h-4 w-4" />
             </Button>
           )}
           {canResume && (
-            <Button variant="ghost" size="icon" onClick={() => onResume(download.id)} title="Resume">
+            <Button variant="ghost" size="icon" onClick={() => handleResume(download.id)} title="Resume">
               <Play className="h-4 w-4" />
             </Button>
           )}
           {canCancel && (
-            <Button variant="ghost" size="icon" onClick={() => onCancel(download.id)} title="Cancel">
+            <Button variant="ghost" size="icon" onClick={() => handleCancel(download.id)} title="Cancel">
               <X className="h-4 w-4" />
             </Button>
           )}
           {canRetry && (
-            <Button variant="ghost" size="icon" onClick={() => onRetry(download.id)} title="Retry">
+            <Button variant="ghost" size="icon" onClick={() => handleRetry(download.id)} title="Retry">
               <RotateCcw className="h-4 w-4" />
             </Button>
           )}
           {canDownloadFile && (
-            <Button variant="ghost" size="icon" onClick={() => onDownload(download)} title="Download">
+            <Button variant="ghost" size="icon" onClick={() => handleDownload(download)} title="Download">
               <DownloadIcon className="h-4 w-4" />
             </Button>
           )}
@@ -224,7 +219,7 @@ export const DownloadItem = memo(function DownloadItem({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {canDownloadFile && (
-                <DropdownMenuItem onClick={() => onDownload(download)}>
+                <DropdownMenuItem onClick={() => handleDownload(download)}>
                   <DownloadIcon className="h-4 w-4 mr-2" />
                   Download to browser
                 </DropdownMenuItem>
@@ -260,7 +255,7 @@ export const DownloadItem = memo(function DownloadItem({
               variant="outline"
               size="sm"
               onClick={() => {
-                onDelete(download.id, false)
+                handleDelete(download.id, false)
                 setShowDeleteConfirm(false)
               }}
             >
@@ -271,7 +266,7 @@ export const DownloadItem = memo(function DownloadItem({
                 variant="destructive"
                 size="sm"
                 onClick={() => {
-                  onDelete(download.id, true)
+                  handleDelete(download.id, true)
                   setShowDeleteConfirm(false)
                 }}
               >
