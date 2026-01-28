@@ -108,7 +108,7 @@ export function FilterSidebar({ sections, selected, onSelect, allItem, className
       </div>
 
       {/* Desktop sidebar */}
-      <div className={cn('hidden md:block shrink-0 space-y-1', className)}>{content}</div>
+      <div className={cn('hidden md:block shrink-0 space-y-1 min-w-52', className)}>{content}</div>
     </>
   )
 }
