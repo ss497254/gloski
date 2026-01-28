@@ -269,7 +269,7 @@ export function TerminalPage() {
     <div className="h-full flex flex-col bg-background">
       {/* Tab bar */}
       <div className="terminal-tab-bar flex items-center bg-muted border-b">
-        <style href="https://www.nerdfonts.com/assets/css/webfont.css" rel="stylesheet" />
+        <link href="https://www.nerdfonts.com/assets/css/webfont.css" rel="stylesheet"></link>
         <div className="flex-1 flex items-center h-full overflow-x-auto">
           {tabs.map((tab) => (
             <button
