@@ -1,4 +1,4 @@
-import { DiskUsage, MemoryWidget, NetworkStatsWidget, QuickStats, SystemOverview } from '@/features/dashboard'
+import { DiskUsage, MemoryWidget, NetworkStatsWidget, QuickStats, SystemOverview } from '@/features/servers/components'
 import { EmptyState } from '@/shared/components'
 import type { ServerStatus, SystemStats } from '@/shared/lib/types'
 import { cn } from '@/shared/lib/utils'

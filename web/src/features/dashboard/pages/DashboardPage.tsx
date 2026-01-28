@@ -1,7 +1,7 @@
 import { Button } from '@/ui/button'
 import { Plus, Server as ServerIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { ServerCard } from '../components'
+import { ServerCard } from '@/features/servers'
 import { DashboardProvider, useDashboard } from '../context'
 
 function DashboardContent() {

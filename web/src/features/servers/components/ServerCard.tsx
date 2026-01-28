@@ -13,7 +13,7 @@ import {
   WifiOff,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import type { ServerWithStats } from '../context'
+import type { ServerWithStats } from '../../dashboard/context'
 import { ServerCardSkeleton } from './ServerCardSkeleton'
 import { UsageBar } from './UsageBar'
 

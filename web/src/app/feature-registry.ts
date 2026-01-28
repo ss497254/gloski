@@ -117,7 +117,7 @@ export const serverFeatures: FeatureDefinition[] = [
     icon: LayoutDashboard,
     path: '/servers/:serverId',
     component: lazy(() =>
-      import('@/features/servers/pages/ServerDetailPage').then((m) => ({
+      import('@/features/servers').then((m) => ({
         default: m.ServerDetailPage,
       }))
     ),
