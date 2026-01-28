@@ -3,7 +3,7 @@ import { cn } from '@/shared/lib/utils'
 
 interface PageLayoutProps {
   title: string
-  description?: string
+  description?: ReactNode
   actions?: ReactNode
   children: ReactNode
   className?: string
@@ -23,16 +23,14 @@ export function PageLayout({
   return (
     <div className={cn('flex flex-col', fullHeight && 'h-full')}>
       {/* Header */}
-      <header className="border-b px-4 py-3 md:px-6 md:py-4 shrink-0">
-        <div className="flex items-start md:items-center justify-between gap-3 flex-col sm:flex-row">
-          <div className="min-w-0">
-            <h1 className="text-lg md:text-xl font-semibold truncate">{title}</h1>
-            {description && (
-              <p className="text-xs md:text-sm text-muted-foreground mt-0.5 md:mt-1 line-clamp-2">{description}</p>
-            )}
-          </div>
-          {actions && <div className="flex items-center gap-2 flex-wrap shrink-0">{actions}</div>}
+      <header className="border-b px-4 h-18 md:px-6 shrink-0 flex items-start md:items-center justify-between gap-3 flex-col sm:flex-row">
+        <div className="min-w-0">
+          <h1 className="text-lg md:text-xl font-semibold truncate">{title}</h1>
+          {description && (
+            <p className="text-xs md:text-sm text-muted-foreground mt-0.5 md:mt-1 line-clamp-2">{description}</p>
+          )}
         </div>
+        {actions && <div className="flex items-center gap-2 flex-wrap shrink-0">{actions}</div>}
       </header>
 
       {/* Content */}

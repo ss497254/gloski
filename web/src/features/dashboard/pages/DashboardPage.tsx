@@ -3,49 +3,48 @@ import { Plus, Server as ServerIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ServerCard } from '@/features/servers'
 import { DashboardProvider, useDashboard } from '../context'
+import { PageLayout } from '@/layouts'
 
 function DashboardContent() {
   const { servers, displayServers, onlineCount, offlineCount } = useDashboard()
 
   return (
-    <div className="h-full overflow-auto">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-        <div className="flex items-center justify-between px-6 h-18 border-b">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              {servers.length === 0 ? (
-                'No servers configured'
-              ) : (
-                <span className="flex items-center gap-3">
-                  <span>
-                    {servers.length} server{servers.length !== 1 ? 's' : ''}
-                  </span>
-                  {onlineCount > 0 && (
-                    <span className="flex items-center gap-1 text-emerald-600">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      {onlineCount} online
-                    </span>
-                  )}
-                  {offlineCount > 0 && (
-                    <span className="flex items-center gap-1 text-red-600">
-                      <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                      {offlineCount} offline
-                    </span>
-                  )}
+    <PageLayout
+      title='Dashboard'
+      description={
+        <p className="text-sm text-muted-foreground">
+          {servers.length === 0 ? (
+            'No servers configured'
+          ) : (
+            <span className="flex items-center gap-3">
+              <span>
+                {servers.length} server{servers.length !== 1 ? 's' : ''}
+              </span>
+              {onlineCount > 0 && (
+                <span className="flex items-center gap-1 text-emerald-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {onlineCount} online
                 </span>
               )}
-            </p>
-          </div>
-          <Button asChild>
-            <Link to="/servers/add">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Server
-            </Link>
-          </Button>
-        </div>
-      </div>
+              {offlineCount > 0 && (
+                <span className="flex items-center gap-1 text-red-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                  {offlineCount} offline
+                </span>
+              )}
+            </span>
+          )}
+        </p>
+      }
+      actions={
+        <Button asChild>
+          <Link to="/servers/add">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Server
+          </Link>
+        </Button>
+      }
+    >
 
       {/* Content */}
       <div className="p-6">
@@ -73,7 +72,7 @@ function DashboardContent() {
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   )
 }
 
