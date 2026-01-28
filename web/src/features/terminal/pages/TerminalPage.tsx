@@ -4,7 +4,7 @@ import { Button } from '@/ui/button'
 import type { TerminalConnection } from '@gloski/sdk'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type ITerminalInitOnlyOptions, type ITerminalOptions } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { Plus, Terminal as TerminalIcon, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -22,6 +22,71 @@ interface TerminalInstance {
   connection: TerminalConnection | null
 }
 
+function getTerminalTheme(isDarkMode: boolean) {
+  if (isDarkMode) {
+    // Dark theme - optimized for readability
+    return {
+      background: '#0a0a0a',
+      foreground: '#e0e0e0',
+      cursor: '#3b82f6',
+      cursorAccent: '#1a1a1a',
+      selectionBackground: '#3b82f6' + '40', // 25% opacity
+      black: '#4b5563',
+      red: '#ff6b6b',
+      green: '#51cf66',
+      yellow: '#ffd43b',
+      blue: '#4dabf7',
+      magenta: '#da77f2',
+      cyan: '#22d3ee',
+      white: '#d0d0d0',
+      brightBlack: '#808080',
+      brightRed: '#ff8787',
+      brightGreen: '#69db7c',
+      brightYellow: '#ffec99',
+      brightBlue: '#74c0fc',
+      brightMagenta: '#e599f7',
+      brightCyan: '#4dd0e1',
+      brightWhite: '#f8f8f8',
+    }
+  } else {
+    // Light theme - optimized for readability on light background
+    return {
+      background: '#ffffff',
+      foreground: '#1f2937',
+      cursor: '#2563eb',
+      cursorAccent: '#ffffff',
+      selectionBackground: '#2563eb' + '30', // 20% opacity
+      black: '#1f2937',
+      red: '#dc2626',
+      green: '#16a34a',
+      yellow: '#d97706',
+      blue: '#2563eb',
+      magenta: '#9333ea',
+      cyan: '#0891b2',
+      white: '#e5e7eb',
+      brightBlack: '#6b7280',
+      brightRed: '#ef4444',
+      brightGreen: '#22c55e',
+      brightYellow: '#eab308',
+      brightBlue: '#3b82f6',
+      brightMagenta: '#a855f7',
+      brightCyan: '#06b6d4',
+      brightWhite: '#f3f4f6',
+    }
+  }
+}
+
+function getTerminalConfig(): ITerminalOptions & ITerminalInitOnlyOptions {
+  return {
+    cursorBlink: true,
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: 'NerdFontsSymbols Nerd Font, Menlo, Monaco, "Courier New", monospace',
+    theme: getTerminalTheme(document.documentElement.classList.contains('dark')),
+    allowProposedApi: true,
+  }
+}
+
 export function TerminalPage() {
   const { server } = useServer()
   const [searchParams] = useSearchParams()
@@ -35,34 +100,7 @@ export function TerminalPage() {
 
   const createTerminalInstance = useCallback(
     (tabId: string, container: HTMLDivElement, cwd?: string) => {
-      const term = new Terminal({
-        cursorBlink: true,
-        fontSize: 14,
-        fontFamily: 'NerdFontsSymbols Nerd Font, Menlo, Monaco, "Courier New", monospace',
-        theme: {
-          background: '#0d1117',
-          foreground: '#c9d1d9',
-          cursor: '#58a6ff',
-          cursorAccent: '#0d1117',
-          selectionBackground: '#264f78',
-          black: '#484f58',
-          red: '#ff7b72',
-          green: '#3fb950',
-          yellow: '#d29922',
-          blue: '#58a6ff',
-          magenta: '#bc8cff',
-          cyan: '#39c5cf',
-          white: '#b1bac4',
-          brightBlack: '#6e7681',
-          brightRed: '#ffa198',
-          brightGreen: '#56d364',
-          brightYellow: '#e3b341',
-          brightBlue: '#79c0ff',
-          brightMagenta: '#d2a8ff',
-          brightCyan: '#56d4dd',
-          brightWhite: '#f0f6fc',
-        },
-      })
+      const term = new Terminal(getTerminalConfig())
 
       const fitAddon = new FitAddon()
       const webLinksAddon = new WebLinksAddon()
@@ -172,6 +210,30 @@ export function TerminalPage() {
     }
   }, [destroyTerminalInstance])
 
+  // Handle theme changes - CSS handles the visual theme changes
+  useEffect(() => {
+    const handleThemeChange = () => {
+      // Theme changes are handled by CSS variables
+      // The terminal styling will automatically update via CSS transitions
+    }
+
+    // Listen for theme changes on the document element
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          handleThemeChange()
+        }
+      })
+    })
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    })
+
+    return () => observer.disconnect()
+  }, [])
+
   const addTab = useCallback(() => {
     const newId = String(Date.now())
     setTabs((prev) => [...prev, { id: newId, title: `Terminal ${prev.length + 1}` }])
@@ -204,28 +266,28 @@ export function TerminalPage() {
   )
 
   return (
-    <div className="h-full flex flex-col bg-[#0d1117]">
+    <div className="h-full flex flex-col bg-background">
       {/* Tab bar */}
-      <div className="flex items-center border-b border-[#30363d] bg-[#161b22]">
-        <style href="https://www.nerdfonts.com/assets/css/webfont.css" />
-        <div className="flex-1 flex items-center overflow-x-auto">
+      <div className="terminal-tab-bar flex items-center bg-muted border-b">
+        <style href="https://www.nerdfonts.com/assets/css/webfont.css" rel="stylesheet" />
+        <div className="flex-1 flex items-center h-full overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 text-sm border-r border-[#30363d] transition-colors',
+                'flex items-center gap-2 px-4 h-full text-sm border-r border-border transition-colors',
                 activeTab === tab.id
-                  ? 'bg-[#0d1117] text-white'
-                  : 'text-[#8b949e] hover:text-white hover:bg-[#0d1117]/50'
+                  ? 'bg-background text-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/30'
               )}
             >
               <TerminalIcon className="h-4 w-4" />
-              <span>{tab.title}</span>
+              <span className="truncate max-w-32">{tab.title}</span>
               {tabs.length > 1 && (
                 <button
                   onClick={(e) => closeTab(tab.id, e)}
-                  className="ml-1 p-1.5 -m-0.5 rounded hover:bg-[#30363d] transition-colors"
+                  className="ml-1 p-1 -m-0.5 rounded transition-colors hover:bg-muted-foreground/20 hover:text-foreground"
                   aria-label={`Close ${tab.title}`}
                 >
                   <X className="h-3.5 w-3.5" />
@@ -238,14 +300,14 @@ export function TerminalPage() {
           variant="ghost"
           size="sm"
           onClick={addTab}
-          className="m-1 text-[#8b949e] hover:text-white hover:bg-[#30363d]"
+          className="m-1 transition-colors"
         >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Terminal containers */}
-      <div className="flex-1 relative">
+      <div className="terminal-viewport flex-1 relative overflow-hidden">
         {tabs.map((tab) => (
           <div
             key={tab.id}
