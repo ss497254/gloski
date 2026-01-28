@@ -1,7 +1,7 @@
 import { PageLayout } from '@/layouts'
 import { cn } from '@/shared/lib/utils'
-import { Database, Info, Keyboard, Palette } from 'lucide-react'
-import { AboutSettings, AppearanceSettings, DataSettings, ShortcutsSettings } from '../components'
+import { Info, Keyboard, Palette } from 'lucide-react'
+import { AboutSettings, AppearanceSettings, ShortcutsSettings } from '../components'
 import { SettingsProvider, useSettings, type SettingsTab } from '../context'
 
 const tabs: {
@@ -11,7 +11,6 @@ const tabs: {
 }[] = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
-  { id: 'data', label: 'Data', icon: Database },
   { id: 'about', label: 'About', icon: Info },
 ]
 
@@ -42,7 +41,6 @@ function SettingsContent() {
         <div className="flex-1 space-y-6">
           {activeTab === 'appearance' && <AppearanceSettings />}
           {activeTab === 'shortcuts' && <ShortcutsSettings />}
-          {activeTab === 'data' && <DataSettings />}
           {activeTab === 'about' && <AboutSettings />}
         </div>
       </div>
