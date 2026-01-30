@@ -34,13 +34,17 @@ build-web: ## Build frontend for production
 build: build-server build-web ## Build both backend and frontend
 
 # Installation
-install: build-server ## Install binary to /usr/local/bin
-	sudo cp bin/gloski /usr/local/bin/
-	@echo "$(GREEN)Installed to /usr/local/bin/gloski$(NC)"
+install: build-server ## Install binary to ~/.local/bin
+	cp bin/gloski ~/.local/bin/
+	@echo "$(GREEN)Installed to ~/.local/bin/gloski$(NC)"
 
 install-service: ## Install systemd service (user)
 	mkdir -p ~/.config/systemd/user
+	mkdir -p ~/.config/gloski
 	cp deploy/gloski.service ~/.config/systemd/user/
+	echo "{}" > ~/.config/gloski/config.json
+	chmod 600 ~/.config/gloski/config.json
+	echo "$(GREEN)Created config file at ~/.config/gloski/config.json. Please edit it before starting the service.$(NC)"
 	systemctl --user daemon-reload
 	@echo "$(GREEN)Service installed. Enable with: systemctl --user enable --now gloski$(NC)"
 
