@@ -22,8 +22,8 @@ var (
 
 func main() {
 	// Command line flags
-	configPath := flag.String("config", "", "Path to config file")
-	showVersion := flag.Bool("version", false, "Show version information")
+	configPath := flag.String("c", "", "Path to config file")
+	showVersion := flag.Bool("v", false, "Show version information")
 	flag.Parse()
 
 	// Show version
@@ -35,7 +35,8 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		logger.Fatal("Failed to load config: %v", err)
+		logger.Debug("Failed to load config.")
+		logger.Fatal("%v", err)
 	}
 
 	// Set log level
@@ -66,7 +67,7 @@ func main() {
 
 	// Start server
 	go func() {
-		logger.Info("Server listening on http://%s", srv.Addr)
+		logger.Info("Server listening on http://%s%s", srv.Addr, cfg.APIPrefix)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Server failed to start: %v", err)
 		}
