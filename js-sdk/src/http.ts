@@ -172,7 +172,11 @@ export class HttpClient {
    */
   buildAuthUrl(endpoint: string, params: Record<string, string> = {}): string {
     const fullEndpoint = this.buildEndpoint(endpoint)
-    const url = new URL(fullEndpoint, this.config.url)
+    const url = new URL(this.config.url)
+
+    // Ensure there's a slash between the old path and the new one
+    // The URL object will automatically handle the formatting
+    url.pathname = `${url.pathname}/${fullEndpoint}`.replace(/\/+/g, '/')
 
     // Add auth param
     if (this.config.apiKey) {
