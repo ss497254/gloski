@@ -49,8 +49,8 @@ type ListResponse struct {
 	Entries []FileEntry `json:"entries"`
 }
 
-// expandTilde expands ~ to the user's home directory
-func expandTilde(path string) (string, error) {
+// ExpandTilde expands ~ to the user's home directory
+func ExpandTilde(path string) (string, error) {
 	if path == "~" {
 		return os.UserHomeDir()
 	}
@@ -64,8 +64,8 @@ func expandTilde(path string) (string, error) {
 	return path, nil
 }
 
-// toTildePath converts an absolute path to use ~ notation if it's within home directory
-func toTildePath(absPath string) string {
+// ToTildePath converts an absolute path to use ~ notation if it's within home directory
+func ToTildePath(absPath string) string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return absPath
@@ -91,12 +91,12 @@ func (s *Service) NormalizePath(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return toTildePath(absPath), nil
+	return ToTildePath(absPath), nil
 }
 
 func (s *Service) validatePath(path string) (string, error) {
 	// Expand tilde to home directory
-	expandedPath, err := expandTilde(path)
+	expandedPath, err := ExpandTilde(path)
 	if err != nil {
 		return "", err
 	}
@@ -161,7 +161,7 @@ func (s *Service) ListWithContext(ctx context.Context, path string) (*ListRespon
 		entryAbsPath := filepath.Join(absPath, entry.Name())
 		fileEntries = append(fileEntries, FileEntry{
 			Name:        entry.Name(),
-			Path:        toTildePath(entryAbsPath),
+			Path:        ToTildePath(entryAbsPath),
 			Type:        entryType,
 			Size:        info.Size(),
 			Modified:    info.ModTime(),
@@ -170,7 +170,7 @@ func (s *Service) ListWithContext(ctx context.Context, path string) (*ListRespon
 	}
 
 	return &ListResponse{
-		Path:    toTildePath(absPath),
+		Path:    ToTildePath(absPath),
 		Entries: fileEntries,
 	}, nil
 }
@@ -484,7 +484,7 @@ func (s *Service) SearchWithOptions(ctx context.Context, path, query string, sea
 				entryType = "directory"
 			}
 			results = append(results, SearchResult{
-				Path: toTildePath(filePath),
+				Path: ToTildePath(filePath),
 				Name: info.Name(),
 				Type: entryType,
 				Size: info.Size(),
@@ -500,7 +500,7 @@ func (s *Service) SearchWithOptions(ctx context.Context, path, query string, sea
 					return filepath.SkipAll
 				}
 				results = append(results, SearchResult{
-					Path:    toTildePath(filePath),
+					Path:    ToTildePath(filePath),
 					Name:    info.Name(),
 					Type:    "file",
 					Size:    info.Size(),
@@ -571,7 +571,7 @@ func (s *Service) InitChunkedUpload(destPath, filename string, totalSize, chunkS
 	return &ChunkUploadInfo{
 		UploadID:    uploadID,
 		Filename:    filename,
-		Destination: toTildePath(absPath),
+		Destination: ToTildePath(absPath),
 		TotalSize:   totalSize,
 		ChunkSize:   chunkSize,
 		TotalChunks: totalChunks,
