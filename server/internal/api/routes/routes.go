@@ -183,7 +183,8 @@ func Setup(cfg Config) (http.Handler, *RouteHandlers) {
 	router := middleware.Chain(
 		middleware.Logging,
 		middleware.CORS(corsConfig),
-		middleware.LimitJSONBody, // Limit JSON request bodies (not file uploads)
+		middleware.LimitJSONBody,             // Limit JSON request bodies (not file uploads)
+		middleware.Prefix(cfg.Cfg.APIPrefix), // Add API prefix if configured
 	)(mux)
 
 	routeHandlers := &RouteHandlers{

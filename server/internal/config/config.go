@@ -13,6 +13,7 @@ type Config struct {
 	Host            string `json:"host"`
 	Port            int    `json:"port"`
 	BaseURL         string `json:"base_url"`         // Public URL for share links (e.g., https://example.com)
+	APIPrefix       string `json:"api_prefix"`       // API prefix for all routes (e.g., /my-prefix)
 	ShutdownTimeout int    `json:"shutdown_timeout"` // Shutdown timeout in seconds (default: 5)
 
 	// Data directory
@@ -101,14 +102,12 @@ func Load(path string) (*Config, error) {
 	if path != "" {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			if !os.IsNotExist(err) {
-				return nil, fmt.Errorf("failed to read config file: %w", err)
+			if os.IsNotExist(err) {
+				return nil, fmt.Errorf("Failed to read config file: %w\n", err)
 			}
 			// File doesn't exist, use defaults
-		} else {
-			if err := json.Unmarshal(data, cfg); err != nil {
-				return nil, fmt.Errorf("failed to parse config file: %w", err)
-			}
+		} else if err := json.Unmarshal(data, cfg); err != nil {
+			return nil, fmt.Errorf("Failed to parse config file: %w\n", err)
 		}
 	}
 
@@ -132,6 +131,9 @@ func (c *Config) loadFromEnv() {
 	}
 	if v := os.Getenv("GLOSKI_BASE_URL"); v != "" {
 		c.BaseURL = v
+	}
+	if v := os.Getenv("GLOSKI_API_PREFIX"); v != "" {
+		c.APIPrefix = v
 	}
 	if v := os.Getenv("GLOSKI_DATA_DIR"); v != "" {
 		c.DataDir = v
@@ -191,7 +193,7 @@ func (c *Config) validate() error {
 	if c.JWTPublicKeyFile != "" && c.JWTPublicKey == "" {
 		data, err := os.ReadFile(c.JWTPublicKeyFile)
 		if err != nil {
-			return fmt.Errorf("failed to read JWT public key file: %w", err)
+			return fmt.Errorf("Failed to read JWT public key file: %w", err)
 		}
 		c.JWTPublicKey = string(data)
 	}
