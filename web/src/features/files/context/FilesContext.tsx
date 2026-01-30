@@ -134,7 +134,7 @@ interface FilesProviderProps {
 export function FilesProvider({ children }: FilesProviderProps) {
   const { server } = useServer()
   const [searchParams, setSearchParams] = useSearchParams()
-  const queryPath = searchParams.get('path') || '/'
+  const queryPath = searchParams.get('path') || '~'
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Files store - use selectors for optimized subscriptions

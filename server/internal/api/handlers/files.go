@@ -36,7 +36,7 @@ func (h *FilesHandler) SetDB(db *sql.DB) {
 func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	if path == "" {
-		path = "/"
+		path = "~"
 	}
 
 	entries, err := h.fileService.List(path)
@@ -62,7 +62,13 @@ func (h *FilesHandler) Read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Success(w, map[string]string{"content": content, "path": path})
+	// Normalize path to tilde notation
+	normalizedPath, err := h.fileService.NormalizePath(path)
+	if err != nil {
+		normalizedPath = path
+	}
+
+	Success(w, map[string]string{"content": content, "path": normalizedPath})
 }
 
 // WriteRequest represents a file write request
@@ -227,7 +233,7 @@ func (h *FilesHandler) Download(w http.ResponseWriter, r *http.Request) {
 func (h *FilesHandler) Search(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	if path == "" {
-		path = "/"
+		path = "~"
 	}
 
 	query := r.URL.Query().Get("q")

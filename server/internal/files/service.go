@@ -49,11 +49,62 @@ type ListResponse struct {
 	Entries []FileEntry `json:"entries"`
 }
 
-func (s *Service) validatePath(path string) (string, error) {
-	// Clean and resolve to absolute path
-	path = filepath.Clean(path)
+// expandTilde expands ~ to the user's home directory
+func expandTilde(path string) (string, error) {
+	if path == "~" {
+		return os.UserHomeDir()
+	}
+	if strings.HasPrefix(path, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(homeDir, path[2:]), nil
+	}
+	return path, nil
+}
 
-	absPath, err := filepath.Abs(path)
+// toTildePath converts an absolute path to use ~ notation if it's within home directory
+func toTildePath(absPath string) string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return absPath
+	}
+
+	// If the path is exactly the home directory
+	if absPath == homeDir {
+		return "~"
+	}
+
+	// If the path is within the home directory
+	if strings.HasPrefix(absPath, homeDir+string(filepath.Separator)) {
+		return "~" + absPath[len(homeDir):]
+	}
+
+	return absPath
+}
+
+// NormalizePath normalizes a path to tilde notation if within home directory
+// This is a public helper for handlers to use
+func (s *Service) NormalizePath(path string) (string, error) {
+	absPath, err := s.validatePath(path)
+	if err != nil {
+		return "", err
+	}
+	return toTildePath(absPath), nil
+}
+
+func (s *Service) validatePath(path string) (string, error) {
+	// Expand tilde to home directory
+	expandedPath, err := expandTilde(path)
+	if err != nil {
+		return "", err
+	}
+
+	// Clean and resolve to absolute path
+	expandedPath = filepath.Clean(expandedPath)
+
+	absPath, err := filepath.Abs(expandedPath)
 	if err != nil {
 		return "", err
 	}
@@ -107,9 +158,10 @@ func (s *Service) ListWithContext(ctx context.Context, path string) (*ListRespon
 			entryType = "directory"
 		}
 
+		entryAbsPath := filepath.Join(absPath, entry.Name())
 		fileEntries = append(fileEntries, FileEntry{
 			Name:        entry.Name(),
-			Path:        filepath.Join(absPath, entry.Name()),
+			Path:        toTildePath(entryAbsPath),
 			Type:        entryType,
 			Size:        info.Size(),
 			Modified:    info.ModTime(),
@@ -118,7 +170,7 @@ func (s *Service) ListWithContext(ctx context.Context, path string) (*ListRespon
 	}
 
 	return &ListResponse{
-		Path:    absPath,
+		Path:    toTildePath(absPath),
 		Entries: fileEntries,
 	}, nil
 }
@@ -432,7 +484,7 @@ func (s *Service) SearchWithOptions(ctx context.Context, path, query string, sea
 				entryType = "directory"
 			}
 			results = append(results, SearchResult{
-				Path: filePath,
+				Path: toTildePath(filePath),
 				Name: info.Name(),
 				Type: entryType,
 				Size: info.Size(),
@@ -448,7 +500,7 @@ func (s *Service) SearchWithOptions(ctx context.Context, path, query string, sea
 					return filepath.SkipAll
 				}
 				results = append(results, SearchResult{
-					Path:    filePath,
+					Path:    toTildePath(filePath),
 					Name:    info.Name(),
 					Type:    "file",
 					Size:    info.Size(),
@@ -519,7 +571,7 @@ func (s *Service) InitChunkedUpload(destPath, filename string, totalSize, chunkS
 	return &ChunkUploadInfo{
 		UploadID:    uploadID,
 		Filename:    filename,
-		Destination: absPath,
+		Destination: toTildePath(absPath),
 		TotalSize:   totalSize,
 		ChunkSize:   chunkSize,
 		TotalChunks: totalChunks,
