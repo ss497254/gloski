@@ -1,28 +1,11 @@
-# Example configuration file for Gloski
-# Copy to ~/.config/gloski/config.json or specify with --config flag
-
 {
   "host": "127.0.0.1",
   "port": 8080,
-  
-  "# password_hash": "Generate with: gloski -gen-password 'your-password'",
-  "password_hash": "",
-  
-  "# jwt_secret": "Auto-generated if not specified",
-  "jwt_secret": "",
-  
-  "# token_expiry": "Token validity in hours",
-  "token_expiry": 24,
-  
-  "# allowed_origins": "CORS origins, use ['*'] for development",
+
   "allowed_origins": ["*"],
-  
-  "# allowed_paths": "Restrict file access to these paths, empty = allow all",
+
   "allowed_paths": [],
-  
-  "# shell": "Shell to use for terminal, defaults to $SHELL or /bin/bash",
   "shell": "/bin/bash",
-  
-  "# log_level": "debug, info, warn, error",
+
   "log_level": "info"
 }
