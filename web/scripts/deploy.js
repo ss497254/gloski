@@ -14,7 +14,7 @@ async function deploy() {
   const files = await listFilesWithHashes(join(__dirname, 'dist'))
 
   const deploy = await createDeploy(files)
-  await uploadFiles(dist, files, deploy)
+  await uploadFiles('dist', files, deploy)
   // Wait for 5 seconds before publishing, netlify does some post processing
   await new Promise((res) => setTimeout(res, 5000))
   await publishDeploy(deploy)
