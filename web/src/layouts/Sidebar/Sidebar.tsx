@@ -36,7 +36,12 @@ export function Sidebar({ className }: SidebarProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
             <Layers className="h-4 w-4" />
           </div>
-          {!sidebarCollapsed && <span className="font-semibold text-foreground">Gloski</span>}
+          {!sidebarCollapsed && (
+            <div className="flex flex-col">
+              <span className="font-semibold text-foreground leading-none">Gloski</span>
+              <span className="text-[10px] text-muted-foreground leading-none mt-0.5">Server Management</span>
+            </div>
+          )}
         </NavLink>
         {!sidebarCollapsed && (
           <button
@@ -249,7 +254,10 @@ export function MobileSidebar() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
               <Layers className="h-4 w-4" />
             </div>
-            <span className="font-semibold text-foreground">Gloski</span>
+            <div className="flex flex-col">
+              <span className="font-semibold text-foreground leading-none">Gloski</span>
+              <span className="text-[10px] text-muted-foreground leading-none mt-0.5">Server Management</span>
+            </div>
           </NavLink>
           <button
             onClick={() => setMobileSidebarOpen(false)}
