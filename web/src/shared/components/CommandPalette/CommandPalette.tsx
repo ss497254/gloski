@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent } from '@/ui/dialog'
 import { Input } from '@/ui/input'
 import { ScrollArea } from '@/ui/scroll-area'
-import { features, getMainFeatures, getWorkspaceFeatures } from '@/app/feature-registry'
+import { features, getMainFeatures } from '@/app/feature-registry'
 import { useServersStore } from '@/features/servers'
 import { cn } from '@/shared/lib/utils'
 import { ArrowRight, Moon, Plus, Search, Server, Sun } from 'lucide-react'
@@ -32,18 +32,6 @@ export function CommandPalette() {
 
     // Navigation - Main features
     getMainFeatures().forEach((feature) => {
-      items.push({
-        id: `nav-${feature.id}`,
-        name: `Go to ${feature.name}`,
-        icon: feature.icon,
-        action: () => navigate(feature.path),
-        category: 'Navigation',
-        keywords: [feature.name.toLowerCase()],
-      })
-    })
-
-    // Navigation - Workspace features
-    getWorkspaceFeatures().forEach((feature) => {
       items.push({
         id: `nav-${feature.id}`,
         name: `Go to ${feature.name}`,

@@ -2,9 +2,8 @@ import { NavLink, useLocation, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { NavItem } from './NavItem'
 import { ServerNav } from './ServerNav'
-import { getMainFeatures, getSettingsFeature, getWorkspaceFeatures } from '@/app/feature-registry'
+import { getMainFeatures, getSettingsFeature } from '@/app/feature-registry'
 import { useSettingsStore } from '@/features/settings'
-import { useMessagesStore } from '@/features/messages'
 import { useServersStore } from '@/features/servers'
 import { cn } from '@/shared/lib/utils'
 import { ChevronLeft, ChevronRight, Command, Layers, Plus, X } from 'lucide-react'
@@ -17,12 +16,10 @@ export function Sidebar({ className }: SidebarProps) {
   const { serverId } = useParams()
   const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useSettingsStore((s) => s.toggleSidebar)
-  const unreadCount = useMessagesStore((s) => s.messages.filter((m) => !m.read).length)
   const servers = useServersStore((s) => s.servers)
   const currentServer = servers.find((s) => s.id === serverId)
 
   const mainFeatures = getMainFeatures()
-  const workspaceFeatures = getWorkspaceFeatures()
   const settingsFeature = getSettingsFeature()
 
   return (
@@ -87,30 +84,6 @@ export function Sidebar({ className }: SidebarProps) {
               collapsed={sidebarCollapsed}
             />
           ))}
-        </div>
-
-        {/* Workspace Section */}
-        <div className="mt-6">
-          {!sidebarCollapsed && (
-            <div className="px-3 mb-2">
-              <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                Workspace
-              </span>
-            </div>
-          )}
-          {sidebarCollapsed && <div className="border-t my-3" />}
-          <div className="space-y-1">
-            {workspaceFeatures.map((feature) => (
-              <NavItem
-                key={feature.id}
-                to={feature.path}
-                icon={feature.icon}
-                label={feature.name}
-                collapsed={sidebarCollapsed}
-                badge={feature.id === 'messages' ? unreadCount : undefined}
-              />
-            ))}
-          </div>
         </div>
 
         {/* Server Section */}
@@ -227,12 +200,10 @@ export function MobileSidebar() {
   const location = useLocation()
   const mobileSidebarOpen = useSettingsStore((s) => s.mobileSidebarOpen)
   const setMobileSidebarOpen = useSettingsStore((s) => s.setMobileSidebarOpen)
-  const unreadCount = useMessagesStore((s) => s.messages.filter((m) => !m.read).length)
   const servers = useServersStore((s) => s.servers)
   const currentServer = servers.find((s) => s.id === serverId)
 
   const mainFeatures = getMainFeatures()
-  const workspaceFeatures = getWorkspaceFeatures()
   const settingsFeature = getSettingsFeature()
 
   // Close sidebar on route change
@@ -325,27 +296,6 @@ export function MobileSidebar() {
                 collapsed={false}
               />
             ))}
-          </div>
-
-          {/* Workspace Section */}
-          <div className="mt-6">
-            <div className="px-3 mb-2">
-              <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                Workspace
-              </span>
-            </div>
-            <div className="space-y-1">
-              {workspaceFeatures.map((feature) => (
-                <NavItem
-                  key={feature.id}
-                  to={feature.path}
-                  icon={feature.icon}
-                  label={feature.name}
-                  collapsed={false}
-                  badge={feature.id === 'messages' ? unreadCount : undefined}
-                />
-              ))}
-            </div>
           </div>
 
           {/* Server Section */}
