@@ -5,9 +5,17 @@ import type { PinnedFolder } from '@gloski/sdk'
 type ViewMode = 'list' | 'grid'
 type SortBy = 'name' | 'size' | 'modified'
 type SortOrder = 'asc' | 'desc'
+type ClipboardOperation = 'copy' | 'cut'
 
 // Re-export PinnedFolder type for components
 export type { PinnedFolder }
+
+export interface ClipboardItem {
+  path: string
+  operation: ClipboardOperation
+  name: string
+  isDirectory: boolean
+}
 
 interface FilesState {
   // Pinned folders (synced with server)
@@ -42,6 +50,13 @@ interface FilesState {
   sidebarOpen: boolean
   setSidebarOpen: (open: boolean) => void
   toggleSidebar: () => void
+
+  // Clipboard (not persisted)
+  clipboard: ClipboardItem[]
+  clipboardOperation: ClipboardOperation | null
+  setClipboard: (items: ClipboardItem[], operation: ClipboardOperation) => void
+  clearClipboard: () => void
+  hasClipboard: () => boolean
 }
 
 export const useFilesStore = create<FilesState>()(
@@ -156,6 +171,13 @@ export const useFilesStore = create<FilesState>()(
       sidebarOpen: true,
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+      // Clipboard
+      clipboard: [],
+      clipboardOperation: null,
+      setClipboard: (items, operation) => set({ clipboard: items, clipboardOperation: operation }),
+      clearClipboard: () => set({ clipboard: [], clipboardOperation: null }),
+      hasClipboard: () => get().clipboard.length > 0,
     }),
     {
       name: 'gloski-files',

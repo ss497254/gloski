@@ -11,12 +11,15 @@ import {
   CheckSquare,
   Code,
   Copy,
+  CopyPlus,
   Download,
   Eye,
-  Folder,
+  FileText,
+  Info,
   Pencil,
   Pin,
   PinOff,
+  Scissors,
   Square,
   Terminal,
   Trash2,
@@ -45,6 +48,10 @@ interface FileEntryItemProps {
   onEdit: (entry: FileEntry) => void
   onToggleCheck: (entry: FileEntry, shiftKey: boolean) => void
   onTogglePin?: (entry: FileEntry) => void
+  onCopy?: (entry: FileEntry) => void
+  onCut?: (entry: FileEntry) => void
+  onDuplicate?: (entry: FileEntry) => void
+  onShowProperties?: (entry: FileEntry) => void
 }
 
 export function FileEntryItem({
@@ -65,6 +72,10 @@ export function FileEntryItem({
   onEdit,
   onToggleCheck,
   onTogglePin,
+  onCopy,
+  onCut,
+  onDuplicate,
+  onShowProperties,
 }: FileEntryItemProps) {
   const Icon = getFileIcon(entry.name, entry.type)
   const color = getFileColor(entry.name, entry.type)
@@ -169,10 +180,6 @@ export function FileEntryItem({
         )}
         {entry.type === 'directory' && (
           <>
-            <ContextMenuItem onClick={() => onNavigate(entry.path)}>
-              <Folder className="h-4 w-4 mr-2" />
-              Open
-            </ContextMenuItem>
             <ContextMenuItem asChild>
               <Link to={`/servers/[id]/terminal?cwd=${encodeURIComponent(entry.path)}`}>
                 <Terminal className="h-4 w-4 mr-2" />
@@ -180,7 +187,7 @@ export function FileEntryItem({
               </Link>
             </ContextMenuItem>
             <ContextMenuItem
-              onClick={() => window.open(`${vsCodeUrl}/vscode?folder=${encodeURIComponent(entry.path)}`, '_blank')}
+              onClick={() => window.open(`${vsCodeUrl}?folder=${encodeURIComponent(entry.path)}`, '_blank')}
             >
               <Code className="h-4 w-4 mr-2" />
               Open in VS Code
@@ -208,10 +215,38 @@ export function FileEntryItem({
           <Pencil className="h-4 w-4 mr-2" />
           Rename
         </ContextMenuItem>
+        {onDuplicate && (
+          <ContextMenuItem onClick={() => onDuplicate(entry)}>
+            <CopyPlus className="h-4 w-4 mr-2" />
+            Duplicate
+          </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
+        {onCopy && (
+          <ContextMenuItem onClick={() => onCopy(entry)}>
+            <Copy className="h-4 w-4 mr-2" />
+            Copy
+          </ContextMenuItem>
+        )}
+        {onCut && (
+          <ContextMenuItem onClick={() => onCut(entry)}>
+            <Scissors className="h-4 w-4 mr-2" />
+            Cut
+          </ContextMenuItem>
+        )}
         <ContextMenuItem onClick={() => onCopyPath(entry.path)}>
-          <Copy className="h-4 w-4 mr-2" />
+          <FileText className="h-4 w-4 mr-2" />
           Copy Path
         </ContextMenuItem>
+        {onShowProperties && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => onShowProperties(entry)}>
+              <Info className="h-4 w-4 mr-2" />
+              Properties
+            </ContextMenuItem>
+          </>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(entry)}>
           <Trash2 className="h-4 w-4 mr-2" />

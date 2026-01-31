@@ -14,6 +14,7 @@ import {
   NewFileDialog,
   NewFolderDialog,
   RenameDialog,
+  ResizablePreview,
 } from '../components'
 import { FilesProvider, useFiles } from '../context'
 import { useFilesKeyboard } from '../hooks/useFilesKeyboard'
@@ -113,7 +114,7 @@ function FilesPageContent() {
         {/* Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* File list */}
-          <div className={cn('overflow-auto', selectedFile ? 'flex-1 md:w-1/2 xl:w-3/5 border-r' : 'flex-1')}>
+          <div className={cn('overflow-auto flex-1', selectedFile && 'border-r')}>
             {error ? (
               <EmptyState
                 icon={AlertCircle}
@@ -166,8 +167,12 @@ function FilesPageContent() {
             )}
           </div>
 
-          {/* File preview/editor */}
-          {selectedFile && <FilePreview />}
+          {/* File preview/editor with resize handle */}
+          {selectedFile && (
+            <ResizablePreview defaultWidth={40} minWidth={30} maxWidth={70}>
+              <FilePreview />
+            </ResizablePreview>
+          )}
         </div>
 
         {/* Status bar */}

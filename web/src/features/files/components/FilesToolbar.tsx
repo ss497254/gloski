@@ -132,7 +132,7 @@ export function FilesToolbar() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => navigateTo('/' + pathParts.slice(0, index + 1).join('/'))}
+                    onClick={() => navigateTo(pathParts.slice(0, index + 1).join('/'))}
                     className="truncate max-w-40"
                   >
                     {part}
