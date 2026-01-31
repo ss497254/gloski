@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent } from '@/ui/dialog'
 import { Input } from '@/ui/input'
 import { ScrollArea } from '@/ui/scroll-area'
-import { features, getMainFeatures } from '@/app/feature-registry'
+import { mainNavItems, getMainNavItems } from '@/app/navigation'
 import { useServersStore } from '@/features/servers'
 import { cn } from '@/shared/lib/utils'
 import { ArrowRight, Moon, Plus, Search, Server, Sun } from 'lucide-react'
@@ -30,25 +30,25 @@ export function CommandPalette() {
   const commands = useMemo<CommandItem[]>(() => {
     const items: CommandItem[] = []
 
-    // Navigation - Main features
-    getMainFeatures().forEach((feature) => {
+    // Navigation - Main items
+    getMainNavItems().forEach((item) => {
       items.push({
-        id: `nav-${feature.id}`,
-        name: `Go to ${feature.name}`,
-        icon: feature.icon,
-        action: () => navigate(feature.path),
+        id: `nav-${item.id}`,
+        name: `Go to ${item.name}`,
+        icon: item.icon,
+        action: () => navigate(item.path),
         category: 'Navigation',
-        keywords: [feature.name.toLowerCase()],
+        keywords: [item.name.toLowerCase()],
       })
     })
 
     // Settings navigation
-    const settingsFeature = features.find((f) => f.id === 'settings')!
+    const settingsNavItem = mainNavItems.find((item) => item.id === 'settings')!
     items.push({
       id: 'nav-settings',
       name: 'Go to Settings',
-      icon: settingsFeature.icon,
-      action: () => navigate(settingsFeature.path),
+      icon: settingsNavItem.icon,
+      action: () => navigate(settingsNavItem.path),
       category: 'Navigation',
       keywords: ['settings', 'preferences', 'config'],
     })

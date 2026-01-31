@@ -1,4 +1,3 @@
-import { type ComponentType, type LazyExoticComponent, lazy } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   Download,
@@ -11,27 +10,28 @@ import {
   Terminal,
 } from 'lucide-react'
 
-export type FeatureSection = 'main' | 'server'
+export type NavSection = 'main' | 'server'
 
-export interface FeatureDefinition {
+/**
+ * Navigation item metadata for sidebar, command palette, and UI.
+ * Actual route definitions are in App.tsx to handle complex nesting.
+ */
+export interface NavItem {
   id: string
   name: string
   icon: LucideIcon
   path: string
-  component: LazyExoticComponent<ComponentType>
-  section: FeatureSection
+  section: NavSection
   serverScoped?: boolean
   shortcut?: string
 }
 
-export const features: FeatureDefinition[] = [
-  // Main section
+export const mainNavItems: NavItem[] = [
   {
     id: 'dashboard',
     name: 'Dashboard',
     icon: LayoutDashboard,
     path: '/',
-    component: lazy(() => import('@/features/dashboard')),
     section: 'main',
     shortcut: 'g d',
   },
@@ -40,35 +40,26 @@ export const features: FeatureDefinition[] = [
     name: 'Servers',
     icon: Server,
     path: '/servers',
-    component: lazy(() => import('@/features/servers')),
     section: 'main',
     shortcut: 'g s',
   },
-
-  // Settings
   {
     id: 'settings',
     name: 'Settings',
     icon: Settings,
     path: '/settings',
-    component: lazy(() => import('@/features/settings')),
     section: 'main',
     shortcut: 'g ,',
   },
 ]
 
-// Server-scoped features (shown when a server is selected)
-export const serverFeatures: FeatureDefinition[] = [
+// Server-scoped navigation items (shown when a server is selected)
+export const serverNavItems: NavItem[] = [
   {
     id: 'server-overview',
     name: 'Overview',
     icon: LayoutDashboard,
     path: '/servers/:serverId',
-    component: lazy(() =>
-      import('@/features/servers').then((m) => ({
-        default: m.ServerDetailPage,
-      }))
-    ),
     section: 'server',
     serverScoped: true,
   },
@@ -77,7 +68,6 @@ export const serverFeatures: FeatureDefinition[] = [
     name: 'Files',
     icon: FolderOpen,
     path: '/servers/:serverId/files',
-    component: lazy(() => import('@/features/files')),
     section: 'server',
     serverScoped: true,
   },
@@ -86,7 +76,6 @@ export const serverFeatures: FeatureDefinition[] = [
     name: 'Search',
     icon: Search,
     path: '/servers/:serverId/search',
-    component: lazy(() => import('@/features/search')),
     section: 'server',
     serverScoped: true,
   },
@@ -95,7 +84,6 @@ export const serverFeatures: FeatureDefinition[] = [
     name: 'Terminal',
     icon: Terminal,
     path: '/servers/:serverId/terminal',
-    component: lazy(() => import('@/features/terminal')),
     section: 'server',
     serverScoped: true,
   },
@@ -104,7 +92,6 @@ export const serverFeatures: FeatureDefinition[] = [
     name: 'Jobs',
     icon: ListTodo,
     path: '/servers/:serverId/jobs',
-    component: lazy(() => import('@/features/jobs')),
     section: 'server',
     serverScoped: true,
   },
@@ -113,19 +100,18 @@ export const serverFeatures: FeatureDefinition[] = [
     name: 'Downloads',
     icon: Download,
     path: '/servers/:serverId/downloads',
-    component: lazy(() => import('@/features/downloads')),
     section: 'server',
     serverScoped: true,
   },
 ]
 
 // Helper functions
-export const getFeaturesBySection = (section: FeatureSection) => features.filter((f) => f.section === section)
+export const getNavItemsBySection = (section: NavSection) => mainNavItems.filter((item) => item.section === section)
 
-export const getMainFeatures = () => features.filter((f) => f.section === 'main' && f.id !== 'settings')
+export const getMainNavItems = () => mainNavItems.filter((item) => item.id !== 'settings')
 
-export const getSettingsFeature = () => features.find((f) => f.id === 'settings')!
+export const getSettingsNavItem = () => mainNavItems.find((item) => item.id === 'settings')!
 
-export const getAllFeatures = () => [...features, ...serverFeatures]
+export const getAllNavItems = () => [...mainNavItems, ...serverNavItems]
 
-export const getFeatureById = (id: string) => getAllFeatures().find((f) => f.id === id)
+export const getNavItemById = (id: string) => getAllNavItems().find((item) => item.id === id)

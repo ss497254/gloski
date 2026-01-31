@@ -1,42 +1,106 @@
-import { features, serverFeatures } from '@/app/feature-registry'
-import { AppLayout } from '@/layouts'
-import { PageLoader } from '@/shared/components'
+import { AppLayout, ServerLayout } from '@/layouts'
+import { RouteErrorBoundary } from '@/shared/components'
 import { Toaster } from '@/ui/sonner'
-import { Suspense } from 'react'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 
-// Special pages and providers
-import { AddServerPage, ServerProvider } from '@/features/servers'
+// Special pages
+import { AddServerPage } from '@/features/servers'
 
-// Create route objects
+// Create route configuration for SPA
 const router = createBrowserRouter([
   {
-    path: '/servers/add',
-    element: <AddServerPage />,
-  },
-  {
     element: <AppLayout />,
+    errorElement: <RouteErrorBoundary />,
     children: [
-      // Global features from registry
-      ...features.map((feature) => ({
-        path: feature.path,
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <feature.component />
-          </Suspense>
-        ),
-      })),
-      // Server-scoped features from registry - wrapped with ServerProvider
-      ...serverFeatures.map((feature) => ({
-        path: feature.path,
-        element: (
-          <ServerProvider>
-            <Suspense fallback={<PageLoader />}>
-              <feature.component />
-            </Suspense>
-          </ServerProvider>
-        ),
-      })),
+      // Dashboard
+      {
+        path: '/',
+        lazy: {
+          Component: async () => (await import('@/features/dashboard')).default,
+        },
+        errorElement: <RouteErrorBoundary />,
+      },
+      // Settings
+      {
+        path: '/settings',
+        lazy: {
+          Component: async () => (await import('@/features/settings')).default,
+        },
+        errorElement: <RouteErrorBoundary />,
+      },
+      // Servers - parent route grouping all server-related pages
+      {
+        path: '/servers',
+        errorElement: <RouteErrorBoundary />,
+        children: [
+          // Servers list (index route)
+          {
+            index: true,
+            lazy: {
+              Component: async () => (await import('@/features/servers')).default,
+            },
+            errorElement: <RouteErrorBoundary />,
+          },
+          // Add server page
+          {
+            path: 'add',
+            element: <AddServerPage />,
+            errorElement: <RouteErrorBoundary />,
+          },
+          // Server-scoped features - wrapped with ServerLayout (provides ServerProvider context)
+          {
+            path: ':serverId',
+            element: <ServerLayout />,
+            errorElement: <RouteErrorBoundary />,
+            children: [
+              // Server overview (index route)
+              {
+                index: true,
+                lazy: {
+                  Component: async () => (await import('@/features/servers')).ServerDetailPage,
+                },
+                errorElement: <RouteErrorBoundary />,
+              },
+              // Server sub-pages
+              {
+                path: 'files',
+                lazy: {
+                  Component: async () => (await import('@/features/files')).default,
+                },
+                errorElement: <RouteErrorBoundary />,
+              },
+              {
+                path: 'search',
+                lazy: {
+                  Component: async () => (await import('@/features/search')).default,
+                },
+                errorElement: <RouteErrorBoundary />,
+              },
+              {
+                path: 'terminal',
+                lazy: {
+                  Component: async () => (await import('@/features/terminal')).default,
+                },
+                errorElement: <RouteErrorBoundary />,
+              },
+              {
+                path: 'jobs',
+                lazy: {
+                  Component: async () => (await import('@/features/jobs')).default,
+                },
+                errorElement: <RouteErrorBoundary />,
+              },
+              {
+                path: 'downloads',
+                lazy: {
+                  Component: async () => (await import('@/features/downloads')).default,
+                },
+                errorElement: <RouteErrorBoundary />,
+              },
+            ],
+          },
+        ],
+      },
       // Catch all - redirect to dashboard
       {
         path: '*',

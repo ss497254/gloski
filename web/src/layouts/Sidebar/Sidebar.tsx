@@ -2,7 +2,7 @@ import { NavLink, useLocation, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { NavItem } from './NavItem'
 import { ServerNav } from './ServerNav'
-import { getMainFeatures, getSettingsFeature } from '@/app/feature-registry'
+import { getMainNavItems, getSettingsNavItem } from '@/app/navigation'
 import { useSettingsStore } from '@/features/settings'
 import { useServersStore } from '@/features/servers'
 import { cn } from '@/shared/lib/utils'
@@ -19,8 +19,8 @@ export function Sidebar({ className }: SidebarProps) {
   const servers = useServersStore((s) => s.servers)
   const currentServer = servers.find((s) => s.id === serverId)
 
-  const mainFeatures = getMainFeatures()
-  const settingsFeature = getSettingsFeature()
+  const mainNavItems = getMainNavItems()
+  const settingsNavItem = getSettingsNavItem()
 
   return (
     <aside
@@ -79,13 +79,13 @@ export function Sidebar({ className }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto px-3 py-2">
         {/* Main Navigation */}
         <div className="space-y-1">
-          {mainFeatures.map((feature) => (
+          {mainNavItems.map((item) => (
             <NavItem
-              key={feature.id}
-              to={feature.path}
-              icon={feature.icon}
-              label={feature.name}
-              end={feature.path === '/'}
+              key={item.id}
+              to={item.path}
+              icon={item.icon}
+              label={item.name}
+              end={item.path === '/'}
               collapsed={sidebarCollapsed}
             />
           ))}
@@ -177,9 +177,9 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Footer */}
       <div className="border-t p-3 bg-background/30">
         <NavItem
-          to={settingsFeature.path}
-          icon={settingsFeature.icon}
-          label={settingsFeature.name}
+          to={settingsNavItem.path}
+          icon={settingsNavItem.icon}
+          label={settingsNavItem.name}
           collapsed={sidebarCollapsed}
         />
       </div>
@@ -208,8 +208,8 @@ export function MobileSidebar() {
   const servers = useServersStore((s) => s.servers)
   const currentServer = servers.find((s) => s.id === serverId)
 
-  const mainFeatures = getMainFeatures()
-  const settingsFeature = getSettingsFeature()
+  const mainNavItems = getMainNavItems()
+  const settingsNavItem = getSettingsNavItem()
 
   // Close sidebar on route change
   useEffect(() => {
@@ -294,13 +294,13 @@ export function MobileSidebar() {
         <nav className="flex-1 overflow-y-auto px-3 py-2">
           {/* Main Navigation */}
           <div className="space-y-1">
-            {mainFeatures.map((feature) => (
+            {mainNavItems.map((item) => (
               <NavItem
-                key={feature.id}
-                to={feature.path}
-                icon={feature.icon}
-                label={feature.name}
-                end={feature.path === '/'}
+                key={item.id}
+                to={item.path}
+                icon={item.icon}
+                label={item.name}
+                end={item.path === '/'}
                 collapsed={false}
               />
             ))}
@@ -385,9 +385,9 @@ export function MobileSidebar() {
         {/* Footer */}
         <div className="border-t p-3 bg-background/30">
           <NavItem
-            to={settingsFeature.path}
-            icon={settingsFeature.icon}
-            label={settingsFeature.name}
+            to={settingsNavItem.path}
+            icon={settingsNavItem.icon}
+            label={settingsNavItem.name}
             collapsed={false}
           />
         </div>

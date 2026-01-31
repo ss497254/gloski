@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom'
 import { TooltipProvider } from '@/ui/tooltip'
 import { MobileSidebar, Sidebar } from './Sidebar'
 import { CommandPalette } from '@/shared/components/CommandPalette'
-import { PageLoader } from '@/shared/components'
+import { NavigationProgress, PageLoader } from '@/shared/components'
 import { useSettingsStore } from '@/features/settings'
 import { Layers, Menu } from 'lucide-react'
 
@@ -12,6 +12,7 @@ export function AppLayout() {
 
   return (
     <TooltipProvider delayDuration={0}>
+      <NavigationProgress />
       <div className="h-screen flex flex-col md:flex-row bg-background">
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 shrink-0">

@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom'
 import { NavItem } from './NavItem'
 import { NavSection } from './NavSection'
-import { serverFeatures } from '@/app/feature-registry'
+import { serverNavItems } from '@/app/navigation'
 import { useServersStore } from '@/features/servers'
 
 interface ServerNavProps {
@@ -17,13 +17,13 @@ export function ServerNav({ collapsed }: ServerNavProps) {
 
   return (
     <NavSection title={server.name} collapsed={collapsed}>
-      {serverFeatures.map((feature) => (
+      {serverNavItems.map((item) => (
         <NavItem
-          key={feature.id}
-          to={feature.path.replace(':serverId', serverId)}
-          icon={feature.icon}
-          label={feature.name}
-          end={feature.id === 'server-overview'}
+          key={item.id}
+          to={item.path.replace(':serverId', serverId)}
+          icon={item.icon}
+          label={item.name}
+          end={item.id === 'server-overview'}
           collapsed={collapsed}
         />
       ))}
