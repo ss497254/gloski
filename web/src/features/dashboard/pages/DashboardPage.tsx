@@ -5,9 +5,10 @@ import { Link } from 'react-router-dom'
 import { ServerCard } from '@/features/servers'
 import { DashboardProvider, useDashboard } from '../context'
 import { PageLayout } from '@/layouts'
+import { DashboardSkeleton } from '@/shared/components'
 
 function DashboardContent() {
-  const { servers, displayServers, onlineCount, offlineCount } = useDashboard()
+  const { servers, displayServers, onlineCount, offlineCount, isLoading } = useDashboard()
 
   return (
     <PageLayout
@@ -24,8 +25,10 @@ function DashboardContent() {
     >
 
       {/* Content */}
-      <div className="p-6 space-y-6">
-        {servers.length === 0 ? (
+      {isLoading ? (
+        <DashboardSkeleton />
+      ) : servers.length === 0 ? (
+        <div className="p-6">
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
               <ServerIcon className="h-10 w-10 text-primary" />
@@ -41,9 +44,10 @@ function DashboardContent() {
               </Link>
             </Button>
           </div>
-        ) : (
-          <>
-            {/* Stats Overview */}
+        </div>
+      ) : (
+        <div className="p-6 space-y-6">
+          {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
                 <CardContent className="p-6">
@@ -102,9 +106,8 @@ function DashboardContent() {
                 ))}
               </div>
             </div>
-          </>
-        )}
-      </div>
+        </div>
+      )}
     </PageLayout>
   )
 }

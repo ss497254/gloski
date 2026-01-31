@@ -21,7 +21,7 @@ export function PageLayout({
   noPadding = false,
 }: PageLayoutProps) {
   return (
-    <div className={cn('flex flex-col', fullHeight && 'h-full')}>
+    <div className={cn('flex flex-col animate-in fade-in duration-200', fullHeight && 'h-full')}>
       {/* Header */}
       <header className="border-b px-4 h-18 md:px-6 shrink-0 flex items-start md:items-center justify-between gap-3 flex-col sm:flex-row">
         <div className="min-w-0">

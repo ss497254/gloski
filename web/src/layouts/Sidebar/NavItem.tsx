@@ -17,16 +17,17 @@ export function NavItem({ to, icon: Icon, label, end, collapsed, badge }: NavIte
     <Tooltip>
       <TooltipTrigger asChild>
         <NavLink to={to} end={end}>
-          {({ isActive }) => (
+          {({ isActive, isPending }) => (
             <div
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 'hover:bg-accent hover:text-accent-foreground',
                 collapsed && 'justify-center px-2',
-                isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
+                isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground',
+                isPending && 'opacity-70'
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className={cn('h-4 w-4 shrink-0', isPending && 'animate-pulse')} />
               {!collapsed && <span className="flex-1">{label}</span>}
               {!collapsed && badge != null && badge > 0 && (
                 <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs text-primary-foreground">

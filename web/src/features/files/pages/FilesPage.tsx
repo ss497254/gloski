@@ -1,8 +1,8 @@
 import { useServer } from '@/features/servers'
-import { EmptyState } from '@/shared/components'
+import { EmptyState, FilesListSkeleton } from '@/shared/components'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
-import { AlertCircle, Folder, Loader2, Search } from 'lucide-react'
+import { AlertCircle, Folder, Search } from 'lucide-react'
 import {
   BulkDeleteDialog,
   DeleteDialog,
@@ -124,9 +124,7 @@ function FilesPageContent() {
                 className="h-full"
               />
             ) : loading ? (
-              <div className="h-full flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
+              <FilesListSkeleton />
             ) : sortedAndFilteredEntries.length === 0 ? (
               <EmptyState
                 icon={searchQuery ? Search : Folder}
