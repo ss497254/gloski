@@ -24,6 +24,7 @@ cd web && bun install && bun run dev
 ```
 
 Open http://localhost:4000:
+
 1. Click "Add Server"
 2. Enter server URL: `http://127.0.0.1:8080`
 3. Enter API key: `your-api-key`
@@ -41,12 +42,12 @@ Open http://localhost:4000:
 
 ### Server Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GLOSKI_HOST` | `127.0.0.1` | Server bind address |
-| `GLOSKI_PORT` | `8080` | Server port |
-| `GLOSKI_API_KEY` | (none) | API key for authentication |
-| `GLOSKI_LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
+| Variable           | Default     | Description                         |
+| ------------------ | ----------- | ----------------------------------- |
+| `GLOSKI_HOST`      | `127.0.0.1` | Server bind address                 |
+| `GLOSKI_PORT`      | `8080`      | Server port                         |
+| `GLOSKI_API_KEY`   | (none)      | API key for authentication          |
+| `GLOSKI_LOG_LEVEL` | `info`      | Log level: debug, info, warn, error |
 
 ## Documentation
 
@@ -54,7 +55,3 @@ Open http://localhost:4000:
 - [Frontend Architecture](docs/frontend.md)
 - [Backend Architecture](docs/backend.md)
 - [SDK Documentation](docs/sdk.md)
-
-## License
-
-MIT
