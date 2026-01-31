@@ -10,6 +10,21 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    allowedHosts: true,
+    port: 3000,
+    proxy: {
+      '/api/terminal': {
+        target: 'ws://localhost:8080',
+        rewriteWsOrigin: true,
+        ws: true,
+      },
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     cssCodeSplit: false,
     rollupOptions: {
