@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import {
+  AreaChart,
   Download,
   FolderOpen,
   LayoutDashboard,
@@ -60,6 +61,14 @@ export const serverNavItems: NavItem[] = [
     name: 'Overview',
     icon: LayoutDashboard,
     path: '/servers/:serverId',
+    section: 'server',
+    serverScoped: true,
+  },
+  {
+    id: 'metrics',
+    name: 'Metrics',
+    icon: AreaChart,
+    path: '/servers/:serverId/metrics',
     section: 'server',
     serverScoped: true,
   },

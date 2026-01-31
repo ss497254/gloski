@@ -70,6 +70,13 @@ const router = createBrowserRouter([
                 errorElement: <RouteErrorBoundary />,
               },
               {
+                path: 'metrics',
+                lazy: {
+                  Component: async () => (await import('@/features/servers')).ServerMetricsPage,
+                },
+                errorElement: <RouteErrorBoundary />,
+              },
+              {
                 path: 'search',
                 lazy: {
                   Component: async () => (await import('@/features/search')).default,
