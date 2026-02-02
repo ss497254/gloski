@@ -26,7 +26,7 @@ cd web && bun install && bun run dev
 Open http://localhost:4000:
 1. Click "Add Server"
 2. Enter server URL: `http://127.0.0.1:8080`
-3. Enter API key: `1234`
+3. Enter API key: `your-api-key`
 
 ## Features
 
