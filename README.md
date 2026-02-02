@@ -1,6 +1,6 @@
 # Gloski
 
-A control center for managing multiple Linux servers with terminal access, file management, and system monitoring.
+Lightweight Go-based server management tool with terminal access, file browser, process control and real-time metrics 
 
 ## Quick Start
 
