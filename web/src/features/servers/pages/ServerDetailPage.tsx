@@ -1,6 +1,5 @@
 import { DiskUsage, MemoryWidget, NetworkStatsWidget, QuickStats, SystemOverview } from '@/features/servers/components'
 import { EmptyState } from '@/shared/components'
-import type { ServerStatus, SystemStats } from '@/shared/lib/types'
 import { cn } from '@/shared/lib/utils'
 import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
@@ -16,8 +15,11 @@ import {
   ShieldAlert,
   WifiOff,
 } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { useStore } from 'zustand'
+import { useServer } from '../context'
+import { useServerStatus } from '../hooks/useServerStatus'
 import { useServersStore } from '../stores/servers'
 
 function ServerDetailSkeleton() {
@@ -94,73 +96,33 @@ function ServerDetailSkeleton() {
 }
 
 export function ServerDetailPage() {
-  const { serverId } = useParams<{ serverId: string }>()
-  const navigate = useNavigate()
-  const getServer = useServersStore((state) => state.getServer)
+  // Get server info and stats store
+  const { server, serverId, statsStore } = useServer()
   const updateServer = useServersStore((state) => state.updateServer)
 
-  const server = serverId ? getServer(serverId) : undefined
+  // Subscribe to stats from Zustand store (only this re-renders when stats change)
+  const stats = useStore(statsStore, (s) => s.stats)
 
-  const [stats, setStats] = useState<SystemStats | null>(null)
-  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const fetchInProgressRef = useRef(false)
-
-  const fetchStats = useCallback(async () => {
-    // Get fresh server data from store
-    const currentServer = serverId ? useServersStore.getState().getServer(serverId) : undefined
-    if (!currentServer || fetchInProgressRef.current) return
-
-    if (!currentServer.apiKey && !currentServer.token) {
-      setError('No authentication configured. Add an API key to connect.')
-      setLoading(false)
-      return
-    }
-
-    try {
-      fetchInProgressRef.current = true
-      const client = currentServer.getClient()
-      // Fetch both stats and status in parallel
-      const [statsData, statusData] = await Promise.all([client.system.getStats(), client.system.getStatus()])
-      setStats(statsData)
-      setServerStatus(statusData)
-      setError(null)
-      // Only update status if it changed
-      if (currentServer.status !== 'online') {
-        updateServer(currentServer.id, { status: 'online' })
+  // Fetch server status independently
+  const { serverStatus, loading, error, fetchStatus } = useServerStatus(server, {
+    onSuccess: () => {
+      if (server.status !== 'online') {
+        updateServer(server.id, { status: 'online' })
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      setError(message)
-      const isAuthError = message.includes('401') || message.includes('Unauthorized')
+    },
+    onError: (errorMsg) => {
+      const isAuthError = errorMsg.includes('401') || errorMsg.includes('Unauthorized')
       const newStatus = isAuthError ? 'unauthorized' : 'offline'
-      // Only update status if it changed
-      if (currentServer.status !== newStatus) {
-        updateServer(currentServer.id, { status: newStatus })
+      if (server.status !== newStatus) {
+        updateServer(server.id, { status: newStatus })
       }
-    } finally {
-      setLoading(false)
-      fetchInProgressRef.current = false
-    }
-  }, [serverId, updateServer])
+    },
+  })
 
+  // Fetch status on mount
   useEffect(() => {
-    if (!server) {
-      navigate('/')
-      return
-    }
-
-    fetchStats()
-
-    // Poll every 3 seconds
-    const interval = setInterval(fetchStats, 3000)
-    return () => clearInterval(interval)
-  }, [serverId, server, fetchStats, navigate])
-
-  if (!server) {
-    return null
-  }
+    fetchStatus()
+  }, [fetchStatus])
 
   // Initial loading state with skeleton
   if (loading && !stats) {
@@ -195,12 +157,12 @@ export function ServerDetailPage() {
             variant={isAuthError ? 'warning' : 'error'}
             action={
               <div className="flex items-center gap-3">
-                <Button onClick={fetchStats} variant="outline">
+                <Button onClick={fetchStatus} variant="outline">
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Try Again
                 </Button>
-                <Button variant="ghost" onClick={() => navigate('/')}>
-                  Back to Dashboard
+                <Button variant="ghost" asChild>
+                  <Link to="/">Back to Dashboard</Link>
                 </Button>
               </div>
             }
@@ -271,7 +233,7 @@ export function ServerDetailPage() {
                 </Link>
               </Button>
             ))}
-            <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={fetchStatus} disabled={loading}>
               <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
               Refresh
             </Button>
