@@ -51,13 +51,16 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
   const updateServer = useServersStore((state) => state.updateServer)
   const [serversWithStats, setServersWithStats] = useState<ServerWithStats[]>([])
 
-  const sortedServers = getSortedServers(servers)
+  // Memoize sorted servers to prevent unnecessary recalculations
+  const sortedServers = useMemo(() => getSortedServers(servers), [servers])
 
   // Track server IDs to detect changes (not the full server objects)
   const serverIds = servers.map((s) => s.id).join(',')
 
   // Fetch stats for all servers
   useEffect(() => {
+    // AbortController to cancel pending requests on unmount
+    const abortController = new AbortController()
     // Get fresh server list from store to avoid stale closures
     const { servers: currentServers } = useServersStore.getState()
 
@@ -69,13 +72,17 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
           }
 
           try {
-            const stats = await server.getClient().system.getStats()
+            const stats = await server.getClient().system.getStats({ signal: abortController.signal })
             // Only update if status changed to avoid unnecessary re-renders
             if (server.status !== 'online') {
               updateServer(server.id, { status: 'online' })
             }
             return { ...server, status: 'online' as const, stats, statsError: null }
           } catch (err) {
+            // Ignore aborted requests
+            if (err instanceof Error && err.name === 'AbortError') {
+              return { ...server, stats: null, statsError: null }
+            }
             const isAuthError = err instanceof Error && err.message.includes('401')
             const newStatus = isAuthError ? 'unauthorized' : 'offline'
             // Only update if status changed
@@ -105,7 +112,10 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
 
     // Poll for stats updates
     const interval = setInterval(fetchAllStats, POLLING_INTERVAL)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      abortController.abort() // Cancel pending requests on cleanup
+    }
   }, [serverIds, updateServer])
 
   // Merge sorted order with stats - memoized to avoid unnecessary recalculations
