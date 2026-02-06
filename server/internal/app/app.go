@@ -35,6 +35,7 @@ type App struct {
 
 	// Background services
 	statsCollector *system.Collector
+	statsHub       *system.Hub
 
 	// Optional services (may be nil if not available)
 	Packages *packages.Service
@@ -59,10 +60,14 @@ func New(cfg *config.Config) (*App, error) {
 	app.DB = db
 	logger.Info("Database initialized at %s", cfg.DatabasePath())
 
-	// Initialize system stats store and collector
-	// Store 150 samples at 2s interval = 5 minutes of history
-	statsStore := system.NewStore(150)
-	app.statsCollector = system.NewCollector(statsStore, 2*time.Second)
+	// Initialize system stats store, hub, and collector
+	// Store capacity uses default from NewStore (300 samples = 10 minutes at 2s interval)
+	statsStore := system.NewStore(0) // 0 = use default capacity
+	app.statsHub = system.NewHub(statsStore)
+	go app.statsHub.Run() // Start hub in background
+	logger.Info("WebSocket stats hub initialized")
+
+	app.statsCollector = system.NewCollector(statsStore, app.statsHub, 2*time.Second)
 	app.statsCollector.Start()
 
 	// Initialize core services (always available)
@@ -73,7 +78,7 @@ func New(cfg *config.Config) (*App, error) {
 	}
 	app.Auth = authService
 	app.Files = files.NewService(cfg)
-	app.System = system.NewService(statsStore)
+	app.System = system.NewService(statsStore, app.statsHub)
 
 	// Initialize jobs service if enabled
 	if cfg.Jobs.Enabled {

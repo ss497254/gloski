@@ -15,6 +15,7 @@ import (
 // Collector periodically collects system stats and updates the store.
 type Collector struct {
 	store    *Store
+	hub      *Hub
 	interval time.Duration
 	stopCh   chan struct{}
 	doneCh   chan struct{}
@@ -25,9 +26,10 @@ type Collector struct {
 }
 
 // NewCollector creates a new stats collector.
-func NewCollector(store *Store, interval time.Duration) *Collector {
+func NewCollector(store *Store, hub *Hub, interval time.Duration) *Collector {
 	return &Collector{
 		store:    store,
+		hub:      hub,
 		interval: interval,
 		stopCh:   make(chan struct{}),
 		doneCh:   make(chan struct{}),
@@ -103,6 +105,11 @@ func (c *Collector) collect() {
 	stats.Processes = c.getProcessCount()
 
 	c.store.Push(stats)
+
+	// Broadcast to WebSocket clients if hub is available
+	if c.hub != nil {
+		c.hub.Broadcast(stats)
+	}
 }
 
 func (c *Collector) getCPUStats() CPUStats {

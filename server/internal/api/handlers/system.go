@@ -7,6 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gorilla/websocket"
+	"github.com/ss497254/gloski/internal/auth"
+	"github.com/ss497254/gloski/internal/logger"
 	"github.com/ss497254/gloski/internal/system"
 )
 
@@ -15,15 +18,17 @@ var startTime = time.Now()
 // SystemHandler handles system-related requests
 type SystemHandler struct {
 	systemService *system.Service
+	authService   *auth.Service
 	features      map[string]bool
 	version       string
 	db            *sql.DB
 }
 
 // NewSystemHandler creates a new system handler
-func NewSystemHandler(systemService *system.Service) *SystemHandler {
+func NewSystemHandler(systemService *system.Service, authService *auth.Service) *SystemHandler {
 	return &SystemHandler{
 		systemService: systemService,
+		authService:   authService,
 		version:       "dev",
 	}
 }
@@ -206,4 +211,66 @@ func (h *SystemHandler) GetStatsHistory(w http.ResponseWriter, r *http.Request) 
 		"count":    len(samples),
 		"duration": duration.String(),
 	})
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WebSocket Stats Stream
+// ─────────────────────────────────────────────────────────────────────────────
+
+var statsUpgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		// Allow all origins for now (should be configured in production)
+		return true
+	},
+}
+
+// StatsWebSocket handles WebSocket connections for real-time stats streaming
+// GET /api/system/stats/ws
+func (h *SystemHandler) StatsWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Auth via query param for WebSocket - try API key first, then JWT
+	apiKey := r.URL.Query().Get("api_key")
+	token := r.URL.Query().Get("token")
+
+	authenticated := false
+
+	if apiKey != "" {
+		if err := h.authService.ValidateAPIKey(apiKey); err == nil {
+			authenticated = true
+		}
+	}
+
+	if !authenticated && token != "" {
+		if err := h.authService.ValidateToken(token); err == nil {
+			authenticated = true
+		}
+	}
+
+	if !authenticated {
+		http.Error(w, "invalid or missing authentication", http.StatusUnauthorized)
+		return
+	}
+
+	conn, err := statsUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Error("WebSocket upgrade failed: %v", err)
+		return
+	}
+
+	hub := h.systemService.GetHub()
+	if hub == nil {
+		logger.Error("WebSocket hub not available")
+		conn.Close()
+		return
+	}
+
+	client := &system.Client{
+		Conn: conn,
+		Send: make(chan []byte, 256),
+		Hub:  hub,
+	}
+
+	hub.Register(client)
+	client.Start()
 }

@@ -22,10 +22,10 @@ type Store struct {
 
 // NewStore creates a new stats store with the given capacity.
 // Capacity determines how many samples are retained.
-// Example: capacity=150 with 2s interval = 5 minutes of history.
+// Example: capacity=300 with 2s interval = 10 minutes of history.
 func NewStore(capacity int) *Store {
 	if capacity <= 0 {
-		capacity = 150 // Default: 5 minutes at 2s interval
+		capacity = 300 // Default: 10 minutes at 2s interval
 	}
 	return &Store{
 		samples:  make([]Sample, capacity),

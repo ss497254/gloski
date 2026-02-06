@@ -60,7 +60,7 @@ func Setup(cfg Config) (http.Handler, *RouteHandlers) {
 	// Create handlers
 	healthHandler := handlers.NewHealthHandler()
 	authHandler := handlers.NewAuthHandler(cfg.AuthService)
-	systemHandler := handlers.NewSystemHandler(cfg.SysService)
+	systemHandler := handlers.NewSystemHandler(cfg.SysService, cfg.AuthService)
 	filesHandler := handlers.NewFilesHandler(cfg.FileService)
 	terminalHandler := handlers.NewTerminalHandler(cfg.Cfg, cfg.AuthService)
 
@@ -96,6 +96,9 @@ func Setup(cfg Config) (http.Handler, *RouteHandlers) {
 	mux.Handle("GET /api/system/stats/history", requireAuth(http.HandlerFunc(systemHandler.GetStatsHistory)))
 	mux.Handle("GET /api/system/info", requireAuth(http.HandlerFunc(systemHandler.GetInfo)))
 	mux.Handle("GET /api/system/processes", requireAuth(http.HandlerFunc(systemHandler.GetProcesses)))
+
+	// System WebSocket for real-time stats (auth via query param)
+	mux.HandleFunc("GET /api/system/stats/ws", systemHandler.StatsWebSocket)
 
 	// File routes (protected)
 	mux.Handle("GET /api/files", requireAuth(http.HandlerFunc(filesHandler.List)))

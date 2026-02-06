@@ -14,11 +14,20 @@ import (
 // Service provides system information by reading from the store.
 type Service struct {
 	store *Store
+	hub   *Hub
 }
 
 // NewService creates a new system service.
-func NewService(store *Store) *Service {
-	return &Service{store: store}
+func NewService(store *Store, hub *Hub) *Service {
+	return &Service{
+		store: store,
+		hub:   hub,
+	}
+}
+
+// GetHub returns the WebSocket hub for real-time stats broadcasting.
+func (s *Service) GetHub() *Hub {
+	return s.hub
 }
 
 // GetStats returns the latest system stats from the store.
