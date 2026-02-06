@@ -17,6 +17,7 @@ export {
   SearchResource,
   TerminalResource,
   TerminalConnection,
+  StatsConnection,
   PackagesResource,
   CronResource,
   DownloadsResource,
@@ -81,6 +82,11 @@ export type {
   TerminalOptions,
   TerminalState,
   TerminalEvents,
+
+  // Stats WebSocket types
+  StatsConnectionOptions,
+  StatsConnectionState,
+  StatsConnectionEvents,
 
   // Download types
   DownloadStatus,

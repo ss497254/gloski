@@ -348,16 +348,37 @@ export interface TerminalEvents {
 }
 
 // =============================================================================
+// Stats WebSocket Types
+// =============================================================================
+
+export interface StatsConnectionOptions {
+  /** Auto-reconnect on disconnect (default: true) */
+  autoReconnect?: boolean
+  /** Max reconnect attempts (default: 10) */
+  maxReconnectAttempts?: number
+  /** Initial reconnect delay in ms (default: 1000, with exponential backoff) */
+  reconnectDelay?: number
+  /** Max reconnect delay in ms (default: 30000) */
+  maxReconnectDelay?: number
+}
+
+export type StatsConnectionState = 'connecting' | 'open' | 'closing' | 'closed' | 'reconnecting'
+
+export interface StatsConnectionEvents {
+  open: []
+  stats: [stats: SystemStats]
+  close: [event: CloseEvent]
+  error: [error: Event]
+  reconnecting: [attempt: number]
+  reconnected: []
+  [key: string]: unknown[]
+}
+
+// =============================================================================
 // Download Types
 // =============================================================================
 
-export type DownloadStatus =
-  | 'pending'
-  | 'downloading'
-  | 'paused'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
+export type DownloadStatus = 'pending' | 'downloading' | 'paused' | 'completed' | 'failed' | 'cancelled'
 
 export interface ShareLink {
   token: string

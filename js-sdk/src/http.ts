@@ -9,6 +9,7 @@ export interface RequestOptions {
   body?: unknown
   headers?: Record<string, string>
   timeout?: number
+  signal?: AbortSignal
 }
 
 export interface ClientCallbacks {
@@ -25,6 +26,7 @@ export class HttpClient {
   private config: GloskiClientConfig
   private callbacks: ClientCallbacks
   private apiPrefix: string
+  private pendingRequests: Map<string, Promise<unknown>> = new Map()
 
   constructor(config: GloskiClientConfig, callbacks: ClientCallbacks = {}) {
     this.config = config
@@ -106,10 +108,14 @@ export class HttpClient {
       ...options.headers,
     }
 
-    return this.doRequest<T>(url, {
-      ...options,
-      headers,
-    }, false)
+    return this.doRequest<T>(
+      url,
+      {
+        ...options,
+        headers,
+      },
+      false
+    )
   }
 
   /**
@@ -128,10 +134,7 @@ export class HttpClient {
     }
 
     const controller = new AbortController()
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      this.config.timeout || DEFAULT_TIMEOUT
-    )
+    const timeoutId = setTimeout(() => controller.abort(), this.config.timeout || DEFAULT_TIMEOUT)
 
     try {
       const response = await fetch(url, {
@@ -202,6 +205,14 @@ export class HttpClient {
   }
 
   /**
+   * Generate cache key for request deduplication
+   */
+  private getCacheKey(url: string, method: string, body?: unknown): string {
+    const bodyStr = body ? JSON.stringify(body) : ''
+    return `${method}:${url}:${bodyStr}`
+  }
+
+  /**
    * Internal request method
    */
   private async doRequest<T>(
@@ -209,61 +220,97 @@ export class HttpClient {
     options: RequestOptions & { headers: Record<string, string> },
     handleAuthErrors = true
   ): Promise<T> {
-    const controller = new AbortController()
+    const method = options.method || 'GET'
+    const cacheKey = this.getCacheKey(url, method, options.body)
+
+    // Check if this request is already in flight (deduplication)
+    if (this.pendingRequests.has(cacheKey)) {
+      return this.pendingRequests.get(cacheKey) as Promise<T>
+    }
+
+    const timeoutController = new AbortController()
     const timeoutId = setTimeout(
-      () => controller.abort(),
+      () => timeoutController.abort(),
       options.timeout || this.config.timeout || DEFAULT_TIMEOUT
     )
 
-    try {
-      const response = await fetch(url, {
-        method: options.method || 'GET',
-        headers: options.headers,
-        body: options.body ? JSON.stringify(options.body) : undefined,
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-      this.handleOnline()
-
-      if (response.status === 401 && handleAuthErrors) {
-        this.callbacks.onUnauthorized?.()
-        throw new GloskiError(401, 'Unauthorized')
+    // Combine external signal with timeout signal
+    let signal: AbortSignal = timeoutController.signal
+    if (options.signal) {
+      // Use AbortSignal.any() if available (modern browsers), otherwise use external signal priority
+      if ('any' in AbortSignal && typeof AbortSignal.any === 'function') {
+        signal = AbortSignal.any([options.signal, timeoutController.signal])
+      } else {
+        // Fallback: prefer external signal if provided
+        signal = options.signal
+        // Listen to external signal to clear timeout
+        options.signal.addEventListener('abort', () => {
+          clearTimeout(timeoutId)
+          timeoutController.abort()
+        })
       }
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}`
-        try {
-          const data = await response.json()
-          errorMessage = data.error || data.message || errorMessage
-        } catch {
-          if (response.statusText) {
-            errorMessage = `${response.status} ${response.statusText}`
-          }
-        }
-
-        // Add context for common errors
-        if (response.status === 404) {
-          errorMessage = `Endpoint not found (404). Make sure you're connecting to a Gloski server.`
-        } else if (response.status === 403) {
-          errorMessage = 'Access denied'
-        } else if (response.status >= 500) {
-          errorMessage = `Server error (${response.status}). The server may be experiencing issues.`
-        }
-
-        throw new GloskiError(response.status, errorMessage)
-      }
-
-      return response.json()
-    } catch (error) {
-      clearTimeout(timeoutId)
-
-      if (error instanceof GloskiError) throw error
-
-      this.handleOffline()
-      const message = getErrorMessage(error)
-      throw new GloskiError(0, message)
     }
+
+    // Create the request promise and cache it
+    const requestPromise = (async () => {
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: options.headers,
+          body: options.body ? JSON.stringify(options.body) : undefined,
+          signal,
+        })
+
+        clearTimeout(timeoutId)
+        this.handleOnline()
+
+        if (response.status === 401 && handleAuthErrors) {
+          this.callbacks.onUnauthorized?.()
+          throw new GloskiError(401, 'Unauthorized')
+        }
+
+        if (!response.ok) {
+          let errorMessage = `HTTP ${response.status}`
+          try {
+            const data = await response.json()
+            errorMessage = data.error || data.message || errorMessage
+          } catch {
+            if (response.statusText) {
+              errorMessage = `${response.status} ${response.statusText}`
+            }
+          }
+
+          // Add context for common errors
+          if (response.status === 404) {
+            errorMessage = `Endpoint not found (404). Make sure you're connecting to a Gloski server.`
+          } else if (response.status === 403) {
+            errorMessage = 'Access denied'
+          } else if (response.status >= 500) {
+            errorMessage = `Server error (${response.status}). The server may be experiencing issues.`
+          }
+
+          throw new GloskiError(response.status, errorMessage)
+        }
+
+        return response.json()
+      } catch (error) {
+        clearTimeout(timeoutId)
+
+        if (error instanceof GloskiError) throw error
+
+        this.handleOffline()
+        const message = getErrorMessage(error)
+        throw new GloskiError(0, message)
+      } finally {
+        // Remove from cache when request completes (success or failure)
+        this.pendingRequests.delete(cacheKey)
+      }
+    })()
+
+    // Cache the promise
+    this.pendingRequests.set(cacheKey, requestPromise)
+
+    return requestPromise as Promise<T>
   }
 
   /**
