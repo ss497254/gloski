@@ -19,9 +19,10 @@ interface MetricsHistoryProps {
   enabled?: boolean
 }
 
-type TimeRange = '2m' | '5m' | '10m'
+type TimeRange = '1m' | '2m' | '5m' | '10m'
 
 const TIME_RANGE_CONFIG = {
+  '1m': { duration: '1m', samples: 30, label: '1 min' },
   '2m': { duration: '2m', samples: 60, label: '2 min' },
   '5m': { duration: '5m', samples: 150, label: '5 min' },
   '10m': { duration: '10m', samples: 300, label: '10 min' },
@@ -36,7 +37,7 @@ export function MetricsHistory({ enabled = true }: MetricsHistoryProps) {
   const [data, setData] = useState<ChartData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [timeRange, setTimeRange] = useState<TimeRange>('10m')
+  const [timeRange, setTimeRange] = useState<TimeRange>('1m')
 
   // Fetch historical data when time range changes
   useEffect(() => {
@@ -179,6 +180,7 @@ export function MetricsHistory({ enabled = true }: MetricsHistoryProps) {
 
       {/* CPU Chart */}
       <MetricsChart
+        key={`cpu-${timeRange}`}
         title="CPU Usage"
         data={data}
         dataKey="cpu"
@@ -191,6 +193,7 @@ export function MetricsHistory({ enabled = true }: MetricsHistoryProps) {
 
       {/* Memory Chart */}
       <MetricsChart
+        key={`memory-${timeRange}`}
         title="Memory Usage"
         data={data}
         dataKey="memory"
@@ -203,6 +206,7 @@ export function MetricsHistory({ enabled = true }: MetricsHistoryProps) {
 
       {/* Network RX Chart */}
       <MetricsChart
+        key={`networkRx-${timeRange}`}
         title="Network Received"
         data={data}
         dataKey="networkRx"
@@ -216,6 +220,7 @@ export function MetricsHistory({ enabled = true }: MetricsHistoryProps) {
 
       {/* Network TX Chart */}
       <MetricsChart
+        key={`networkTx-${timeRange}`}
         title="Network Sent"
         data={data}
         dataKey="networkTx"
