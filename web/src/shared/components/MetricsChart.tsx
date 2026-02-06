@@ -37,16 +37,6 @@ export function MetricsChart({
   loading,
   className,
 }: MetricsChartProps) {
-  // Format timestamp for X-axis
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-  }
-
   // Get current value and stats
   const stats = useMemo(() => {
     if (data.length === 0)
@@ -80,21 +70,6 @@ export function MetricsChart({
     if (percent >= 90) return 'text-red-500 dark:text-red-400'
     if (percent >= 70) return 'text-yellow-500 dark:text-yellow-400'
     return 'text-emerald-600 dark:text-emerald-400'
-  }
-
-  // Custom tooltip component with theme support
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload || payload.length === 0) return null
-
-    const value = payload[0].value
-    const displayVal = formatValue ? formatValue(value) : `${value.toFixed(1)}${unit}`
-
-    return (
-      <div className="rounded-lg border bg-popover px-3 py-2 text-sm shadow-md">
-        <p className="font-medium text-popover-foreground">{displayVal}</p>
-        <p className="text-xs text-muted-foreground">{formatTime(label)}</p>
-      </div>
-    )
   }
 
   return (
@@ -161,6 +136,9 @@ export function MetricsChart({
                 tickLine={false}
                 axisLine={false}
                 dy={10}
+                interval="preserveStartEnd"
+                tickCount={6}
+                minTickGap={50}
               />
               <YAxis
                 domain={[0, max]}
@@ -171,7 +149,10 @@ export function MetricsChart({
                 dx={-10}
                 width={40}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '5 5' }} />
+              <Tooltip
+                content={<CustomTooltip formatValue={formatValue} unit={unit} />}
+                cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '5 5' }}
+              />
               <Area
                 type="monotone"
                 dataKey={dataKey}
@@ -187,4 +168,37 @@ export function MetricsChart({
       </div>
     </Card>
   )
+}
+
+interface CustomTooltipProps {
+  active?: boolean
+  payload?: Array<{ value: number }>
+  label?: string
+  formatValue?: (value: number) => string
+  unit?: string
+}
+
+// Custom tooltip component with theme support
+const CustomTooltip = ({ active, payload, label, formatValue, unit }: CustomTooltipProps) => {
+  if (!active || !payload || payload.length === 0) return null
+
+  const value = payload[0].value
+  const displayVal = formatValue ? formatValue(value) : `${value.toFixed(1)}${unit}`
+
+  return (
+    <div className="rounded-lg border bg-popover px-3 py-2 text-sm shadow-md">
+      <p className="font-medium text-popover-foreground">{displayVal}</p>
+      <p className="text-xs text-muted-foreground">{formatTime(label || '')}</p>
+    </div>
+  )
+}
+
+// Format timestamp for X-axis
+const formatTime = (timestamp: string) => {
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
