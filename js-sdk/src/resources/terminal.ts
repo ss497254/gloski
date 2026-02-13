@@ -16,7 +16,6 @@ export class TerminalConnection extends EventEmitter<TerminalEvents> {
   private manualClose = false
   private wasReconnect = false
   private lastSize: { cols: number; rows: number } | null = null
-  private readonly encoder = new TextEncoder()
   private readonly decoder = new TextDecoder()
   private readonly url: string
 
@@ -54,7 +53,7 @@ export class TerminalConnection extends EventEmitter<TerminalEvents> {
    */
   write(data: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(this.encoder.encode(data))
+      this.ws.send(data)
     }
   }
 

@@ -116,23 +116,23 @@ func (t *Terminal) readWS() {
 			return
 		}
 
-		if msgType == websocket.BinaryMessage || msgType == websocket.TextMessage {
-			t.mu.Lock()
-			t.lastInput = time.Now()
-			t.mu.Unlock()
+		t.mu.Lock()
+		t.lastInput = time.Now()
+		t.mu.Unlock()
 
-			// Check for resize message (starts with specific prefix)
-			if len(data) > 0 && data[0] == 1 {
-				// Resize: format is [1, cols (2 bytes), rows (2 bytes)]
-				if len(data) >= 5 {
-					cols := uint16(data[1])<<8 | uint16(data[2])
-					rows := uint16(data[3])<<8 | uint16(data[4])
-					t.Resize(cols, rows)
-				}
-				continue
+		// Binary messages are control commands (e.g. resize)
+		if msgType == websocket.BinaryMessage {
+			// Resize: format is [0x01, cols (2 bytes), rows (2 bytes)]
+			if len(data) >= 5 && data[0] == 0x01 {
+				cols := uint16(data[1])<<8 | uint16(data[2])
+				rows := uint16(data[3])<<8 | uint16(data[4])
+				t.Resize(cols, rows)
 			}
+			continue
+		}
 
-			// Regular input
+		// Text messages are user input — write directly to PTY
+		if msgType == websocket.TextMessage {
 			_, err = t.ptmx.Write(data)
 			if err != nil {
 				t.Close()
