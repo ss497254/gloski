@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	neturl "net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -285,8 +287,48 @@ func (s *Service) processDownload(id string) {
 	s.store.Update(download)
 }
 
+// validateDownloadURL checks that the URL is safe to fetch (prevents SSRF)
+func validateDownloadURL(rawURL string) error {
+	u, err := neturl.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	// Only allow http and https schemes
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("unsupported URL scheme: %s (only http/https allowed)", u.Scheme)
+	}
+	// Block requests to localhost and private IPs
+	host := u.Hostname()
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0" {
+		return fmt.Errorf("downloads from localhost are not allowed")
+	}
+	// Block common private network ranges
+	if strings.HasPrefix(host, "10.") || strings.HasPrefix(host, "192.168.") || strings.HasPrefix(host, "169.254.") {
+		return fmt.Errorf("downloads from private networks are not allowed")
+	}
+	// Block 172.16.0.0/12
+	if strings.HasPrefix(host, "172.") {
+		parts := strings.Split(host, ".")
+		if len(parts) >= 2 {
+			if second, err := fmt.Sscanf(parts[1], "%d", new(int)); err == nil && second == 1 {
+				var octet int
+				fmt.Sscanf(parts[1], "%d", &octet)
+				if octet >= 16 && octet <= 31 {
+					return fmt.Errorf("downloads from private networks are not allowed")
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // Add adds a new download to the queue
 func (s *Service) Add(url, destination, filename string) (*Download, error) {
+	// Validate URL to prevent SSRF
+	if err := validateDownloadURL(url); err != nil {
+		return nil, err
+	}
+
 	// Expand ~ to home directory
 	if len(destination) > 0 && destination[0] == '~' {
 		home, err := os.UserHomeDir()
@@ -370,7 +412,9 @@ func (s *Service) List() []*Download {
 
 	downloads := make([]*Download, 0, len(s.downloads))
 	for _, d := range s.downloads {
-		downloads = append(downloads, d)
+		// Return copies to avoid data races with worker goroutines
+		cp := *d
+		downloads = append(downloads, &cp)
 	}
 	return downloads
 }
@@ -384,7 +428,9 @@ func (s *Service) Get(id string) (*Download, error) {
 	if !exists {
 		return nil, fmt.Errorf("download not found")
 	}
-	return download, nil
+	// Return a copy to avoid data races with worker goroutines
+	cp := *download
+	return &cp, nil
 }
 
 // Pause pauses a download
@@ -434,7 +480,11 @@ func (s *Service) Resume(id string) error {
 	s.mu.Unlock()
 
 	s.store.Update(download)
-	s.queue <- id
+	select {
+	case s.queue <- id:
+	default:
+		return fmt.Errorf("download queue is full, please try again later")
+	}
 	return nil
 }
 
@@ -494,7 +544,11 @@ func (s *Service) Retry(id string) error {
 	CleanupPartialFile(download.Destination, download.Filename)
 
 	s.store.Update(download)
-	s.queue <- id
+	select {
+	case s.queue <- id:
+	default:
+		return fmt.Errorf("download queue is full, please try again later")
+	}
 	return nil
 }
 

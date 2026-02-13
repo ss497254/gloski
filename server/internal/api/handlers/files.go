@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -222,7 +223,14 @@ func (h *FilesHandler) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+info.Name()+"\"")
+	// Sanitize filename to prevent header injection
+	safeName := strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' || r == '\n' || r == '\r' {
+			return '_'
+		}
+		return r
+	}, info.Name())
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+safeName+"\"")
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 
@@ -320,6 +328,10 @@ func (h *FilesHandler) ListPinned(w http.ResponseWriter, r *http.Request) {
 		}
 		folders = append(folders, f)
 	}
+	if err := rows.Err(); err != nil {
+		InternalError(w, "failed to iterate pinned folders", err.Error())
+		return
+	}
 
 	homeDir, _ := os.UserHomeDir()
 
@@ -366,6 +378,9 @@ func (h *FilesHandler) CreatePinned(w http.ResponseWriter, r *http.Request) {
 			"path": req.Path,
 			"name": req.Name,
 		})
+		return
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		InternalError(w, "failed to check pinned folder", err.Error())
 		return
 	}
 

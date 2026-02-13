@@ -73,6 +73,8 @@ func New(cfg *config.Config) (*App, error) {
 	// Initialize core services (always available)
 	authService, err := auth.NewService(cfg)
 	if err != nil {
+		app.statsCollector.Stop()
+		app.statsHub.Stop()
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize auth service: %w", err)
 	}
@@ -151,9 +153,12 @@ func (a *App) Shutdown(ctx context.Context) error {
 
 	var errs []error
 
-	// Stop stats collector
+	// Stop stats collector and hub
 	if a.statsCollector != nil {
 		a.statsCollector.Stop()
+	}
+	if a.statsHub != nil {
+		a.statsHub.Stop()
 	}
 
 	// Shutdown jobs service (kills running jobs)

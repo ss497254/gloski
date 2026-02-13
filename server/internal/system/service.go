@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -179,7 +180,7 @@ type Process struct {
 	Command string  `json:"command"`
 }
 
-// GetProcesses returns a list of running processes.
+// GetProcesses returns a list of running processes sorted by memory usage (most useful first).
 func (s *Service) GetProcesses(limit int) ([]Process, error) {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
@@ -204,9 +205,15 @@ func (s *Service) GetProcesses(limit int) ([]Process, error) {
 		}
 
 		processes = append(processes, proc)
-		if limit > 0 && len(processes) >= limit {
-			break
-		}
+	}
+
+	// Sort by RSS descending so most resource-consuming processes come first
+	sort.Slice(processes, func(i, j int) bool {
+		return processes[i].RSS > processes[j].RSS
+	})
+
+	if limit > 0 && len(processes) > limit {
+		processes = processes[:limit]
 	}
 
 	return processes, nil

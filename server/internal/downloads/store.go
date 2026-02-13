@@ -118,8 +118,8 @@ func (s *Store) Insert(d *Download) error {
 	`,
 		d.ID, d.URL, d.Destination, d.Filename, d.FilePath,
 		d.Status, d.Progress, d.Total, d.Speed,
-		nullString(d.Error), d.Retries, d.MaxRetries,
-		d.CreatedAt, nullTime(d.StartedAt), nullTime(d.CompletedAt),
+		database.NullString(d.Error), d.Retries, d.MaxRetries,
+		d.CreatedAt, database.NullTime(d.StartedAt), database.NullTime(d.CompletedAt),
 	)
 	return err
 }
@@ -134,8 +134,8 @@ func (s *Store) Update(d *Download) error {
 		WHERE id = ?
 	`,
 		d.URL, d.Destination, d.Filename, d.FilePath, d.Status,
-		d.Progress, d.Total, d.Speed, nullString(d.Error), d.Retries, d.MaxRetries,
-		nullTime(d.StartedAt), nullTime(d.CompletedAt),
+		d.Progress, d.Total, d.Speed, database.NullString(d.Error), d.Retries, d.MaxRetries,
+		database.NullTime(d.StartedAt), database.NullTime(d.CompletedAt),
 		d.ID,
 	)
 	return err
@@ -151,7 +151,7 @@ func (s *Store) Delete(id string) error {
 func (s *Store) UpdateStatus(id string, status DownloadStatus, errorMsg string) error {
 	_, err := s.db.Exec(`
 		UPDATE downloads SET status = ?, error = ? WHERE id = ?
-	`, status, nullString(errorMsg), id)
+	`, status, database.NullString(errorMsg), id)
 	return err
 }
 
@@ -204,7 +204,7 @@ func (s *Store) InsertShareLink(downloadID string, link *ShareLink) error {
 	_, err := s.db.Exec(`
 		INSERT INTO download_share_links (download_id, token, url, created_at, expires_at)
 		VALUES (?, ?, ?, ?, ?)
-	`, downloadID, link.Token, link.URL, link.CreatedAt, nullTime(link.ExpiresAt))
+	`, downloadID, link.Token, link.URL, link.CreatedAt, database.NullTime(link.ExpiresAt))
 	return err
 }
 
@@ -256,17 +256,3 @@ func (s *Store) GetByShareToken(token string) (*Download, *ShareLink, error) {
 	return download, &link, nil
 }
 
-// Helper functions for nullable fields
-func nullString(s string) sql.NullString {
-	if s == "" {
-		return sql.NullString{}
-	}
-	return sql.NullString{String: s, Valid: true}
-}
-
-func nullTime(t *time.Time) sql.NullTime {
-	if t == nil {
-		return sql.NullTime{}
-	}
-	return sql.NullTime{Time: *t, Valid: true}
-}

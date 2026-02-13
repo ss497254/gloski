@@ -94,17 +94,7 @@ func (h *SystemHandler) Status(w http.ResponseWriter, r *http.Request) {
 		checks["database"] = CheckResult{Status: "unavailable", Message: "no database configured"}
 	}
 
-	// Memory stats
-	var memStats runtime.MemStats
-	runtime.ReadMemStats(&memStats)
-	allocMB := memStats.Alloc / 1024 / 1024
-	if allocMB > 500 {
-		checks["memory"] = CheckResult{Status: "warning", Message: "high memory usage"}
-	} else {
-		checks["memory"] = CheckResult{Status: "healthy"}
-	}
-
-	// Goroutine count
+	// Goroutine count (avoid runtime.ReadMemStats which causes a full GC pause)
 	goroutines := runtime.NumGoroutine()
 	if goroutines > 1000 {
 		checks["goroutines"] = CheckResult{Status: "warning", Message: "high goroutine count"}
@@ -126,7 +116,6 @@ func (h *SystemHandler) Status(w http.ResponseWriter, r *http.Request) {
 			Version:    runtime.Version(),
 			NumCPU:     runtime.NumCPU(),
 			Goroutines: goroutines,
-			MemoryMB:   allocMB,
 		},
 		Features: h.features,
 		Checks:   checks,

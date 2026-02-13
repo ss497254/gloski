@@ -13,6 +13,7 @@ type RateLimiter struct {
 	rate    int           // requests per window
 	window  time.Duration // time window
 	cleanup time.Duration // cleanup interval for old entries
+	done    chan struct{}
 }
 
 type bucket struct {
@@ -27,6 +28,7 @@ func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
 		rate:    rate,
 		window:  window,
 		cleanup: window * 2,
+		done:    make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
@@ -37,16 +39,27 @@ func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
 
 func (rl *RateLimiter) cleanupLoop() {
 	ticker := time.NewTicker(rl.cleanup)
-	for range ticker.C {
-		rl.mu.Lock()
-		cutoff := time.Now().Add(-rl.cleanup)
-		for ip, b := range rl.clients {
-			if b.lastReset.Before(cutoff) {
-				delete(rl.clients, ip)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			cutoff := time.Now().Add(-rl.cleanup)
+			for ip, b := range rl.clients {
+				if b.lastReset.Before(cutoff) {
+					delete(rl.clients, ip)
+				}
 			}
+			rl.mu.Unlock()
+		case <-rl.done:
+			return
 		}
-		rl.mu.Unlock()
 	}
+}
+
+// Stop stops the rate limiter cleanup goroutine.
+func (rl *RateLimiter) Stop() {
+	close(rl.done)
 }
 
 // Allow checks if a request from the given IP should be allowed.
@@ -101,16 +114,8 @@ func RateLimit(rate int, window time.Duration) func(http.Handler) http.Handler {
 }
 
 func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header first
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
-	}
-
-	// Check X-Real-IP header
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
-	}
-
-	// Fall back to RemoteAddr
+	// Only use RemoteAddr as the trusted source to prevent spoofing.
+	// X-Forwarded-For and X-Real-IP can be trivially forged by clients
+	// and should only be trusted when behind a known reverse proxy.
 	return r.RemoteAddr
 }

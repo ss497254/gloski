@@ -291,6 +291,11 @@ func parseCronLine(line string) *CronJob {
 
 // AddJob adds a new cron job for the current user.
 func (s *Service) AddJob(schedule, command string) error {
+	// Reject embedded newlines to prevent cron injection
+	if strings.ContainsAny(schedule, "\n\r") || strings.ContainsAny(command, "\n\r") {
+		return fmt.Errorf("schedule and command must not contain newlines")
+	}
+
 	// Get current crontab
 	cmd := exec.Command("crontab", "-l")
 	output, _ := cmd.Output() // Ignore error for empty crontab

@@ -102,8 +102,8 @@ func Load(path string) (*Config, error) {
 	if path != "" {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			if os.IsNotExist(err) {
-				return nil, fmt.Errorf("Failed to read config file: %w\n", err)
+			if !os.IsNotExist(err) {
+				return nil, fmt.Errorf("failed to read config file: %w", err)
 			}
 			// File doesn't exist, use defaults
 		} else if err := json.Unmarshal(data, cfg); err != nil {
@@ -127,7 +127,9 @@ func (c *Config) loadFromEnv() {
 		c.Host = v
 	}
 	if v := os.Getenv("GLOSKI_PORT"); v != "" {
-		fmt.Sscanf(v, "%d", &c.Port)
+		if _, err := fmt.Sscanf(v, "%d", &c.Port); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_PORT value %q: %v\n", v, err)
+		}
 	}
 	if v := os.Getenv("GLOSKI_BASE_URL"); v != "" {
 		c.BaseURL = v
@@ -157,22 +159,30 @@ func (c *Config) loadFromEnv() {
 		c.Downloads.Enabled = v == "true" || v == "1"
 	}
 	if v := os.Getenv("GLOSKI_DOWNLOADS_MAX_CONCURRENT"); v != "" {
-		fmt.Sscanf(v, "%d", &c.Downloads.MaxConcurrent)
+		if _, err := fmt.Sscanf(v, "%d", &c.Downloads.MaxConcurrent); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_DOWNLOADS_MAX_CONCURRENT value %q: %v\n", v, err)
+		}
 	}
 	if v := os.Getenv("GLOSKI_JOBS_ENABLED"); v != "" {
 		c.Jobs.Enabled = v == "true" || v == "1"
 	}
 	if v := os.Getenv("GLOSKI_JOBS_MAX_JOBS"); v != "" {
-		fmt.Sscanf(v, "%d", &c.Jobs.MaxJobs)
+		if _, err := fmt.Sscanf(v, "%d", &c.Jobs.MaxJobs); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_JOBS_MAX_JOBS value %q: %v\n", v, err)
+		}
 	}
 	if v := os.Getenv("GLOSKI_SHUTDOWN_TIMEOUT"); v != "" {
-		fmt.Sscanf(v, "%d", &c.ShutdownTimeout)
+		if _, err := fmt.Sscanf(v, "%d", &c.ShutdownTimeout); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_SHUTDOWN_TIMEOUT value %q: %v\n", v, err)
+		}
 	}
 	if v := os.Getenv("GLOSKI_DETAILED_ERRORS"); v != "" {
 		c.DetailedErrors = v == "true" || v == "1"
 	}
 	if v := os.Getenv("GLOSKI_MAX_JSON_BODY_SIZE"); v != "" {
-		fmt.Sscanf(v, "%d", &c.MaxJSONBodySize)
+		if _, err := fmt.Sscanf(v, "%d", &c.MaxJSONBodySize); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_MAX_JSON_BODY_SIZE value %q: %v\n", v, err)
+		}
 	}
 }
 

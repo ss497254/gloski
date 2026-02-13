@@ -109,6 +109,23 @@ func (s *Service) validatePath(path string) (string, error) {
 		return "", err
 	}
 
+	// Resolve symlinks to prevent traversal attacks
+	resolved, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		// If the path doesn't exist yet (e.g., for writes), resolve the parent
+		if os.IsNotExist(err) {
+			parentResolved, parentErr := filepath.EvalSymlinks(filepath.Dir(absPath))
+			if parentErr != nil {
+				return "", parentErr
+			}
+			absPath = filepath.Join(parentResolved, filepath.Base(absPath))
+		} else {
+			return "", err
+		}
+	} else {
+		absPath = resolved
+	}
+
 	// Check if path is allowed by config
 	if !s.config.IsPathAllowed(absPath) {
 		return "", ErrPathNotAllowed
@@ -247,7 +264,7 @@ func (s *Service) Delete(path string) error {
 	}
 
 	// Don't allow deleting system directories
-	dangerousPaths := []string{"/etc", "/usr", "/bin", "/sbin", "/var", "/boot", "/lib", "/lib64"}
+	dangerousPaths := []string{"/etc", "/usr", "/bin", "/sbin", "/var", "/boot", "/lib", "/lib64", "/dev", "/proc", "/sys", "/run", "/tmp", "/root"}
 	for _, dp := range dangerousPaths {
 		if absPath == dp || strings.HasPrefix(absPath, dp+"/") {
 			return ErrDangerousPath
@@ -311,7 +328,7 @@ func (s *Service) Exists(path string) bool {
 	}
 
 	_, err = os.Stat(absPath)
-	return !os.IsNotExist(err)
+	return err == nil
 }
 
 func isBinary(content []byte) bool {

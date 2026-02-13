@@ -5,9 +5,20 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/ss497254/gloski/internal/downloads"
 )
+
+// sanitizeFilenameForHeader removes characters that could cause header injection
+func sanitizeFilenameForHeader(name string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' || r == '\n' || r == '\r' {
+			return '_'
+		}
+		return r
+	}, name)
+}
 
 type DownloadsHandler struct {
 	downloadService *downloads.Service
@@ -178,7 +189,7 @@ func (h *DownloadsHandler) DownloadFile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Set headers for download
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+download.Filename+"\"")
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+sanitizeFilenameForHeader(download.Filename)+"\"")
 	w.Header().Set("Content-Type", "application/octet-stream")
 
 	http.ServeFile(w, r, download.FilePath)
@@ -262,7 +273,7 @@ func (h *ShareHandler) Download(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set headers for download
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+download.Filename+"\"")
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+sanitizeFilenameForHeader(download.Filename)+"\"")
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 

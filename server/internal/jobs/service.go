@@ -255,8 +255,10 @@ func (s *Service) Get(id string) (*Job, error) {
 	// First check running jobs for live status
 	s.mu.RLock()
 	if rj, ok := s.jobs[id]; ok {
+		// Return a copy to avoid data races with the running goroutine
+		j := *rj.Job
 		s.mu.RUnlock()
-		return rj.Job, nil
+		return &j, nil
 	}
 	s.mu.RUnlock()
 
@@ -274,6 +276,11 @@ func (s *Service) GetLogs(id string) ([]string, error) {
 	if job.LogFile == "" {
 		return []string{}, nil
 	}
+
+	// Hold the read lock while reading logs to prevent concurrent write races
+	// with the running job goroutine
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	file, err := os.Open(job.LogFile)
 	if err != nil {

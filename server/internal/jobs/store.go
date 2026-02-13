@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"database/sql"
-	"time"
 
 	"github.com/ss497254/gloski/internal/database"
 )
@@ -117,8 +116,8 @@ func (s *Store) Insert(j *Job) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		j.ID, j.Command, j.Cwd, j.Status,
-		nullInt(j.PID), nullInt(j.ExitCode), nullString(j.LogFile),
-		j.CreatedAt, nullTime(j.StartedAt), nullTime(j.FinishedAt),
+		database.NullInt(j.PID, j.PID != 0), database.NullInt(j.ExitCode, j.FinishedAt != nil), database.NullString(j.LogFile),
+		j.CreatedAt, database.NullTime(j.StartedAt), database.NullTime(j.FinishedAt),
 	)
 	return err
 }
@@ -131,8 +130,8 @@ func (s *Store) Update(j *Job) error {
 			log_file = ?, started_at = ?, finished_at = ?
 		WHERE id = ?
 	`,
-		j.Command, j.Cwd, j.Status, nullInt(j.PID), nullInt(j.ExitCode),
-		nullString(j.LogFile), nullTime(j.StartedAt), nullTime(j.FinishedAt),
+		j.Command, j.Cwd, j.Status, database.NullInt(j.PID, j.PID != 0), database.NullInt(j.ExitCode, j.FinishedAt != nil),
+		database.NullString(j.LogFile), database.NullTime(j.StartedAt), database.NullTime(j.FinishedAt),
 		j.ID,
 	)
 	return err
@@ -204,24 +203,3 @@ func (s *Store) GetOldestJobs(keepCount int) ([]*Job, error) {
 	return jobs, rows.Err()
 }
 
-// Helper functions for nullable fields
-func nullString(s string) sql.NullString {
-	if s == "" {
-		return sql.NullString{}
-	}
-	return sql.NullString{String: s, Valid: true}
-}
-
-func nullInt(i int) sql.NullInt64 {
-	if i == 0 {
-		return sql.NullInt64{}
-	}
-	return sql.NullInt64{Int64: int64(i), Valid: true}
-}
-
-func nullTime(t *time.Time) sql.NullTime {
-	if t == nil {
-		return sql.NullTime{}
-	}
-	return sql.NullTime{Time: *t, Valid: true}
-}

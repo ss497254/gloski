@@ -2,104 +2,61 @@ package logger
 
 import (
 	"fmt"
-	"io"
+	"log/slog"
 	"os"
-	"sync"
-	"time"
 )
 
-type Level int
-
-const (
-	LevelDebug Level = iota
-	LevelInfo
-	LevelWarn
-	LevelError
-)
-
-func (l Level) String() string {
-	switch l {
-	case LevelDebug:
-		return "DEBUG"
-	case LevelInfo:
-		return "INFO"
-	case LevelWarn:
-		return "WARN"
-	case LevelError:
-		return "ERROR"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-func ParseLevel(s string) Level {
+// ParseLevel converts a string log level to slog.Level.
+func ParseLevel(s string) slog.Level {
 	switch s {
 	case "debug":
-		return LevelDebug
+		return slog.LevelDebug
 	case "info":
-		return LevelInfo
+		return slog.LevelInfo
 	case "warn":
-		return LevelWarn
+		return slog.LevelWarn
 	case "error":
-		return LevelError
+		return slog.LevelError
 	default:
-		return LevelInfo
+		return slog.LevelInfo
 	}
 }
 
-type Logger struct {
-	level  Level
-	output io.Writer
-	mu     sync.Mutex
+var level = new(slog.LevelVar)
+
+func init() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: level,
+	})))
 }
 
-var defaultLogger = &Logger{
-	level:  LevelInfo,
-	output: os.Stdout,
+// SetLevel sets the global log level.
+func SetLevel(l slog.Level) {
+	level.Set(l)
 }
 
-func SetLevel(level Level) {
-	defaultLogger.mu.Lock()
-	defer defaultLogger.mu.Unlock()
-	defaultLogger.level = level
-}
-
-func SetOutput(w io.Writer) {
-	defaultLogger.mu.Lock()
-	defer defaultLogger.mu.Unlock()
-	defaultLogger.output = w
-}
-
-func (l *Logger) log(level Level, format string, args ...interface{}) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if level < l.level {
-		return
-	}
-
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintf(l.output, "%s [%s] %s\n", timestamp, level.String(), msg)
-}
-
+// Debug logs a message at debug level.
 func Debug(format string, args ...interface{}) {
-	defaultLogger.log(LevelDebug, format, args...)
+	slog.Debug(fmt.Sprintf(format, args...))
 }
 
+// Info logs a message at info level.
 func Info(format string, args ...interface{}) {
-	defaultLogger.log(LevelInfo, format, args...)
+	slog.Info(fmt.Sprintf(format, args...))
 }
 
+// Warn logs a message at warn level.
 func Warn(format string, args ...interface{}) {
-	defaultLogger.log(LevelWarn, format, args...)
+	slog.Warn(fmt.Sprintf(format, args...))
 }
 
+// Error logs a message at error level.
 func Error(format string, args ...interface{}) {
-	defaultLogger.log(LevelError, format, args...)
+	slog.Error(fmt.Sprintf(format, args...))
 }
 
+// Fatal logs a message at error level and exits.
 func Fatal(format string, args ...interface{}) {
-	defaultLogger.log(LevelError, format, args...)
+	slog.Error(fmt.Sprintf(format, args...))
 	os.Exit(1)
 }

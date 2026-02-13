@@ -3,18 +3,16 @@ package response
 import (
 	"encoding/json"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/ss497254/gloski/internal/logger"
 )
 
-// Config holds response configuration
-var config struct {
-	DetailedErrors bool
-}
+var detailedErrors atomic.Bool
 
 // SetDetailedErrors configures whether detailed error messages are included in responses
 func SetDetailedErrors(enabled bool) {
-	config.DetailedErrors = enabled
+	detailedErrors.Store(enabled)
 }
 
 // Response represents a standard API response
@@ -28,7 +26,9 @@ type Response struct {
 func JSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		logger.Error("failed to encode JSON response: %v", err)
+	}
 }
 
 // Success writes a successful JSON response
@@ -72,7 +72,7 @@ func InternalError(w http.ResponseWriter, context string, detail string) {
 	logger.Error("%s: %s", context, detail)
 
 	message := context
-	if config.DetailedErrors && detail != "" {
+	if detailedErrors.Load() && detail != "" {
 		message = context + ": " + detail
 	}
 

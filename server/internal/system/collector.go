@@ -23,6 +23,9 @@ type Collector struct {
 	// For CPU delta calculation
 	prevCPU     CPUTimes
 	prevCPUTime time.Time
+
+	// Cached CPU model (doesn't change at runtime)
+	cpuModel string
 }
 
 // NewCollector creates a new stats collector.
@@ -38,6 +41,20 @@ func NewCollector(store *Store, hub *Hub, interval time.Duration) *Collector {
 
 // Start begins collecting stats in the background.
 func (c *Collector) Start() {
+	// Cache CPU model name (static, doesn't change)
+	if data, err := os.ReadFile("/proc/cpuinfo"); err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "model name") {
+				parts := strings.SplitN(line, ":", 2)
+				if len(parts) == 2 {
+					c.cpuModel = strings.TrimSpace(parts[1])
+					break
+				}
+			}
+		}
+	}
+
 	// Initial CPU read for delta calculation
 	c.prevCPU, _ = c.readCPUTimes()
 	c.prevCPUTime = time.Now()
@@ -114,21 +131,8 @@ func (c *Collector) collect() {
 
 func (c *Collector) getCPUStats() CPUStats {
 	stats := CPUStats{
-		Cores: runtime.NumCPU(),
-	}
-
-	// Read CPU model
-	if data, err := os.ReadFile("/proc/cpuinfo"); err == nil {
-		lines := strings.Split(string(data), "\n")
-		for _, line := range lines {
-			if strings.HasPrefix(line, "model name") {
-				parts := strings.SplitN(line, ":", 2)
-				if len(parts) == 2 {
-					stats.ModelName = strings.TrimSpace(parts[1])
-					break
-				}
-			}
-		}
+		Cores:     runtime.NumCPU(),
+		ModelName: c.cpuModel,
 	}
 
 	// Calculate CPU usage

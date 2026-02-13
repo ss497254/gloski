@@ -23,6 +23,7 @@ type Hub struct {
 	broadcast  chan *Stats
 	register   chan *Client
 	unregister chan *Client
+	done       chan struct{}
 	mu         sync.RWMutex
 	store      *Store
 }
@@ -34,6 +35,7 @@ func NewHub(store *Store) *Hub {
 		broadcast:  make(chan *Stats, 10),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		done:       make(chan struct{}),
 		store:      store,
 	}
 }
@@ -42,6 +44,15 @@ func NewHub(store *Store) *Hub {
 func (h *Hub) Run() {
 	for {
 		select {
+		case <-h.done:
+			// Close all client connections
+			h.mu.Lock()
+			for client := range h.clients {
+				close(client.Send)
+				delete(h.clients, client)
+			}
+			h.mu.Unlock()
+			return
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
@@ -63,20 +74,28 @@ func (h *Hub) Run() {
 			logger.Debug("WebSocket client disconnected (total: %d)", len(h.clients))
 
 		case stats := <-h.broadcast:
+			encoded := h.encodeStats(stats)
 			h.mu.RLock()
+			var slowClients []*Client
 			for client := range h.clients {
 				select {
-				case client.Send <- h.encodeStats(stats):
+				case client.Send <- encoded:
 				default:
-					// Client send buffer full, disconnect
-					go func(c *Client) {
-						h.unregister <- c
-					}(client)
+					slowClients = append(slowClients, client)
 				}
 			}
 			h.mu.RUnlock()
+			// Disconnect slow clients outside of the read lock
+			for _, c := range slowClients {
+				h.unregister <- c
+			}
 		}
 	}
+}
+
+// Stop gracefully shuts down the hub
+func (h *Hub) Stop() {
+	close(h.done)
 }
 
 // Broadcast sends stats to all connected clients

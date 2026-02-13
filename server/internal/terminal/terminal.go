@@ -11,13 +11,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const idleTimeout = 30 * time.Minute
+
 type Terminal struct {
-	id     string
-	cmd    *exec.Cmd
-	ptmx   *os.File
-	ws     *websocket.Conn
-	mu     sync.Mutex
-	closed bool
+	id        string
+	cmd       *exec.Cmd
+	ptmx      *os.File
+	ws        *websocket.Conn
+	mu        sync.Mutex
+	closed    bool
+	lastInput time.Time
 }
 
 func New(id string, ws *websocket.Conn, shell string, cwd string) (*Terminal, error) {
@@ -42,10 +45,11 @@ func New(id string, ws *websocket.Conn, shell string, cwd string) (*Terminal, er
 	}
 
 	t := &Terminal{
-		id:   id,
-		cmd:  cmd,
-		ptmx: ptmx,
-		ws:   ws,
+		id:        id,
+		cmd:       cmd,
+		ptmx:      ptmx,
+		ws:        ws,
+		lastInput: time.Now(),
 	}
 
 	return t, nil
@@ -55,8 +59,29 @@ func (t *Terminal) Run() {
 	// Read from PTY and write to WebSocket
 	go t.readPTY()
 
+	// Idle timeout checker
+	go t.idleChecker()
+
 	// Read from WebSocket and write to PTY
 	t.readWS()
+}
+
+func (t *Terminal) idleChecker() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		t.mu.Lock()
+		if t.closed {
+			t.mu.Unlock()
+			return
+		}
+		idle := time.Since(t.lastInput) > idleTimeout
+		t.mu.Unlock()
+		if idle {
+			t.Close()
+			return
+		}
+	}
 }
 
 func (t *Terminal) readPTY() {
@@ -92,6 +117,10 @@ func (t *Terminal) readWS() {
 		}
 
 		if msgType == websocket.BinaryMessage || msgType == websocket.TextMessage {
+			t.mu.Lock()
+			t.lastInput = time.Now()
+			t.mu.Unlock()
+
 			// Check for resize message (starts with specific prefix)
 			if len(data) > 0 && data[0] == 1 {
 				// Resize: format is [1, cols (2 bytes), rows (2 bytes)]
