@@ -122,11 +122,11 @@ export function SearchPage() {
 
   const highlightMatch = (text: string, q: string) => {
     if (!q) return text
-    const regex = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-    const parts = text.split(regex)
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
     return parts.map((part, i) =>
-      regex.test(part) ? (
-        <mark key={i} className="bg-yellow-300/30 text-yellow-200">
+      part.toLowerCase() === q.toLowerCase() ? (
+        <mark key={i} className="bg-yellow-300/30 text-yellow-800 dark:text-yellow-200">
           {part}
         </mark>
       ) : (

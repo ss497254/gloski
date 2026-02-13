@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { useServersStore, type Server } from '../stores/servers'
 import { createStatsStore, type StatsStoreInstance } from '../stores/statsStore'
@@ -37,14 +37,20 @@ export function ServerProvider({ children }: ServerProviderProps) {
   // Create Zustand store instance once (stable reference)
   const statsStore = useMemo<StatsStoreInstance>(() => createStatsStore(), [])
 
-  // Connect/disconnect WebSocket based on server
+  // Connect/disconnect WebSocket based on server ID (not the full object to avoid reconnect storms)
+  const serverRef = useRef(server)
   useEffect(() => {
-    if (!server) return
+    serverRef.current = server
+  }, [server]) // Update ref when server changes, but use the ref for connection logic to avoid unnecessary reconnects
+
+  useEffect(() => {
+    if (!serverRef.current) return
+    const currentServer = serverRef.current
     // Connect when server is available
-    statsStore.getState().connect(server, () => {
+    statsStore.getState().connect(currentServer, () => {
       // Update server status to online when receiving stats
-      if (server.status !== 'online') {
-        updateServer(server.id, { status: 'online' })
+      if (serverRef.current && serverRef.current.status !== 'online') {
+        updateServer(currentServer.id, { status: 'online' })
       }
     })
 
@@ -52,20 +58,24 @@ export function ServerProvider({ children }: ServerProviderProps) {
       // Disconnect when unmounting or server changes
       statsStore.getState().disconnect()
     }
-  }, [server, updateServer, statsStore])
+    // Only reconnect when server ID changes, not on every server object reference change
+  }, [serverId, updateServer, statsStore])
 
   // Redirect if no serverId or server not found
   if (!serverId || !server) {
     return <Navigate to="/" replace />
   }
-
-  // Memoize context value (store instance is stable, so this rarely changes)
-  const value: ServerContextValue = {
-    server,
-    serverId,
-    isAuthenticated: !!(server.apiKey || server.token),
-    statsStore: statsStore!,
-  }
+  // Memoize context value to prevent cascading re-renders
+  const isAuthenticated = !!(server.apiKey || server.token)
+  const value = useMemo<ServerContextValue>(
+    () => ({
+      server,
+      serverId,
+      isAuthenticated,
+      statsStore,
+    }),
+    [server, serverId, isAuthenticated, statsStore]
+  )
 
   return <ServerContext.Provider value={value}>{children}</ServerContext.Provider>
 }

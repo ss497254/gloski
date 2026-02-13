@@ -1,4 +1,4 @@
-import { cn } from '@/shared/lib/utils'
+import { cn, formatBytes, formatUptime } from '@/shared/lib/utils'
 import { Badge } from '@/ui/badge'
 import { Card, CardContent } from '@/ui/card'
 import {
@@ -13,29 +13,13 @@ import {
   WifiOff,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import type { ServerWithStats } from '../../dashboard/context'
+import type { ServerWithStats } from '@/shared/lib/types'
 import { ServerCardSkeleton } from './ServerCardSkeleton'
 import { UsageBar } from './UsageBar'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
 // ─────────────────────────────────────────────────────────────────────────────
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
-}
-
-function formatUptime(seconds: number): string {
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  if (days > 0) return `${days}d ${hours}h`
-  const minutes = Math.floor((seconds % 3600) / 60)
-  if (hours > 0) return `${hours}h ${minutes}m`
-  return `${minutes}m`
-}
 
 function getHostname(url: string): string {
   try {
@@ -80,9 +64,7 @@ const SERVER_STATUS_CONFIG = {
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface ServerCardProps extends ServerWithStats {}
-
-export function ServerCard(props: ServerCardProps) {
+export function ServerCard(props: ServerWithStats) {
   const { stats, statsLoading, statsError, ...server } = props
 
   const status = SERVER_STATUS_CONFIG[server.status]
@@ -93,7 +75,10 @@ export function ServerCard(props: ServerCardProps) {
   }
 
   return (
-    <Link to={`/servers/${server.id}`} className="block group">
+    <Link
+      to={`/servers/${server.id}`}
+      className="block group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
       <Card className="h-full transition-all duration-200 hover:shadow-md hover:border-primary/30 group-hover:bg-accent/30">
         <CardContent>
           {/* Header */}

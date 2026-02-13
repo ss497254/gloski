@@ -1,15 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
 
+const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent)
+const mod = isMac ? '⌘' : 'Ctrl'
+
 const shortcuts = [
-  { keys: ['⌘', 'K'], description: 'Open command palette' },
-  { keys: ['⌘', 'B'], description: 'Toggle sidebar' },
+  { keys: [mod, 'K'], description: 'Open command palette' },
+  { keys: [mod, 'B'], description: 'Toggle sidebar' },
   { keys: ['G', 'D'], description: 'Go to Dashboard' },
   { keys: ['G', 'S'], description: 'Go to Servers' },
-  { keys: ['G', 'B'], description: 'Go to Bookmarks' },
-  { keys: ['G', 'N'], description: 'Go to Notes' },
-  { keys: ['G', 'M'], description: 'Go to Messages' },
-  { keys: ['G', 'C'], description: 'Go to Snippets' },
-  { keys: ['G', 'A'], description: 'Go to Activity' },
   { keys: ['G', ','], description: 'Go to Settings' },
 ]
 

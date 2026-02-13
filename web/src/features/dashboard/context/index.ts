@@ -1,1 +1,2 @@
-export { DashboardProvider, useDashboard, type ServerWithStats } from './DashboardContext'
+export { DashboardProvider, useDashboard } from './DashboardContext'
+export type { ServerWithStats } from '@/shared/lib/types'

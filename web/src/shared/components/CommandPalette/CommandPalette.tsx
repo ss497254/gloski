@@ -106,8 +106,13 @@ export function CommandPalette() {
         setOpen((o) => !o)
       }
     }
+    const toggle = () => setOpen((o) => !o)
     document.addEventListener('keydown', down)
-    return () => document.removeEventListener('keydown', down)
+    document.addEventListener('toggle-command-palette', toggle)
+    return () => {
+      document.removeEventListener('keydown', down)
+      document.removeEventListener('toggle-command-palette', toggle)
+    }
   }, [])
 
   // Reset on open

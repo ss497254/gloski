@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/
 import { Separator } from '@/ui/separator'
 import { ExternalLink, Github } from 'lucide-react'
 
+declare const __APP_VERSION__: string
+
 export function AboutSettings() {
   return (
     <>
@@ -14,7 +16,7 @@ export function AboutSettings() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Version</span>
-            <Badge>1.0.0</Badge>
+            <Badge>{__APP_VERSION__}</Badge>
           </div>
           <Separator />
           <div className="space-y-2">
@@ -31,7 +33,7 @@ export function AboutSettings() {
         </CardHeader>
         <CardContent className="space-y-3">
           <a
-            href="https://github.com"
+            href="https://github.com/ss497254/gloski"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"

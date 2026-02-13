@@ -182,7 +182,7 @@ export function ServerList() {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 hover:text-primary" asChild>
-              <Link to="/add-server">
+              <Link to="/servers/add">
                 <Plus className="h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -200,7 +200,7 @@ export function ServerList() {
             </div>
             <p className="text-xs text-muted-foreground mb-2">No servers yet</p>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/add-server">
+              <Link to="/servers/add">
                 <Plus className="h-3 w-3 mr-1.5" />
                 Add Server
               </Link>

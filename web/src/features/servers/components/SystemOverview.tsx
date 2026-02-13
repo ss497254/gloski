@@ -1,5 +1,6 @@
 import { ProgressRing } from '@/shared/components'
 import type { SystemStats } from '@/shared/lib/types'
+import { formatBytes } from '@/shared/lib/utils'
 import { Activity, Cpu, HardDrive, MemoryStick } from 'lucide-react'
 
 interface SystemOverviewProps {
@@ -47,12 +48,4 @@ export function SystemOverview({ stats }: SystemOverviewProps) {
       </div>
     </div>
   )
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }

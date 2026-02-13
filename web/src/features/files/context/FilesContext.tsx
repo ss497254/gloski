@@ -449,17 +449,12 @@ export function FilesProvider({ children }: FilesProviderProps) {
   const handleBulkDelete = useCallback(async () => {
     if (selectedPaths.size === 0) return
 
-    let successCount = 0
-    let failCount = 0
+    const results = await Promise.allSettled(
+      Array.from(selectedPaths).map((path) => server.getClient().files.delete(path))
+    )
 
-    for (const path of selectedPaths) {
-      try {
-        await server.getClient().files.delete(path)
-        successCount++
-      } catch {
-        failCount++
-      }
-    }
+    const successCount = results.filter((r) => r.status === 'fulfilled').length
+    const failCount = results.filter((r) => r.status === 'rejected').length
 
     setBulkDeleteDialog(false)
     clearSelection()

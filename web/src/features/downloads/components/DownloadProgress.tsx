@@ -20,7 +20,14 @@ export function DownloadProgress({ progress, total, speed, status }: DownloadPro
   return (
     <div className="space-y-1">
       {/* Progress bar */}
-      <div className="h-2 bg-muted rounded-full overflow-hidden">
+      <div
+        role="progressbar"
+        aria-valuenow={percentage}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Download progress"
+        className="h-2 bg-muted rounded-full overflow-hidden"
+      >
         <div
           className={`h-full transition-all duration-300 ${isPaused ? 'bg-orange-500' : 'bg-primary'}`}
           style={{ width: hasTotal ? `${percentage}%` : '100%' }}

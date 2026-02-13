@@ -14,7 +14,13 @@ interface UsageBarProps {
 
 export function UsageBar({ value, color }: UsageBarProps) {
   return (
-    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+    <div
+      role="progressbar"
+      aria-valuenow={Math.round(Math.min(value, 100))}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      className="h-1.5 bg-muted rounded-full overflow-hidden"
+    >
       <div
         className={cn('h-full rounded-full transition-all duration-500', color || getUsageColor(value))}
         style={{ width: `${Math.min(value, 100)}%` }}

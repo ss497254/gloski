@@ -38,7 +38,14 @@ export function ProgressRing({
   }
 
   return (
-    <div className={cn('relative inline-flex items-center justify-center', className)}>
+    <div
+      role="progressbar"
+      aria-valuenow={Math.round(normalizedValue)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={label || 'Progress'}
+      className={cn('relative inline-flex items-center justify-center', className)}
+    >
       <svg width={size} height={size} className="-rotate-90">
         {/* Track */}
         <circle

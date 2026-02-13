@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Cpu, HardDrive, Network } from 'lucide-react'
 import { useServer } from '../context'
 import { MetricsChart } from '@/shared/components/MetricsChart'
 import { Button } from '@/ui/button'
 import type { StatsSample } from '@/shared/lib/types'
-import { cn } from '@/shared/lib/utils'
+import { cn, formatBytes } from '@/shared/lib/utils'
 
 interface ChartData {
   timestamp: string
@@ -125,15 +125,6 @@ export function MetricsHistory({ enabled = true }: MetricsHistoryProps) {
 
     return unsubscribe
   }, [statsStore, enabled, timeRange])
-
-  // Format bytes to human-readable (memoized to prevent recreation on every render)
-  const formatBytes = useCallback((bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
-  }, [])
 
   // Calculate max network value for chart scaling (memoized to prevent recalculation)
   const maxNetwork = useMemo(

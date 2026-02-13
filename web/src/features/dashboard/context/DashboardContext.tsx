@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { type Server, useServersStore, getSortedServers } from '@/features/servers'
-import type { SystemStats } from '@/shared/lib/types'
+import type { ServerWithStats } from '@/shared/lib/types'
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -8,16 +8,6 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 // ─────────────────────────────────────────────────────────────────────────────
 
 const POLLING_INTERVAL = 10000
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface ServerWithStats extends Server {
-  stats?: SystemStats | null
-  statsLoading?: boolean
-  statsError?: string | null
-}
 
 interface DashboardContextValue {
   // Data
@@ -59,33 +49,39 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
 
   // Fetch stats for all servers
   useEffect(() => {
-    // AbortController to cancel pending requests on unmount
-    const abortController = new AbortController()
-    // Get fresh server list from store to avoid stale closures
-    const { servers: currentServers } = useServersStore.getState()
+    let cancelled = false
+    let currentAbort: AbortController | null = null
 
     const fetchAllStats = async () => {
+      // Get fresh server list from store to avoid stale closures
+      const { servers: currentServers } = useServersStore.getState()
+      // Create a new AbortController for each fetch cycle to avoid race conditions
+      const abortController = new AbortController()
+      currentAbort = abortController
+
       const results = await Promise.all(
         currentServers.map(async (server) => {
           if (!server.apiKey && !server.token) {
             return { ...server, stats: null, statsError: 'No authentication configured' }
           }
 
+          // Skip polling offline servers to reduce unnecessary network requests
+          if (server.status === 'offline') {
+            return { ...server, stats: null, statsError: 'Server offline' }
+          }
+
           try {
             const stats = await server.getClient().system.getStats({ signal: abortController.signal })
-            // Only update if status changed to avoid unnecessary re-renders
             if (server.status !== 'online') {
               updateServer(server.id, { status: 'online' })
             }
             return { ...server, status: 'online' as const, stats, statsError: null }
           } catch (err) {
-            // Ignore aborted requests
             if (err instanceof Error && err.name === 'AbortError') {
               return { ...server, stats: null, statsError: null }
             }
             const isAuthError = err instanceof Error && err.message.includes('401')
             const newStatus = isAuthError ? 'unauthorized' : 'offline'
-            // Only update if status changed
             if (server.status !== newStatus) {
               updateServer(server.id, { status: newStatus })
             }
@@ -98,9 +94,12 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
           }
         })
       )
-      setServersWithStats(results)
+      if (!cancelled) {
+        setServersWithStats(results)
+      }
     }
 
+    const { servers: currentServers } = useServersStore.getState()
     if (currentServers.length === 0) {
       setServersWithStats([])
       return
@@ -113,8 +112,9 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
     // Poll for stats updates
     const interval = setInterval(fetchAllStats, POLLING_INTERVAL)
     return () => {
+      cancelled = true
       clearInterval(interval)
-      abortController.abort() // Cancel pending requests on cleanup
+      currentAbort?.abort()
     }
   }, [serverIds, updateServer])
 

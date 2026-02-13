@@ -210,20 +210,18 @@ export function TerminalPage() {
     }
   }, [destroyTerminalInstance])
 
-  // Handle theme changes - CSS handles the visual theme changes
+  // Update terminal theme when dark/light mode toggles
   useEffect(() => {
-    const handleThemeChange = () => {
-      // Theme changes are handled by CSS variables
-      // The terminal styling will automatically update via CSS transitions
-    }
-
-    // Listen for theme changes on the document element
     const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
+      for (const mutation of mutations) {
         if (mutation.attributeName === 'class') {
-          handleThemeChange()
+          const isDark = document.documentElement.classList.contains('dark')
+          const newTheme = getTerminalTheme(isDark)
+          instancesRef.current.forEach((instance) => {
+            instance.terminal.options.theme = newTheme
+          })
         }
-      })
+      }
     })
 
     observer.observe(document.documentElement, {

@@ -8,19 +8,166 @@ import { useServersStore } from '@/features/servers'
 import { cn } from '@/shared/lib/utils'
 import { ChevronLeft, ChevronRight, Command, Layers, Plus, X } from 'lucide-react'
 
-interface SidebarProps {
-  className?: string
+function openCommandPalette() {
+  document.dispatchEvent(new CustomEvent('toggle-command-palette'))
 }
 
-export function Sidebar({ className }: SidebarProps) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared sidebar content
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SidebarContentProps {
+  collapsed: boolean
+  onCommandPaletteOpen: () => void
+}
+
+function SidebarContent({ collapsed, onCommandPaletteOpen }: SidebarContentProps) {
   const { serverId } = useParams()
-  const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed)
-  const toggleSidebar = useSettingsStore((s) => s.toggleSidebar)
   const servers = useServersStore((s) => s.servers)
   const currentServer = servers.find((s) => s.id === serverId)
 
   const mainNavItems = getMainNavItems()
   const settingsNavItem = getSettingsNavItem()
+
+  return (
+    <>
+      {/* Command Palette Hint */}
+      {!collapsed && (
+        <div className="px-3 py-2">
+          <button
+            onClick={onCommandPaletteOpen}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-muted-foreground/25 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-colors text-sm"
+          >
+            <Command className="h-3.5 w-3.5" />
+            <span className="flex-1 text-left">Search...</span>
+            <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
+          </button>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 py-2">
+        {/* Main Navigation */}
+        <div className="space-y-1">
+          {mainNavItems.map((item) => (
+            <NavItem
+              key={item.id}
+              to={item.path}
+              icon={item.icon}
+              label={item.name}
+              end={item.path === '/'}
+              collapsed={collapsed}
+            />
+          ))}
+        </div>
+
+        {/* Server Section */}
+        {currentServer && (
+          <div className="mt-6">
+            {!collapsed && (
+              <div className="px-3 mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                  Server
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      currentServer.status === 'online' && 'bg-green-500',
+                      currentServer.status === 'connecting' && 'bg-yellow-500',
+                      currentServer.status === 'offline' && 'bg-gray-400',
+                      currentServer.status === 'unauthorized' && 'bg-red-500'
+                    )}
+                  />
+                  <span className="text-[11px] text-muted-foreground truncate max-w-20">{currentServer.name}</span>
+                </div>
+              </div>
+            )}
+            {collapsed && <div className="border-t my-3" />}
+            <ServerNav collapsed={collapsed} />
+          </div>
+        )}
+
+        {/* Quick Server Access (when no server selected) */}
+        {!currentServer && servers.length > 0 && (
+          <div className="mt-6">
+            {!collapsed && (
+              <div className="px-3 mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                  Servers
+                </span>
+                <NavLink
+                  to="/servers/add"
+                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </NavLink>
+              </div>
+            )}
+            {collapsed && <div className="border-t my-3" />}
+            <div className="space-y-1">
+              {servers.slice(0, 4).map((server) => (
+                <NavLink key={server.id} to={`/servers/${server.id}`}>
+                  {({ isActive }) => (
+                    <div
+                      className={cn(
+                        'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+                        'hover:bg-accent hover:text-accent-foreground',
+                        collapsed && 'justify-center px-2',
+                        isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-2 w-2 rounded-full shrink-0',
+                          server.status === 'online' && 'bg-green-500',
+                          server.status === 'connecting' && 'bg-yellow-500 animate-pulse',
+                          server.status === 'offline' && 'bg-gray-400',
+                          server.status === 'unauthorized' && 'bg-red-500'
+                        )}
+                      />
+                      {!collapsed && <span className="truncate">{server.name}</span>}
+                    </div>
+                  )}
+                </NavLink>
+              ))}
+              {servers.length > 4 && !collapsed && (
+                <NavLink
+                  to="/servers"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span className="text-xs">+{servers.length - 4} more</span>
+                </NavLink>
+              )}
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* Footer */}
+      <div className="border-t p-3 bg-background/30">
+        <NavItem
+          to={settingsNavItem.path}
+          icon={settingsNavItem.icon}
+          label={settingsNavItem.name}
+          collapsed={collapsed}
+        />
+      </div>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Desktop Sidebar
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SidebarProps {
+  className?: string
+}
+
+export function Sidebar({ className }: SidebarProps) {
+  const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed)
+  const toggleSidebar = useSettingsStore((s) => s.toggleSidebar)
 
   return (
     <aside
@@ -53,136 +200,7 @@ export function Sidebar({ className }: SidebarProps) {
         )}
       </div>
 
-      {/* Command Palette Hint */}
-      {!sidebarCollapsed && (
-        <div className="px-3 py-2">
-          <button
-            onClick={() => {
-              // Trigger command palette
-              const event = new KeyboardEvent('keydown', {
-                key: 'k',
-                metaKey: true,
-                bubbles: true,
-              })
-              document.dispatchEvent(event)
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-muted-foreground/25 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-colors text-sm"
-          >
-            <Command className="h-3.5 w-3.5" />
-            <span className="flex-1 text-left">Search...</span>
-            <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
-          </button>
-        </div>
-      )}
-
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-2">
-        {/* Main Navigation */}
-        <div className="space-y-1">
-          {mainNavItems.map((item) => (
-            <NavItem
-              key={item.id}
-              to={item.path}
-              icon={item.icon}
-              label={item.name}
-              end={item.path === '/'}
-              collapsed={sidebarCollapsed}
-            />
-          ))}
-        </div>
-
-        {/* Server Section */}
-        {currentServer && (
-          <div className="mt-6">
-            {!sidebarCollapsed && (
-              <div className="px-3 mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                  Server
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={cn(
-                      'h-1.5 w-1.5 rounded-full',
-                      currentServer.status === 'online' && 'bg-green-500',
-                      currentServer.status === 'connecting' && 'bg-yellow-500',
-                      currentServer.status === 'offline' && 'bg-gray-400',
-                      currentServer.status === 'unauthorized' && 'bg-red-500'
-                    )}
-                  />
-                  <span className="text-[11px] text-muted-foreground truncate max-w-20">{currentServer.name}</span>
-                </div>
-              </div>
-            )}
-            {sidebarCollapsed && <div className="border-t my-3" />}
-            <ServerNav collapsed={sidebarCollapsed} />
-          </div>
-        )}
-
-        {/* Quick Server Access (when no server selected) */}
-        {!currentServer && servers.length > 0 && (
-          <div className="mt-6">
-            {!sidebarCollapsed && (
-              <div className="px-3 mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                  Servers
-                </span>
-                <NavLink
-                  to="/servers/add"
-                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </NavLink>
-              </div>
-            )}
-            {sidebarCollapsed && <div className="border-t my-3" />}
-            <div className="space-y-1">
-              {servers.slice(0, 4).map((server) => (
-                <NavLink key={server.id} to={`/servers/${server.id}`}>
-                  {({ isActive }) => (
-                    <div
-                      className={cn(
-                        'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
-                        'hover:bg-accent hover:text-accent-foreground',
-                        sidebarCollapsed && 'justify-center px-2',
-                        isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'h-2 w-2 rounded-full shrink-0',
-                          server.status === 'online' && 'bg-green-500',
-                          server.status === 'connecting' && 'bg-yellow-500 animate-pulse',
-                          server.status === 'offline' && 'bg-gray-400',
-                          server.status === 'unauthorized' && 'bg-red-500'
-                        )}
-                      />
-                      {!sidebarCollapsed && <span className="truncate">{server.name}</span>}
-                    </div>
-                  )}
-                </NavLink>
-              ))}
-              {servers.length > 4 && !sidebarCollapsed && (
-                <NavLink
-                  to="/servers"
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span className="text-xs">+{servers.length - 4} more</span>
-                </NavLink>
-              )}
-            </div>
-          </div>
-        )}
-      </nav>
-
-      {/* Footer */}
-      <div className="border-t p-3 bg-background/30">
-        <NavItem
-          to={settingsNavItem.path}
-          icon={settingsNavItem.icon}
-          label={settingsNavItem.name}
-          collapsed={sidebarCollapsed}
-        />
-      </div>
+      <SidebarContent collapsed={sidebarCollapsed} onCommandPaletteOpen={openCommandPalette} />
 
       {/* Collapsed expand button */}
       {sidebarCollapsed && (
@@ -197,19 +215,14 @@ export function Sidebar({ className }: SidebarProps) {
   )
 }
 
-/**
- * Mobile sidebar drawer - slides in from left on mobile
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// Mobile Sidebar Drawer
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function MobileSidebar() {
-  const { serverId } = useParams()
   const location = useLocation()
   const mobileSidebarOpen = useSettingsStore((s) => s.mobileSidebarOpen)
   const setMobileSidebarOpen = useSettingsStore((s) => s.setMobileSidebarOpen)
-  const servers = useServersStore((s) => s.servers)
-  const currentServer = servers.find((s) => s.id === serverId)
-
-  const mainNavItems = getMainNavItems()
-  const settingsNavItem = getSettingsNavItem()
 
   // Close sidebar on route change
   useEffect(() => {
@@ -241,6 +254,11 @@ export function MobileSidebar() {
 
   if (!mobileSidebarOpen) return null
 
+  const handleCommandPaletteOpen = () => {
+    setMobileSidebarOpen(false)
+    setTimeout(openCommandPalette, 100)
+  }
+
   return (
     <div className="md:hidden fixed inset-0 z-50">
       {/* Backdrop */}
@@ -268,129 +286,7 @@ export function MobileSidebar() {
           </button>
         </div>
 
-        {/* Command Palette Hint */}
-        <div className="px-3 py-2">
-          <button
-            onClick={() => {
-              setMobileSidebarOpen(false)
-              setTimeout(() => {
-                const event = new KeyboardEvent('keydown', {
-                  key: 'k',
-                  metaKey: true,
-                  bubbles: true,
-                })
-                document.dispatchEvent(event)
-              }, 100)
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-muted-foreground/25 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-colors text-sm"
-          >
-            <Command className="h-3.5 w-3.5" />
-            <span className="flex-1 text-left">Search...</span>
-            <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2">
-          {/* Main Navigation */}
-          <div className="space-y-1">
-            {mainNavItems.map((item) => (
-              <NavItem
-                key={item.id}
-                to={item.path}
-                icon={item.icon}
-                label={item.name}
-                end={item.path === '/'}
-                collapsed={false}
-              />
-            ))}
-          </div>
-
-          {/* Server Section */}
-          {currentServer && (
-            <div className="mt-6">
-              <div className="px-3 mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                  Server
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={cn(
-                      'h-1.5 w-1.5 rounded-full',
-                      currentServer.status === 'online' && 'bg-green-500',
-                      currentServer.status === 'connecting' && 'bg-yellow-500',
-                      currentServer.status === 'offline' && 'bg-gray-400',
-                      currentServer.status === 'unauthorized' && 'bg-red-500'
-                    )}
-                  />
-                  <span className="text-[11px] text-muted-foreground truncate max-w-20">{currentServer.name}</span>
-                </div>
-              </div>
-              <ServerNav collapsed={false} />
-            </div>
-          )}
-
-          {/* Quick Server Access (when no server selected) */}
-          {!currentServer && servers.length > 0 && (
-            <div className="mt-6">
-              <div className="px-3 mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                  Servers
-                </span>
-                <NavLink
-                  to="/servers/add"
-                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </NavLink>
-              </div>
-              <div className="space-y-1">
-                {servers.slice(0, 4).map((server) => (
-                  <NavLink key={server.id} to={`/servers/${server.id}`}>
-                    {({ isActive }) => (
-                      <div
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
-                          'hover:bg-accent hover:text-accent-foreground',
-                          isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'h-2 w-2 rounded-full shrink-0',
-                            server.status === 'online' && 'bg-green-500',
-                            server.status === 'connecting' && 'bg-yellow-500 animate-pulse',
-                            server.status === 'offline' && 'bg-gray-400',
-                            server.status === 'unauthorized' && 'bg-red-500'
-                          )}
-                        />
-                        <span className="truncate">{server.name}</span>
-                      </div>
-                    )}
-                  </NavLink>
-                ))}
-                {servers.length > 4 && (
-                  <NavLink
-                    to="/servers"
-                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <span className="text-xs">+{servers.length - 4} more</span>
-                  </NavLink>
-                )}
-              </div>
-            </div>
-          )}
-        </nav>
-
-        {/* Footer */}
-        <div className="border-t p-3 bg-background/30">
-          <NavItem
-            to={settingsNavItem.path}
-            icon={settingsNavItem.icon}
-            label={settingsNavItem.name}
-            collapsed={false}
-          />
-        </div>
+        <SidebarContent collapsed={false} onCommandPaletteOpen={handleCommandPaletteOpen} />
       </aside>
     </div>
   )

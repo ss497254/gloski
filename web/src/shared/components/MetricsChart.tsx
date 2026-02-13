@@ -101,10 +101,22 @@ function getColorClass(value: number | null, max: number): string {
   return 'text-emerald-600 dark:text-emerald-400'
 }
 
-function getThemeAwareColor(): string {
-  if (typeof document === 'undefined') return 'rgba(128, 128, 128, 0.6)'
+// Cache theme color to avoid reading DOM on every chart tick
+let cachedThemeColor = 'rgba(128, 128, 128, 0.6)'
+function updateCachedThemeColor() {
+  if (typeof document === 'undefined') return
   const isDark = document.documentElement.classList.contains('dark')
-  return isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'
+  cachedThemeColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'
+}
+updateCachedThemeColor()
+if (typeof document !== 'undefined') {
+  new MutationObserver(() => updateCachedThemeColor()).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
+}
+function getThemeAwareColor(): string {
+  return cachedThemeColor
 }
 
 // ============================================================================

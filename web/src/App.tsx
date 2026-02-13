@@ -3,9 +3,6 @@ import { RouteErrorBoundary } from '@/shared/components'
 import { Toaster } from '@/ui/sonner'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 
-// Special pages
-import { AddServerPage } from '@/features/servers'
-
 // Create route configuration for SPA
 const router = createBrowserRouter([
   {
@@ -18,7 +15,6 @@ const router = createBrowserRouter([
         lazy: {
           Component: async () => (await import('@/features/dashboard')).default,
         },
-        errorElement: <RouteErrorBoundary />,
       },
       // Settings
       {
@@ -26,12 +22,10 @@ const router = createBrowserRouter([
         lazy: {
           Component: async () => (await import('@/features/settings')).default,
         },
-        errorElement: <RouteErrorBoundary />,
       },
       // Servers - parent route grouping all server-related pages
       {
         path: '/servers',
-        errorElement: <RouteErrorBoundary />,
         children: [
           // Servers list (index route)
           {
@@ -39,13 +33,13 @@ const router = createBrowserRouter([
             lazy: {
               Component: async () => (await import('@/features/servers')).default,
             },
-            errorElement: <RouteErrorBoundary />,
           },
           // Add server page
           {
             path: 'add',
-            element: <AddServerPage />,
-            errorElement: <RouteErrorBoundary />,
+            lazy: {
+              Component: async () => (await import('@/features/servers')).AddServerPage,
+            },
           },
           // Server-scoped features - wrapped with ServerLayout (provides ServerProvider context)
           {
@@ -59,7 +53,6 @@ const router = createBrowserRouter([
                 lazy: {
                   Component: async () => (await import('@/features/servers')).ServerDetailPage,
                 },
-                errorElement: <RouteErrorBoundary />,
               },
               // Server sub-pages
               {
@@ -67,42 +60,36 @@ const router = createBrowserRouter([
                 lazy: {
                   Component: async () => (await import('@/features/files')).default,
                 },
-                errorElement: <RouteErrorBoundary />,
               },
               {
                 path: 'metrics',
                 lazy: {
                   Component: async () => (await import('@/features/servers')).ServerMetricsPage,
                 },
-                errorElement: <RouteErrorBoundary />,
               },
               {
                 path: 'search',
                 lazy: {
                   Component: async () => (await import('@/features/search')).default,
                 },
-                errorElement: <RouteErrorBoundary />,
               },
               {
                 path: 'terminal',
                 lazy: {
                   Component: async () => (await import('@/features/terminal')).default,
                 },
-                errorElement: <RouteErrorBoundary />,
               },
               {
                 path: 'jobs',
                 lazy: {
                   Component: async () => (await import('@/features/jobs')).default,
                 },
-                errorElement: <RouteErrorBoundary />,
               },
               {
                 path: 'downloads',
                 lazy: {
                   Component: async () => (await import('@/features/downloads')).default,
                 },
-                errorElement: <RouteErrorBoundary />,
               },
             ],
           },

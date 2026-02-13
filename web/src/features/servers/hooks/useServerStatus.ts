@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import type { ServerStatus } from '@/shared/lib/types'
 import type { Server } from '../stores/servers'
 
@@ -23,12 +23,16 @@ export function useServerStatus(server: Server, options: UseServerStatusOptions 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Use ref for callbacks to avoid re-creating fetchStatus on every render
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+
   const fetchStatus = useCallback(async () => {
     if (!server.apiKey && !server.token) {
       const errorMsg = 'No authentication configured'
       setError(errorMsg)
       setLoading(false)
-      options.onError?.(errorMsg)
+      optionsRef.current.onError?.(errorMsg)
       return
     }
 
@@ -41,15 +45,15 @@ export function useServerStatus(server: Server, options: UseServerStatusOptions 
 
       setServerStatus(status)
       setError(null)
-      options.onSuccess?.(status)
+      optionsRef.current.onSuccess?.(status)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setError(message)
-      options.onError?.(message)
+      optionsRef.current.onError?.(message)
     } finally {
       setLoading(false)
     }
-  }, [server, options])
+  }, [server])
 
   return {
     serverStatus,

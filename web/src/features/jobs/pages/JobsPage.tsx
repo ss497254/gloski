@@ -7,7 +7,7 @@ function JobsContent() {
   const { loading, error, refresh } = useJobs()
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-full flex flex-col">
       {/* Header */}
       <div className="border-b p-4 flex items-center gap-4">
         <Terminal className="h-5 w-5" />
