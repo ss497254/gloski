@@ -35,6 +35,13 @@ export class HttpClient {
   }
 
   /**
+   * Dispose the HTTP client and clear pending requests
+   */
+  dispose(): void {
+    this.pendingRequests.clear()
+  }
+
+  /**
    * Build full endpoint path with API prefix
    */
   private buildEndpoint(path: string): string {
@@ -223,8 +230,9 @@ export class HttpClient {
     const method = options.method || 'GET'
     const cacheKey = this.getCacheKey(url, method, options.body)
 
-    // Check if this request is already in flight (deduplication)
-    if (this.pendingRequests.has(cacheKey)) {
+    // Check if this request is already in flight (deduplication for GET only)
+    // POST/PUT/DELETE are mutations and must not be deduplicated
+    if (method === 'GET' && this.pendingRequests.has(cacheKey)) {
       return this.pendingRequests.get(cacheKey) as Promise<T>
     }
 
@@ -280,19 +288,23 @@ export class HttpClient {
             }
           }
 
-          // Add context for common errors
-          if (response.status === 404) {
-            errorMessage = `Endpoint not found (404). Make sure you're connecting to a Gloski server.`
-          } else if (response.status === 403) {
-            errorMessage = 'Access denied'
-          } else if (response.status >= 500) {
-            errorMessage = `Server error (${response.status}). The server may be experiencing issues.`
+          // Only use generic messages as fallback if server didn't provide one
+          if (errorMessage === `HTTP ${response.status}`) {
+            if (response.status === 404) {
+              errorMessage = `Endpoint not found (404). Make sure you're connecting to a Gloski server.`
+            } else if (response.status === 403) {
+              errorMessage = 'Access denied'
+            } else if (response.status >= 500) {
+              errorMessage = `Server error (${response.status}). The server may be experiencing issues.`
+            }
           }
 
           throw new GloskiError(response.status, errorMessage)
         }
 
-        return response.json()
+        const json = await response.json()
+        // Unwrap the standard { success, data } envelope if present
+        return json.data !== undefined ? json.data : json
       } catch (error) {
         clearTimeout(timeoutId)
 

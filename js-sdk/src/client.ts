@@ -97,6 +97,14 @@ export class GloskiClient {
   }
 
   /**
+   * Dispose the client and release resources.
+   * Clears pending request references from the HTTP client.
+   */
+  dispose(): void {
+    this.http.dispose()
+  }
+
+  /**
    * Check server health (static method, no authentication required)
    *
    * @example

@@ -31,13 +31,14 @@ export class CronResource {
   }
 
   /**
-   * Remove a cron job
-   * @param id - Job ID or line identifier
+   * Remove a cron job by its schedule and command
+   * @param schedule - Cron schedule expression
+   * @param command - Command string
    */
-  async remove(id: string): Promise<void> {
+  async remove(schedule: string, command: string): Promise<void> {
     await this.http.request('/cron/jobs', {
       method: 'DELETE',
-      body: { id },
+      body: { schedule, command },
     })
   }
 }

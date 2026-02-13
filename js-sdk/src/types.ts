@@ -344,7 +344,6 @@ export interface TerminalEvents {
   error: [error: Event]
   reconnecting: [attempt: number]
   reconnected: []
-  [key: string]: unknown[]
 }
 
 // =============================================================================
@@ -371,7 +370,6 @@ export interface StatsConnectionEvents {
   error: [error: Event]
   reconnecting: [attempt: number]
   reconnected: []
-  [key: string]: unknown[]
 }
 
 // =============================================================================

@@ -3,11 +3,9 @@
  * Zero dependencies, works in browser and Node.js
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type EventMap = Record<string, any[]>
 type EventListener<Args extends unknown[]> = (...args: Args) => void
 
-export class EventEmitter<Events extends EventMap> {
+export class EventEmitter<Events extends Record<keyof Events, unknown[]>> {
   private listeners = new Map<keyof Events, Set<EventListener<Events[keyof Events]>>>()
 
   /**
