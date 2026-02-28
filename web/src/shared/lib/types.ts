@@ -56,10 +56,11 @@ export type {
 } from '@gloski/sdk'
 
 // App-level types used across features
-import type { Server } from '@/features/servers/stores/servers'
+import type { Server } from '@/shared/lib/server'
 import type { SystemStats } from '@gloski/sdk'
 
-export interface ServerWithStats extends Server {
+export interface ServerWithStats {
+  server: Server
   stats?: SystemStats | null
   statsLoading?: boolean
   statsError?: string | null

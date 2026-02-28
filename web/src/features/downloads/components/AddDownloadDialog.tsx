@@ -35,7 +35,6 @@ export function AddDownloadDialog({ open, onOpenChange, onAdd, server }: AddDown
       setBrowserLoading(true)
       try {
         const response = await server.getClient().files.list(path)
-        // Filter to only show directories
         setBrowserEntries(response.entries.filter((e) => e.type === 'directory'))
       } catch {
         setBrowserEntries([])

@@ -294,12 +294,7 @@ export function TerminalPage() {
             </button>
           ))}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={addTab}
-          className="m-1 transition-colors"
-        >
+        <Button variant="ghost" size="sm" onClick={addTab} className="m-1 transition-colors">
           <Plus className="h-4 w-4" />
         </Button>
       </div>
