@@ -1,8 +1,8 @@
+import { serverNavItems } from '@/app/navigation'
+import { useServersStore } from '@/shared/store/servers'
 import { useParams } from 'react-router-dom'
 import { NavItem } from './NavItem'
 import { NavSection } from './NavSection'
-import { serverNavItems } from '@/app/navigation'
-import { useServersStore } from '@/features/servers'
 
 interface ServerNavProps {
   collapsed?: boolean

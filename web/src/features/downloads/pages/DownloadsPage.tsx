@@ -1,4 +1,4 @@
-import { useServer } from '@/features/servers/context'
+import { useServer } from '@/shared/context'
 import { PageLayout } from '@/layouts/PageLayout'
 import { EmptyState } from '@/shared/components'
 import { Button } from '@/ui/button'

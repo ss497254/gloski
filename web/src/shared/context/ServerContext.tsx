@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { useServersStore, type Server } from '../stores/servers'
-import { createStatsStore, type StatsStoreInstance } from '../stores/statsStore'
+import { useServersStore, type Server } from '../store/servers'
+import { createStatsStore, type StatsStoreInstance } from '../../features/servers/stores/statsStore'
 
 // Context for server data and stats store instance
 interface ServerContextValue {

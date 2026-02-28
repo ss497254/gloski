@@ -1,4 +1,4 @@
-import { Server, type ServerData, type ServerStatus } from '@/shared/lib/server'
+import { Server, type ServerData, type ServerStatus } from '@/shared/lib'
 import { proxy } from 'valtio'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
