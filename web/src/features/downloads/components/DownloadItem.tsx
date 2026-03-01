@@ -1,4 +1,3 @@
-import type { Download } from '@/shared/lib/types'
 import { cn, formatBytes, formatRelativeTime } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import {
@@ -8,6 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
+import type { Download } from '@gloski/sdk'
 import {
   AlertCircle,
   CheckCircle2,
@@ -83,15 +83,8 @@ const statusConfig: Record<
 }
 
 export const DownloadItem = memo(function DownloadItem({ download }: DownloadItemProps) {
-  const {
-    handlePause,
-    handleResume,
-    handleCancel,
-    handleRetry,
-    handleDelete,
-    handleDownload,
-    setShareDownload,
-  } = useDownloads()
+  const { handlePause, handleResume, handleCancel, handleRetry, handleDelete, handleDownload, setShareDownload } =
+    useDownloads()
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 

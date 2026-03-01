@@ -1,4 +1,4 @@
-import { useServer } from '@/features/servers'
+import { useServer } from '@/shared/context'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import type { TerminalConnection } from '@gloski/sdk'

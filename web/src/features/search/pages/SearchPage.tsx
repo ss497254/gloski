@@ -1,10 +1,10 @@
-import { useServer } from '@/features/servers'
-import type { SearchResult } from '@/shared/lib/types'
+import { useServer } from '@/shared/context'
 import { cn } from '@/shared/lib/utils'
 import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { ScrollArea } from '@/ui/scroll-area'
+import type { SearchResult } from '@gloski/sdk'
 import {
   ExternalLink,
   File,

@@ -1,5 +1,6 @@
 import { DiskUsage, MemoryWidget, NetworkStatsWidget, QuickStats, SystemOverview } from '@/features/servers/components'
 import { EmptyState } from '@/shared/components'
+import { useServer } from '@/shared/context'
 import { cn, formatUptime } from '@/shared/lib/utils'
 import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
@@ -18,9 +19,7 @@ import {
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useStore } from 'zustand'
-import { useServer } from '../context'
 import { useServerStatus } from '../hooks/useServerStatus'
-import { useServersStore } from '../stores/servers'
 
 function ServerDetailSkeleton() {
   return (
@@ -98,25 +97,14 @@ function ServerDetailSkeleton() {
 export function ServerDetailPage() {
   // Get server info and stats store
   const { server, serverId, statsStore } = useServer()
-  const updateServer = useServersStore((state) => state.updateServer)
 
   // Subscribe to stats from Zustand store (only this re-renders when stats change)
   const stats = useStore(statsStore, (s) => s.stats)
 
   // Fetch server status independently
   const { serverStatus, loading, error, fetchStatus } = useServerStatus(server, {
-    onSuccess: () => {
-      if (server.status !== 'online') {
-        updateServer(server.id, { status: 'online' })
-      }
-    },
-    onError: (errorMsg) => {
-      const isAuthError = errorMsg.includes('401') || errorMsg.includes('Unauthorized')
-      const newStatus = isAuthError ? 'unauthorized' : 'offline'
-      if (server.status !== newStatus) {
-        updateServer(server.id, { status: newStatus })
-      }
-    },
+    onSuccess: () => {},
+    onError: () => {},
   })
 
   // Fetch status on mount
@@ -333,4 +321,3 @@ export function ServerDetailPage() {
     </div>
   )
 }
-

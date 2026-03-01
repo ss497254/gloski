@@ -1,14 +1,14 @@
-import { useState, useCallback, useRef } from 'react'
-import type { ServerStatus } from '@/shared/lib/types'
-import type { Server } from '../stores/servers'
+import type { Server } from '@/shared/store/servers'
+import type { ServerHealthReport } from '@gloski/sdk'
+import { useCallback, useRef, useState } from 'react'
 
 interface UseServerStatusOptions {
-  onSuccess?: (status: ServerStatus) => void
+  onSuccess?: (status: ServerHealthReport) => void
   onError?: (error: string) => void
 }
 
 interface UseServerStatusReturn {
-  serverStatus: ServerStatus | null
+  serverStatus: ServerHealthReport | null
   loading: boolean
   error: string | null
   fetchStatus: () => Promise<void>
@@ -19,7 +19,7 @@ interface UseServerStatusReturn {
  * Can be used independently or alongside the server context
  */
 export function useServerStatus(server: Server, options: UseServerStatusOptions = {}): UseServerStatusReturn {
-  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
+  const [serverStatus, setServerStatus] = useState<ServerHealthReport | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,7 +28,7 @@ export function useServerStatus(server: Server, options: UseServerStatusOptions 
   optionsRef.current = options
 
   const fetchStatus = useCallback(async () => {
-    if (!server.apiKey && !server.token) {
+    if (!server.isAuthenticated()) {
       const errorMsg = 'No authentication configured'
       setError(errorMsg)
       setLoading(false)

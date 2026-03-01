@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Cpu, HardDrive, Network } from 'lucide-react'
-import { useServer } from '../context'
 import { MetricsChart } from '@/shared/components/MetricsChart'
-import { Button } from '@/ui/button'
-import type { StatsSample } from '@/shared/lib/types'
 import { cn, formatBytes } from '@/shared/lib/utils'
+import { Button } from '@/ui/button'
+import type { StatsSample } from '@gloski/sdk'
+import { Cpu, HardDrive, Network } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useServer } from '../../../shared/context'
 
 interface ChartData {
   timestamp: string

@@ -12,7 +12,7 @@ function DashboardContent() {
 
   return (
     <PageLayout
-      title='Server Management'
+      title="Server Management"
       description="Monitor and manage your Linux servers from a unified dashboard"
       actions={
         <Button asChild>
@@ -23,7 +23,6 @@ function DashboardContent() {
         </Button>
       }
     >
-
       {/* Content */}
       {isLoading ? (
         <DashboardSkeleton />
@@ -48,64 +47,64 @@ function DashboardContent() {
       ) : (
         <div className="p-6 space-y-6">
           {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <ServerIcon className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Servers</p>
-                      <p className="text-2xl font-semibold">{servers.length}</p>
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <ServerIcon className="h-6 w-6 text-primary" />
                   </div>
-                </CardContent>
-              </Card>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Servers</p>
+                    <p className="text-2xl font-semibold">{servers.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                      <Wifi className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Online</p>
-                      <p className="text-2xl font-semibold text-emerald-600">{onlineCount}</p>
-                    </div>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                    <Wifi className="h-6 w-6 text-emerald-600" />
                   </div>
-                </CardContent>
-              </Card>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Online</p>
+                    <p className="text-2xl font-semibold text-emerald-600">{onlineCount}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-red-500/10 flex items-center justify-center">
-                      <Activity className="h-6 w-6 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Offline</p>
-                      <p className="text-2xl font-semibold text-red-600">{offlineCount}</p>
-                    </div>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-lg bg-red-500/10 flex items-center justify-center">
+                    <Activity className="h-6 w-6 text-red-600" />
                   </div>
-                </CardContent>
-              </Card>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Offline</p>
+                    <p className="text-2xl font-semibold text-red-600">{offlineCount}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Servers Grid */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Your Servers</h3>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/servers">View All</Link>
+              </Button>
             </div>
-
-            {/* Servers Grid */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Your Servers</h3>
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/servers">View All</Link>
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {displayServers.map((server) => (
-                  <ServerCard key={server.id} {...server} />
-                ))}
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {displayServers.map((server) => (
+                <ServerCard key={server.id} {...server} />
+              ))}
             </div>
+          </div>
         </div>
       )}
     </PageLayout>

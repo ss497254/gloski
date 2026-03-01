@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import type { ServerStats } from '@/shared/lib/types'
+import type { ServerStats, ServerWithStats } from '@/shared/lib/types'
 import { useServersStore, type Server } from '@/shared/store/servers'
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
 
@@ -13,7 +13,7 @@ interface DashboardContextValue {
   // Data
   servers: Server[]
   serversWithStats: ServerStats[]
-  displayServers: ServerStats[]
+  displayServers: ServerWithStats[]
 
   // Computed
   onlineCount: number

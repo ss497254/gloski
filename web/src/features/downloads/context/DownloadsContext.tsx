@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useServer } from '@/features/servers/context'
-import type { Download, ShareLink } from '@/shared/lib/types'
+import { useServer } from '@/shared/context'
+import type { Download, ShareLink } from '@gloski/sdk'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 

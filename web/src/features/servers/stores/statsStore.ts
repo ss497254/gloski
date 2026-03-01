@@ -1,7 +1,6 @@
+import type { Server } from '@/shared/store/servers'
+import type { StatsConnection, SystemStats } from '@gloski/sdk'
 import { createStore } from 'zustand/vanilla'
-import type { StatsConnection } from '@gloski/sdk'
-import type { SystemStats } from '@/shared/lib/types'
-import type { Server } from './servers'
 
 interface StatsState {
   stats: SystemStats | null
@@ -60,7 +59,7 @@ export function createStatsStore() {
         set({ isConnected: true, error: null })
       })
 
-      connection.on('stats', (stats: SystemStats) => {
+      connection.on('stats', (stats) => {
         set({ stats, error: null })
         onOnline?.()
       })

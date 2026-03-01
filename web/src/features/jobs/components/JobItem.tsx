@@ -1,6 +1,6 @@
-import type { Job } from '@/shared/lib/types'
 import { Button } from '@/ui/button'
 import { Card, CardContent } from '@/ui/card'
+import type { Job } from '@gloski/sdk'
 import { AlertCircle, CheckCircle, Clock, Square, XCircle } from 'lucide-react'
 import { useJobs } from '../context'
 

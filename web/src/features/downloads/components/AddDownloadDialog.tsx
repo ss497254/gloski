@@ -1,9 +1,9 @@
-import type { Server } from '@/features/servers'
-import type { FileEntry } from '@/shared/lib/types'
+import type { Server } from '@/shared/lib/server'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Input } from '@/ui/input'
+import type { FileEntry } from '@gloski/sdk'
 import { ArrowLeft, ChevronRight, Download, Folder, FolderOpen, HardDrive, Home, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 

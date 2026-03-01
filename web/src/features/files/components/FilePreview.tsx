@@ -1,11 +1,11 @@
-import { useServer } from '@/features/servers'
+import { useServer } from '@/shared/context'
+import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import { AlertTriangle, Download, FileText, Loader2, Maximize2, Minimize2, Pencil, Save, X } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useFiles } from '../context'
 import { formatFileSize, getFileType, isTextFile, shouldWarnLargeFile } from '../lib/file-types'
 import { formatDate, formatSize } from '../lib/file-utils'
-import { cn } from '@/shared/lib/utils'
 import { AudioPreview, BinaryPreview, ImagePreview, PdfPreview, TextPreview, VideoPreview } from './previews'
 
 export function FilePreview() {
@@ -28,6 +28,20 @@ export function FilePreview() {
 
   const [dismissedWarning, setDismissedWarning] = useState(false)
   const [isFullScreen, setIsFullScreen] = useState(false)
+
+  // Handle escape key to exit full screen
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullScreen) {
+        setIsFullScreen(false)
+      }
+    }
+
+    if (isFullScreen) {
+      document.addEventListener('keydown', handleEscape)
+      return () => document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isFullScreen])
 
   // Don't render if no file is selected
   if (!selectedFile) return null
@@ -55,22 +69,6 @@ export function FilePreview() {
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen)
   }
-
-  // Handle escape key to exit full screen
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullScreen) {
-        setIsFullScreen(false)
-      }
-    }
-
-    if (isFullScreen) {
-      document.addEventListener('keydown', handleEscape)
-      return () => document.removeEventListener('keydown', handleEscape)
-    }
-  }, [isFullScreen])
-
-
 
   const renderPreviewContent = () => {
     // Loading state
@@ -150,12 +148,7 @@ export function FilePreview() {
   }
 
   const previewContent = (
-    <div
-      className={cn(
-        'flex flex-col bg-muted/20 h-full',
-        isFullScreen && 'fixed inset-0 z-50 bg-background'
-      )}
-    >
+    <div className={cn('flex flex-col bg-muted/20 h-full', isFullScreen && 'fixed inset-0 z-50 bg-background')}>
       {/* Header */}
       <div className="p-3 border-b flex items-center gap-3 bg-background">
         <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -197,7 +190,12 @@ export function FilePreview() {
           )}
 
           {/* Full Screen Toggle */}
-          <Button variant="ghost" size="icon" onClick={toggleFullScreen} title={isFullScreen ? 'Exit full screen' : 'Full screen'}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleFullScreen}
+            title={isFullScreen ? 'Exit full screen' : 'Full screen'}
+          >
             {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
 

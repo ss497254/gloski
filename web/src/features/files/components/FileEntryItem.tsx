@@ -1,4 +1,3 @@
-import type { FileEntry } from '@/shared/lib/types'
 import { cn } from '@/shared/lib/utils'
 import {
   ContextMenu,
@@ -7,6 +6,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/ui/context-menu'
+import type { FileEntry } from '@gloski/sdk'
 import {
   CheckSquare,
   Code,

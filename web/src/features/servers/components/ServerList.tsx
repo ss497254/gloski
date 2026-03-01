@@ -1,4 +1,6 @@
+import type { ServerStatus } from '@/shared/lib'
 import { cn } from '@/shared/lib/utils'
+import { type Server, getSortedServers, useServersStore } from '@/shared/store/servers'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import {
@@ -22,7 +24,6 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { type Server, type ServerStatus, getSortedServers, useServersStore } from '../stores/servers'
 
 const statusConfig: Record<ServerStatus, { color: string; pulseColor?: string; label: string; icon: typeof Wifi }> = {
   online: {
@@ -56,7 +57,7 @@ interface ServerItemProps {
 
 function ServerItem({ server, isActive, onDelete }: ServerItemProps) {
   const navigate = useNavigate()
-  const status = statusConfig[server.status]
+  const status = statusConfig[server.getStatus()]
 
   return (
     <div
@@ -165,7 +166,7 @@ export function ServerList() {
     }
   }
 
-  const onlineCount = servers.filter((s) => s.status === 'online').length
+  const onlineCount = servers.filter((s) => s.getStatus() === 'online').length
 
   return (
     <div className="space-y-1">

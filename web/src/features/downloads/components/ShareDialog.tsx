@@ -1,7 +1,7 @@
-import type { Download, ShareLink } from '@/shared/lib/types'
 import { formatRelativeTime } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog'
+import type { Download, ShareLink } from '@gloski/sdk'
 import { Clock, Copy, Link2, Loader2, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'

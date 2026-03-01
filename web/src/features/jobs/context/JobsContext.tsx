@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useServer } from '@/features/servers'
-import type { Job } from '@/shared/lib/types'
+import { useServer } from '@/shared/context'
+import type { Job } from '@gloski/sdk'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,7 +162,20 @@ export function JobsProvider({ children }: JobsProviderProps) {
       clearSelectedJob,
       refresh,
     }),
-    [jobs, loading, error, selectedJob, jobLogs, newCommand, newCwd, startJob, stopJob, fetchJobLogs, clearSelectedJob, refresh]
+    [
+      jobs,
+      loading,
+      error,
+      selectedJob,
+      jobLogs,
+      newCommand,
+      newCwd,
+      startJob,
+      stopJob,
+      fetchJobLogs,
+      clearSelectedJob,
+      refresh,
+    ]
   )
 
   return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>

@@ -1,21 +1,13 @@
+import { cn, formatBytes } from '@/shared/lib/utils'
 import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
+import { Input } from '@/ui/input'
 import { ScrollArea } from '@/ui/scroll-area'
 import { Separator } from '@/ui/separator'
-import { Input } from '@/ui/input'
-import type { FileEntry } from '@/shared/lib/types'
-import { cn, formatBytes } from '@/shared/lib/utils'
-import {
-  Calendar,
-  Clock,
-  Copy,
-  File,
-  Folder,
-  HardDrive,
-  X,
-} from 'lucide-react'
-import { toast } from 'sonner'
+import type { FileEntry } from '@gloski/sdk'
 import { formatDistanceToNow } from 'date-fns'
+import { Calendar, Clock, Copy, File, Folder, HardDrive, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface FilePropertiesPanelProps {
   entry: FileEntry
@@ -23,7 +15,6 @@ interface FilePropertiesPanelProps {
 }
 
 export function FilePropertiesPanel({ entry, onClose }: FilePropertiesPanelProps) {
-
   const handleCopyPath = () => {
     navigator.clipboard.writeText(entry.path)
     toast.success('Path copied to clipboard')
@@ -67,9 +58,7 @@ export function FilePropertiesPanel({ entry, onClose }: FilePropertiesPanelProps
 
           {/* General Info */}
           <div className="space-y-3">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              General
-            </h4>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">General</h4>
 
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
@@ -100,15 +89,9 @@ export function FilePropertiesPanel({ entry, onClose }: FilePropertiesPanelProps
 
           {/* Path */}
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Path
-            </h4>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Path</h4>
             <div className="flex gap-2">
-              <Input
-                value={entry.path}
-                readOnly
-                className="text-xs font-mono"
-              />
+              <Input value={entry.path} readOnly className="text-xs font-mono" />
               <Button variant="outline" size="icon" onClick={handleCopyPath} className="shrink-0">
                 <Copy className="h-4 w-4" />
               </Button>

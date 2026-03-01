@@ -1,7 +1,7 @@
-import { Database, MemoryStick } from 'lucide-react'
 import { ProgressBar } from '@/shared/components'
 import { formatBytes } from '@/shared/lib/utils'
-import type { MemoryStats, SwapStats } from '@/shared/lib/types'
+import type { MemoryStats, SwapStats } from '@gloski/sdk'
+import { Database, MemoryStick } from 'lucide-react'
 
 interface MemoryWidgetProps {
   memory: MemoryStats

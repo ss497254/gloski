@@ -2,7 +2,7 @@ import { PageLayout } from '@/layouts'
 import { cn } from '@/shared/lib/utils'
 import { Info, Keyboard, Palette } from 'lucide-react'
 import { AboutSettings, AppearanceSettings, ShortcutsSettings } from '../components'
-import { SettingsProvider, useSettings, type SettingsTab } from '../../settings/context'
+import { SettingsProvider, useSettings, type SettingsTab } from '../context'
 
 const tabs: {
   id: SettingsTab

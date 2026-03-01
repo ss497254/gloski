@@ -1,13 +1,12 @@
 import { PageLayout } from '@/layouts'
 import { ConfirmDialog } from '@/shared/components'
 import { cn } from '@/shared/lib/utils'
-import { checkServerHealth } from '@/shared/services/api'
+import { type Server, useServersStore } from '@/shared/store/servers'
 import { Button } from '@/ui/button'
 import { Card, CardContent } from '@/ui/card'
 import { Circle, ExternalLink, Plus, Server as ServerIcon, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { type Server, useServersStore } from '../stores/servers'
 
 const statusColors: Record<string, string> = {
   online: 'fill-green-500',
@@ -41,8 +40,8 @@ function ServerCard({ server, onDelete }: { server: Server; onDelete: (server: S
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-medium truncate">{server.name}</h3>
               <div className="flex items-center gap-1.5">
-                <Circle className={cn('size-2', statusColors[server.status])} />
-                <span className="text-xs text-muted-foreground">{statusLabels[server.status]}</span>
+                <Circle className={cn('size-2', statusColors[server.getStatus()])} />
+                <span className="text-xs text-muted-foreground">{statusLabels[server.getStatus()]}</span>
               </div>
             </div>
             <p className="text-sm text-muted-foreground truncate">{server.url}</p>
@@ -78,22 +77,8 @@ function ServerCard({ server, onDelete }: { server: Server; onDelete: (server: S
 
 export function ServersPage() {
   const servers = useServersStore((s) => s.servers)
-  const updateServer = useServersStore((s) => s.updateServer)
   const removeServer = useServersStore((s) => s.removeServer)
   const [deleteServer, setDeleteServer] = useState<Server | null>(null)
-
-  // Check server health on mount
-  useEffect(() => {
-    servers.forEach(async (server) => {
-      updateServer(server.id, { status: 'connecting' })
-      try {
-        await checkServerHealth(server.url)
-        updateServer(server.id, { status: 'online' })
-      } catch {
-        updateServer(server.id, { status: 'offline' })
-      }
-    })
-  }, []) // Only run on mount
 
   const handleDeleteConfirm = useCallback(() => {
     if (deleteServer) {

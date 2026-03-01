@@ -1,5 +1,5 @@
-import type { NetworkInterface, NetworkStats } from '@/shared/lib/types'
 import { cn, formatBytes } from '@/shared/lib/utils'
+import type { NetworkInterface, NetworkStats } from '@gloski/sdk'
 import { ArrowDownToLine, ArrowUpFromLine, Network, Wifi, WifiOff } from 'lucide-react'
 
 interface NetworkStatsWidgetProps {

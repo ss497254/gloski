@@ -1,5 +1,5 @@
-import { useServer } from '@/features/servers'
 import { EmptyState, FilesListSkeleton } from '@/shared/components'
+import { useServer } from '@/shared/context'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import { AlertCircle, Folder, Search } from 'lucide-react'

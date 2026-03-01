@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { getMainNavItems, mainNavItems } from '@/app/navigation'
+import { useSettingsStore } from '@/features/dashboard/stores/settings'
+import { cn } from '@/shared/lib/utils'
+import { useServersStore } from '@/shared/store/servers'
 import { Dialog, DialogContent } from '@/ui/dialog'
 import { Input } from '@/ui/input'
 import { ScrollArea } from '@/ui/scroll-area'
-import { mainNavItems, getMainNavItems } from '@/app/navigation'
-import { useServersStore } from '@/features/servers'
-import { cn } from '@/shared/lib/utils'
 import { ArrowRight, Moon, Plus, Search, Server, Sun } from 'lucide-react'
-import { useSettingsStore } from '@/features/settings'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface CommandItem {
   id: string

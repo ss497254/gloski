@@ -1,5 +1,6 @@
 import { cn } from '@/shared/lib/utils'
 import { checkServerHealth } from '@/shared/services/api'
+import { useServersStore } from '@/shared/store/servers'
 import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
@@ -20,7 +21,6 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useServersStore } from '../stores/servers'
 
 type ConnectionStatus = 'idle' | 'checking' | 'success' | 'error' | 'warning'
 
@@ -39,8 +39,6 @@ interface ValidationErrors {
 export function AddServerPage() {
   const navigate = useNavigate()
   const servers = useServersStore((s) => s.servers)
-  const addServer = useServersStore((s) => s.addServer)
-  const updateServer = useServersStore((s) => s.updateServer)
 
   const [form, setForm] = useState<FormState>({ url: '', name: '', apiKey: '' })
   const [errors, setErrors] = useState<ValidationErrors>({})
@@ -128,16 +126,11 @@ export function AddServerPage() {
         await checkServerHealth(serverUrl)
       }
 
-      const serverId = addServer(serverUrl, serverName, form.apiKey.trim() || undefined)
-      updateServer(serverId, { status: 'online' })
-
       toast.success(`Server "${serverName}" added successfully`)
       navigate('/')
     } catch (err) {
       if (form.apiKey.trim()) {
         // If API key provided, add server anyway (might be auth issue we can't test)
-        const serverId = addServer(serverUrl, serverName, form.apiKey.trim())
-        updateServer(serverId, { status: 'connecting' })
         toast.success(`Server "${serverName}" added`, {
           description: 'Connection will be verified when you access the server.',
         })

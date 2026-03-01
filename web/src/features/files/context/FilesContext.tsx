@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useServer } from '@/features/servers'
-import type { FileEntry, ListResponse } from '@/shared/lib/types'
+import { useServer } from '@/shared/context'
+import type { FileEntry, ListResponse } from '@gloski/sdk'
 import {
   createContext,
   useCallback,
