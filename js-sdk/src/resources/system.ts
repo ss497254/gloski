@@ -1,7 +1,7 @@
 import type { HttpClient, RequestOptions } from '../http'
 import type {
   ProcessInfo,
-  ServerStatus,
+  ServerHealthReport,
   StatsConnectionOptions,
   StatsHistoryResponse,
   SystemInfo,
@@ -22,8 +22,8 @@ export class SystemResource {
   /**
    * Get server status (health checks, version, uptime, runtime info)
    */
-  async getStatus(options?: RequestOptions): Promise<ServerStatus> {
-    return this.http.request<ServerStatus>('/system/status', options)
+  async getStatus(options?: RequestOptions): Promise<ServerHealthReport> {
+    return this.http.request<ServerHealthReport>('/system/status', options)
   }
 
   /**

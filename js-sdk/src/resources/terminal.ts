@@ -1,6 +1,6 @@
-import type { HttpClient } from '../http'
-import type { TerminalOptions, TerminalState, TerminalEvents } from '../types'
 import { EventEmitter } from '../events'
+import type { HttpClient } from '../http'
+import type { TerminalEvents, TerminalOptions, TerminalState } from '../types'
 
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5
 const DEFAULT_RECONNECT_DELAY = 1000
@@ -83,12 +83,12 @@ export class TerminalConnection extends EventEmitter<TerminalEvents> {
   close(): void {
     this.manualClose = true
     this.clearReconnectTimer()
-    
+
     if (this.ws) {
       this.ws.close()
       this.ws = null
     }
-    
+
     this._state = 'closed'
   }
 

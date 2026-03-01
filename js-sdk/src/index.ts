@@ -10,93 +10,82 @@ export { EventEmitter } from './events'
 // Resources (for type inference)
 export {
   AuthResource,
-  SystemResource,
-  FilesResource,
-  PinnedSubResource,
-  JobsResource,
-  SearchResource,
-  TerminalResource,
-  TerminalConnection,
-  StatsConnection,
-  PackagesResource,
   CronResource,
   DownloadsResource,
+  FilesResource,
+  JobsResource,
+  PackagesResource,
+  PinnedSubResource,
+  SearchResource,
+  StatsConnection,
+  SystemResource,
+  TerminalConnection,
+  TerminalResource,
   type ProgressCallback,
 } from './resources'
 
 // All types
 export type {
-  // Client config
-  GloskiClientConfig,
-
+  AddDownloadRequest,
   // API response types
   APIResponse,
-  HealthResponse,
-
-  // Auth types
-  LoginResponse,
   AuthStatus,
-
-  // System types
-  SystemStats,
   CPUStats,
-  MemoryStats,
-  SwapStats,
-  DiskStats,
-  NetworkStats,
-  NetworkInterface,
-  LoadAvg,
-  ProcessInfo,
-  StatsSample,
-  StatsHistoryResponse,
-  SystemInfo,
-  ServerStatus,
-  GoRuntimeInfo,
-  HealthCheck,
-
-  // File types
-  FileEntry,
-  ListResponse,
-  ReadResponse,
-  UploadResponse,
-  SearchResult,
-  SearchOptions,
-  SearchResponse,
-
-  // Job types
-  JobStatus,
-  Job,
-  JobsResponse,
-  JobLogsResponse,
-
-  // Package types
-  PackageManagerInfo,
-  Package,
-  PackageDetails,
-
+  CreateShareOptions,
   // Cron types
   CronJob,
   CronJobInput,
-
-  // Terminal types
-  TerminalOptions,
-  TerminalState,
-  TerminalEvents,
-
-  // Stats WebSocket types
-  StatsConnectionOptions,
-  StatsConnectionState,
-  StatsConnectionEvents,
-
-  // Download types
-  DownloadStatus,
-  ShareLink,
+  DiskStats,
   Download,
   DownloadsResponse,
-  AddDownloadRequest,
-  CreateShareOptions,
-
+  // Download types
+  DownloadStatus,
+  // File types
+  FileEntry,
+  // Client config
+  GloskiClientConfig,
+  GoRuntimeInfo,
+  HealthCheck,
+  HealthResponse,
+  Job,
+  JobLogsResponse,
+  JobsResponse,
+  // Job types
+  JobStatus,
+  ListResponse,
+  LoadAvg,
+  // Auth types
+  LoginResponse,
+  MemoryStats,
+  NetworkInterface,
+  NetworkStats,
+  Package,
+  PackageDetails,
+  // Package types
+  PackageManagerInfo,
   // Pinned folder types
   PinnedFolder,
   PinnedFoldersResponse,
+  ProcessInfo,
+  ReadResponse,
+  SearchOptions,
+  SearchResponse,
+  SearchResult,
+  ServerHealthReport,
+  ShareLink,
+  StatsConnectionEvents,
+  // Stats WebSocket types
+  StatsConnectionOptions,
+  StatsConnectionState,
+  StatsHistoryResponse,
+  StatsSample,
+  SwapStats,
+  SystemInfo,
+  // System types
+  SystemStats,
+  TerminalEvents,
+  // Terminal types
+  TerminalOptions,
+  TerminalState,
+  UploadResponse,
 } from './types'

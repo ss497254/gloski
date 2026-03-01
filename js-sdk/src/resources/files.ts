@@ -1,6 +1,6 @@
-import type { HttpClient } from '../http'
-import type { ListResponse, ReadResponse, UploadResponse, PinnedFolder, PinnedFoldersResponse } from '../types'
 import { GloskiError } from '../errors'
+import type { HttpClient } from '../http'
+import type { ListResponse, PinnedFolder, PinnedFoldersResponse, ReadResponse, UploadResponse } from '../types'
 
 /**
  * Pinned folders sub-resource (accessed via files.pinned)
@@ -66,9 +66,7 @@ export class FilesResource {
    * @param path - Directory path (default: "/")
    */
   async list(path = '/'): Promise<ListResponse> {
-    return this.http.request<ListResponse>(
-      `/files?path=${encodeURIComponent(path)}`
-    )
+    return this.http.request<ListResponse>(`/files?path=${encodeURIComponent(path)}`)
   }
 
   /**
@@ -76,9 +74,7 @@ export class FilesResource {
    * @param path - File path
    */
   async read(path: string): Promise<ReadResponse> {
-    return this.http.request<ReadResponse>(
-      `/files/read?path=${encodeURIComponent(path)}`
-    )
+    return this.http.request<ReadResponse>(`/files/read?path=${encodeURIComponent(path)}`)
   }
 
   /**
@@ -86,10 +82,7 @@ export class FilesResource {
    * @param path - File path
    * @param onProgress - Progress callback
    */
-  async readWithProgress(
-    path: string,
-    onProgress?: ProgressCallback
-  ): Promise<ReadResponse> {
+  async readWithProgress(path: string, onProgress?: ProgressCallback): Promise<ReadResponse> {
     const url = this.http.buildAuthUrl(`/files/read?path=${encodeURIComponent(path)}`)
 
     const response = await fetch(url)
@@ -213,11 +206,7 @@ export class FilesResource {
    * @param file - File or Blob to upload
    * @param filename - Optional filename (uses file.name if not provided)
    */
-  async upload(
-    destPath: string,
-    file: File | Blob,
-    filename?: string
-  ): Promise<UploadResponse> {
+  async upload(destPath: string, file: File | Blob, filename?: string): Promise<UploadResponse> {
     const formData = new FormData()
     formData.append('path', destPath)
 

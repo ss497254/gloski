@@ -1,5 +1,5 @@
-import type { GloskiClientConfig } from './types'
 import { GloskiError, getErrorMessage } from './errors'
+import type { GloskiClientConfig } from './types'
 
 const DEFAULT_TIMEOUT = 30000
 const DEFAULT_API_PREFIX = '/api'

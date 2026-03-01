@@ -1,5 +1,5 @@
 import type { HttpClient } from '../http'
-import type { Job, JobsResponse, JobLogsResponse } from '../types'
+import type { Job, JobLogsResponse, JobsResponse } from '../types'
 
 /**
  * Job management resource

@@ -164,7 +164,7 @@ export interface SystemInfo {
   features: Record<string, boolean>
 }
 
-export interface ServerStatus {
+export interface ServerHealthReport {
   status: 'healthy' | 'degraded'
   version: string
   uptime: number

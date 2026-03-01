@@ -1,11 +1,5 @@
 import type { HttpClient } from '../http'
-import type {
-  Download,
-  DownloadsResponse,
-  AddDownloadRequest,
-  ShareLink,
-  CreateShareOptions,
-} from '../types'
+import type { AddDownloadRequest, CreateShareOptions, Download, DownloadsResponse, ShareLink } from '../types'
 
 export class DownloadsResource {
   private http: HttpClient

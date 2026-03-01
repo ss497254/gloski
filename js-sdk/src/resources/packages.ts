@@ -1,5 +1,5 @@
 import type { HttpClient } from '../http'
-import type { PackageManagerInfo, Package, PackageDetails } from '../types'
+import type { Package, PackageDetails, PackageManagerInfo } from '../types'
 
 /**
  * Package manager resource
@@ -39,9 +39,7 @@ export class PackagesResource {
    * @param query - Search query
    */
   async search(query: string): Promise<Package[]> {
-    const response = await this.http.request<{ packages: Package[] }>(
-      `/packages/search?q=${encodeURIComponent(query)}`
-    )
+    const response = await this.http.request<{ packages: Package[] }>(`/packages/search?q=${encodeURIComponent(query)}`)
     return response.packages
   }
 
