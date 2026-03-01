@@ -1,5 +1,5 @@
 import { safe } from '../errors'
-import type { HttpClient } from '../http'
+import type { HttpClient, RequestOptions } from '../http'
 import type { AuthStatus, Result } from '../types'
 
 /**
@@ -15,7 +15,7 @@ export class AuthResource {
   /**
    * Check authentication status
    */
-  async status(): Promise<Result<AuthStatus>> {
-    return safe(this.http.request<AuthStatus>('/auth/status'))
+  async status(options?: RequestOptions): Promise<Result<AuthStatus>> {
+    return safe(this.http.request<AuthStatus>('/auth/status', options))
   }
 }

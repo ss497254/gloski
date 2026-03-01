@@ -55,8 +55,12 @@ export class SystemResource {
    * Get list of running processes
    * @param limit - Maximum number of processes to return (default: 100)
    */
-  async getProcesses(limit = 100): Promise<Result<ProcessInfo[]>> {
-    return safe(this.http.request<{ processes: ProcessInfo[] }>(`/system/processes?limit=${limit}`).then(r => r.processes))
+  async getProcesses(limit = 100, options?: RequestOptions): Promise<Result<ProcessInfo[]>> {
+    return safe(
+      this.http
+        .request<{ processes: ProcessInfo[] }>(`/system/processes?limit=${limit}`, options)
+        .then((r) => r.processes)
+    )
   }
 
   /**

@@ -1,4 +1,25 @@
 // =============================================================================
+// Branded ID Types
+// =============================================================================
+
+declare const __brand: unique symbol
+export type Brand<T, B extends string> = T & { readonly [__brand]: B }
+
+export type JobId = Brand<string, 'JobId'>
+export type DownloadId = Brand<string, 'DownloadId'>
+export type PinnedFolderId = Brand<string, 'PinnedFolderId'>
+export type UploadId = Brand<string, 'UploadId'>
+
+/** Cast a string to a JobId */
+export const jobId = (id: string) => id as JobId
+/** Cast a string to a DownloadId */
+export const downloadId = (id: string) => id as DownloadId
+/** Cast a string to a PinnedFolderId */
+export const pinnedFolderId = (id: string) => id as PinnedFolderId
+/** Cast a string to an UploadId */
+export const uploadId = (id: string) => id as UploadId
+
+// =============================================================================
 // Result Type
 // =============================================================================
 
@@ -27,6 +48,8 @@ export interface GloskiClientConfig {
   onOffline?: () => void
   /** Called when server comes back online */
   onOnline?: () => void
+  /** Custom fetch implementation (default: globalThis.fetch) */
+  fetch?: typeof globalThis.fetch
 }
 
 // =============================================================================
@@ -42,6 +65,21 @@ export interface APIResponse<T = unknown> {
 export interface HealthResponse {
   status: string
 }
+
+// =============================================================================
+// Middleware Types
+// =============================================================================
+
+export interface MiddlewareRequest {
+  url: string
+  method: string
+  headers: Record<string, string>
+  body?: string | FormData
+  signal?: AbortSignal
+}
+
+export type MiddlewareNext = (request: MiddlewareRequest) => Promise<Response>
+export type Middleware = (request: MiddlewareRequest, next: MiddlewareNext) => Promise<Response>
 
 // =============================================================================
 // Auth Types
@@ -254,7 +292,7 @@ export interface ChunkedUploadInit {
 }
 
 export interface ChunkedUploadInfo {
-  upload_id: string
+  upload_id: UploadId
   filename: string
   destination: string
   total_size: number
@@ -268,7 +306,7 @@ export interface ChunkedUploadChunkResponse {
 }
 
 export interface ChunkedUploadCompleteRequest {
-  upload_id: string
+  upload_id: UploadId
   destination: string
   filename: string
   total_chunks: number
@@ -284,7 +322,7 @@ export interface ChunkedUploadCompleteResponse {
 // =============================================================================
 
 export interface PinnedFolder {
-  id: string
+  id: PinnedFolderId
   path: string
   name: string
   created_at: string
@@ -302,7 +340,7 @@ export interface PinnedFoldersResponse {
 export type JobStatus = 'pending' | 'running' | 'stopped' | 'failed' | 'finished'
 
 export interface Job {
-  id: string
+  id: JobId
   command: string
   cwd: string
   status: JobStatus
@@ -381,6 +419,23 @@ export interface CronJobInput {
 }
 
 // =============================================================================
+// Base WebSocket Types
+// =============================================================================
+
+export interface BaseWebSocketOptions {
+  /** Auto-reconnect on disconnect (default: true) */
+  autoReconnect?: boolean
+  /** Max reconnect attempts (default: 5) */
+  maxReconnectAttempts?: number
+  /** Initial reconnect delay in ms (default: 1000, with exponential backoff) */
+  reconnectDelay?: number
+  /** Max reconnect delay in ms (default: 30000) */
+  maxReconnectDelay?: number
+}
+
+export type BaseWebSocketState = 'connecting' | 'open' | 'closing' | 'closed' | 'reconnecting'
+
+// =============================================================================
 // Terminal Types
 // =============================================================================
 
@@ -446,7 +501,7 @@ export interface ShareLink {
 }
 
 export interface Download {
-  id: string
+  id: DownloadId
   url: string
   destination: string
   filename: string
@@ -477,4 +532,26 @@ export interface AddDownloadRequest {
 export interface CreateShareOptions {
   /** Expiry time in seconds (null = never expires) */
   expires_in?: number
+}
+
+// =============================================================================
+// Download Watcher Types
+// =============================================================================
+
+export interface DownloadWatcherOptions {
+  /** Polling interval in milliseconds (default: 2000) */
+  interval?: number
+}
+
+export interface DownloadWatcherEvents {
+  /** Emitted when a download's progress changes */
+  progress: [download: Download]
+  /** Emitted when a download completes */
+  completed: [download: Download]
+  /** Emitted when a download fails */
+  failed: [download: Download]
+  /** Emitted on every poll with the full list */
+  update: [downloads: Download[]]
+  /** Emitted when polling encounters an error */
+  error: [error: Error]
 }

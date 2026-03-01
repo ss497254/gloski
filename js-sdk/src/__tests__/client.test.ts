@@ -1,5 +1,6 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test'
 import { GloskiClient } from '../client'
+import { jobId, downloadId } from '../types'
 
 function mockResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -177,7 +178,7 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const result = await client.jobs.stop('abc')
+    const result = await client.jobs.stop(jobId('abc'))
 
     const [url, options] = getLastFetchCall()
     expect(url).toContain('/api/jobs/abc/stop')
@@ -191,12 +192,46 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const result = await client.jobs.delete('abc')
+    const result = await client.jobs.delete(jobId('abc'))
 
     const [url, options] = getLastFetchCall()
     expect(url).toContain('/api/jobs/abc')
     expect(options.method).toBe('DELETE')
     expect(result.error).toBeNull()
+  })
+
+  test('jobs.streamLogs() yields new log lines and stops on terminal status', async () => {
+    let callCount = 0
+    globalThis.fetch = mock(() => {
+      callCount++
+      // Calls alternate: getLogs, get (job status), getLogs, get, getLogs (final)
+      if (callCount === 1) {
+        // First getLogs: 2 lines
+        return Promise.resolve(mockResponse({ success: true, data: { logs: ['line1', 'line2'] } }))
+      }
+      if (callCount === 2) {
+        // First get: still running
+        return Promise.resolve(mockResponse({ success: true, data: { id: '1', status: 'running' } }))
+      }
+      if (callCount === 3) {
+        // Second getLogs: 1 new line
+        return Promise.resolve(mockResponse({ success: true, data: { logs: ['line1', 'line2', 'line3'] } }))
+      }
+      if (callCount === 4) {
+        // Second get: finished
+        return Promise.resolve(mockResponse({ success: true, data: { id: '1', status: 'finished' } }))
+      }
+      // Final getLogs check
+      return Promise.resolve(mockResponse({ success: true, data: { logs: ['line1', 'line2', 'line3', 'line4'] } }))
+    })
+    const client = setupClient()
+
+    const allLines: string[][] = []
+    for await (const lines of client.jobs.streamLogs(jobId('1'), { interval: 1 })) {
+      allLines.push(lines)
+    }
+
+    expect(allLines).toEqual([['line1', 'line2'], ['line3'], ['line4']])
   })
 
   // ─── Cron ─────────────────────────────────────────────────────────────
@@ -292,7 +327,7 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const result = await client.downloads.pause('d1')
+    const result = await client.downloads.pause(downloadId('d1'))
 
     const [url, options] = getLastFetchCall()
     expect(url).toContain('/api/downloads/d1/pause')
@@ -306,7 +341,7 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const result = await client.downloads.delete('d1', true)
+    const result = await client.downloads.delete(downloadId('d1'), true)
 
     const [url, options] = getLastFetchCall()
     expect(url).toContain('delete_file=true')
@@ -391,6 +426,77 @@ describe('GloskiClient resources', () => {
     expect(result.error).toBeNull()
   })
 
+  // ─── Batch Operations ───────────────────────────────────────────────
+
+  test('files.deleteMany() deletes multiple paths', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(mockResponse({ success: true, data: {} }))
+    )
+    const client = setupClient()
+
+    const results = await client.files.deleteMany(['/tmp/a', '/tmp/b', '/tmp/c'])
+
+    expect(results).toHaveLength(3)
+    expect(results.every(r => r.error === null)).toBe(true)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3)
+  })
+
+  test('downloads.cancelAll() cancels multiple downloads', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(mockResponse({ success: true, data: { status: 'cancelled' } }))
+    )
+    const client = setupClient()
+
+    const results = await client.downloads.cancelAll([downloadId('d1'), downloadId('d2')])
+
+    expect(results).toHaveLength(2)
+    expect(results.every(r => r.error === null)).toBe(true)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  test('downloads.pauseAll() pauses multiple downloads', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(mockResponse({ success: true, data: { status: 'paused' } }))
+    )
+    const client = setupClient()
+
+    const results = await client.downloads.pauseAll([downloadId('d1'), downloadId('d2')])
+
+    expect(results).toHaveLength(2)
+    expect(results.every(r => r.error === null)).toBe(true)
+  })
+
+  test('downloads.resumeAll() resumes multiple downloads', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(mockResponse({ success: true, data: { status: 'downloading' } }))
+    )
+    const client = setupClient()
+
+    const results = await client.downloads.resumeAll([downloadId('d1'), downloadId('d2')])
+
+    expect(results).toHaveLength(2)
+    expect(results.every(r => r.error === null)).toBe(true)
+  })
+
+  test('batch operations return per-item errors', async () => {
+    let callCount = 0
+    globalThis.fetch = mock(() => {
+      callCount++
+      if (callCount === 2) {
+        return Promise.resolve(mockResponse({ error: 'Not found' }, 404))
+      }
+      return Promise.resolve(mockResponse({ success: true, data: {} }))
+    })
+    const client = setupClient()
+
+    const results = await client.files.deleteMany(['/tmp/a', '/tmp/b', '/tmp/c'])
+
+    expect(results[0].error).toBeNull()
+    expect(results[1].error).not.toBeNull()
+    expect(results[1].error!.status).toBe(404)
+    expect(results[2].error).toBeNull()
+  })
+
   // ─── Error handling ───────────────────────────────────────────────────
 
   test('resource methods return error on API failure', async () => {
@@ -399,7 +505,7 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const result = await client.jobs.get('nonexistent')
+    const result = await client.jobs.get(jobId('nonexistent'))
 
     expect(result.data).toBeNull()
     expect(result.error).not.toBeNull()

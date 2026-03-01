@@ -49,6 +49,16 @@ export class GloskiError extends Error {
   get isClientError(): boolean {
     return this.status >= 400 && this.status < 500
   }
+
+  /** Serialize to a plain object (used by JSON.stringify) */
+  toJSON(): { name: string; status: number; message: string; code?: string } {
+    return {
+      name: this.name,
+      status: this.status,
+      message: this.message,
+      ...(this.code !== undefined && { code: this.code }),
+    }
+  }
 }
 
 /**
@@ -61,6 +71,38 @@ export async function safe<T>(promise: Promise<T>): Promise<import('./types').Re
     if (error instanceof GloskiError) return { data: null, error }
     return { data: null, error: new GloskiError(0, getErrorMessage(error)) }
   }
+}
+
+/**
+ * Well-known HTTP error status codes for use with GloskiError.status
+ */
+export const ErrorCode = {
+  NETWORK_ERROR: 0,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  RATE_LIMITED: 429,
+  SERVER_ERROR: 500,
+  BAD_GATEWAY: 502,
+  SERVICE_UNAVAILABLE: 503,
+  GATEWAY_TIMEOUT: 504,
+} as const
+
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode]
+
+/**
+ * Type guard: checks if an unknown error is a GloskiError
+ */
+export function isGloskiError(error: unknown): error is GloskiError {
+  return error instanceof GloskiError
+}
+
+/**
+ * Type guard: checks if an unknown error is a GloskiError caused by a network failure (status 0)
+ */
+export function isNetworkError(error: unknown): error is GloskiError {
+  return error instanceof GloskiError && error.status === 0
 }
 
 /**

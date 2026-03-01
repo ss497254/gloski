@@ -1,5 +1,5 @@
 import { GloskiError, getErrorMessage } from './errors'
-import type { GloskiClientConfig, HealthResponse } from './types'
+import type { GloskiClientConfig, HealthResponse, Middleware, MiddlewareNext, MiddlewareRequest } from './types'
 
 const DEFAULT_TIMEOUT = 30000
 const DEFAULT_API_PREFIX = '/api'
@@ -27,11 +27,28 @@ export class HttpClient {
   private callbacks: ClientCallbacks
   private apiPrefix: string
   private pendingRequests: Map<string, Promise<unknown>> = new Map()
+  private customFetch?: typeof globalThis.fetch
+  private middlewares: Middleware[] = []
 
   constructor(config: GloskiClientConfig, callbacks: ClientCallbacks = {}) {
     this.config = config
     this.callbacks = callbacks
     this.apiPrefix = config.apiPrefix ?? DEFAULT_API_PREFIX
+    this.customFetch = config.fetch
+  }
+
+  /**
+   * Add a request middleware
+   */
+  use(middleware: Middleware): void {
+    this.middlewares.push(middleware)
+  }
+
+  /**
+   * Get the fetch function (custom or globalThis.fetch)
+   */
+  getFetch(): typeof globalThis.fetch {
+    return this.customFetch ?? globalThis.fetch
   }
 
   /**
@@ -62,29 +79,29 @@ export class HttpClient {
   /**
    * GET request
    */
-  async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' })
+  async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, { ...options, method: 'GET' })
   }
 
   /**
    * POST request
    */
-  async post<T>(endpoint: string, body: unknown): Promise<T> {
-    return this.request<T>(endpoint, { method: 'POST', body })
+  async post<T>(endpoint: string, body: unknown, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, { ...options, method: 'POST', body })
   }
 
   /**
    * PUT request
    */
-  async put<T>(endpoint: string, body: unknown): Promise<T> {
-    return this.request<T>(endpoint, { method: 'PUT', body })
+  async put<T>(endpoint: string, body: unknown, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, { ...options, method: 'PUT', body })
   }
 
   /**
    * DELETE request
    */
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' })
+  async delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, { ...options, method: 'DELETE' })
   }
 
   /**
@@ -151,12 +168,14 @@ export class HttpClient {
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout || DEFAULT_TIMEOUT)
 
     try {
-      const response = await fetch(url, {
+      const middlewareRequest: MiddlewareRequest = {
+        url,
         method: 'POST',
         headers,
         body: formData,
         signal: controller.signal,
-      })
+      }
+      const response = await this.executeWithMiddleware(middlewareRequest)
 
       clearTimeout(timeoutId)
       this.handleOnline()
@@ -182,6 +201,85 @@ export class HttpClient {
       const message = getErrorMessage(error)
       throw new GloskiError(0, message)
     }
+  }
+
+  /**
+   * Upload a file with progress tracking using XMLHttpRequest.
+   * Falls back to regular upload() if XMLHttpRequest is not available.
+   */
+  async uploadWithProgress<T>(
+    endpoint: string,
+    formData: FormData,
+    onProgress: (loaded: number, total: number | null) => void
+  ): Promise<T> {
+    if (typeof XMLHttpRequest === 'undefined') {
+      return this.upload<T>(endpoint, formData)
+    }
+
+    const fullEndpoint = this.buildEndpoint(endpoint)
+    const url = `${this.config.url}${fullEndpoint}`
+
+    return new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', url)
+
+      // Add authentication header
+      if (this.config.apiKey) {
+        xhr.setRequestHeader('X-API-Key', this.config.apiKey)
+      } else if (this.config.token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${this.config.token}`)
+      }
+
+      const timeoutId = setTimeout(() => {
+        xhr.abort()
+        reject(new GloskiError(0, 'Request timeout'))
+      }, this.config.timeout || DEFAULT_TIMEOUT)
+
+      xhr.upload.onprogress = (event) => {
+        onProgress(event.loaded, event.lengthComputable ? event.total : null)
+      }
+
+      xhr.onload = () => {
+        clearTimeout(timeoutId)
+        this.handleOnline()
+
+        if (xhr.status === 401) {
+          this.callbacks.onUnauthorized?.()
+          reject(new GloskiError(401, 'Unauthorized'))
+          return
+        }
+
+        if (xhr.status < 200 || xhr.status >= 300) {
+          try {
+            const data = JSON.parse(xhr.responseText)
+            reject(new GloskiError(xhr.status, data.error || `HTTP ${xhr.status}`))
+          } catch {
+            reject(new GloskiError(xhr.status, `HTTP ${xhr.status}`))
+          }
+          return
+        }
+
+        try {
+          const json = JSON.parse(xhr.responseText)
+          resolve((json.data ?? json) as T)
+        } catch {
+          reject(new GloskiError(0, 'Invalid JSON response'))
+        }
+      }
+
+      xhr.onerror = () => {
+        clearTimeout(timeoutId)
+        this.handleOffline()
+        reject(new GloskiError(0, 'Network error'))
+      }
+
+      xhr.ontimeout = () => {
+        clearTimeout(timeoutId)
+        reject(new GloskiError(0, 'Request timeout'))
+      }
+
+      xhr.send(formData)
+    })
   }
 
   /**
@@ -216,6 +314,36 @@ export class HttpClient {
   buildWebSocketUrl(endpoint: string, params: Record<string, string> = {}): string {
     const httpUrl = this.buildAuthUrl(endpoint, params)
     return httpUrl.replace(/^http/, 'ws')
+  }
+
+  /**
+   * Build a middleware chain that ends with the given handler
+   */
+  private buildMiddlewareChain(finalHandler: MiddlewareNext): MiddlewareNext {
+    let handler = finalHandler
+    for (let i = this.middlewares.length - 1; i >= 0; i--) {
+      const mw = this.middlewares[i]
+      const next = handler
+      handler = (req) => mw(req, next)
+    }
+    return handler
+  }
+
+  /**
+   * Execute a fetch call through the middleware chain
+   */
+  private async executeWithMiddleware(request: MiddlewareRequest): Promise<Response> {
+    const fetchFn = this.getFetch()
+    const finalHandler: MiddlewareNext = (req) =>
+      fetchFn(req.url, {
+        method: req.method,
+        headers: req.headers,
+        body: req.body,
+        signal: req.signal,
+      })
+
+    const chain = this.buildMiddlewareChain(finalHandler)
+    return chain(request)
   }
 
   /**
@@ -269,12 +397,14 @@ export class HttpClient {
     // Create the request promise and cache it
     const requestPromise = (async () => {
       try {
-        const response = await fetch(url, {
+        const middlewareRequest: MiddlewareRequest = {
+          url,
           method,
           headers: options.headers,
           body: options.body ? JSON.stringify(options.body) : undefined,
           signal,
-        })
+        }
+        const response = await this.executeWithMiddleware(middlewareRequest)
 
         clearTimeout(timeoutId)
         this.handleOnline()

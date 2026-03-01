@@ -1,50 +1,24 @@
-import { EventEmitter } from '../events'
 import type { HttpClient } from '../http'
 import type { TerminalEvents, TerminalOptions, TerminalState } from '../types'
-
-const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5
-const DEFAULT_RECONNECT_DELAY = 1000
+import { BaseWebSocketConnection } from './base-ws'
 
 /**
  * Terminal WebSocket connection with auto-reconnect
  */
-export class TerminalConnection extends EventEmitter<TerminalEvents> {
-  private ws: WebSocket | null = null
-  private _state: TerminalState = 'connecting'
-  private reconnectAttempts = 0
-  private reconnectTimer?: ReturnType<typeof setTimeout>
-  private manualClose = false
-  private wasReconnect = false
+export class TerminalConnection extends BaseWebSocketConnection<TerminalEvents> {
   private lastSize: { cols: number; rows: number } | null = null
   private readonly decoder = new TextDecoder()
-  private readonly url: string
-
-  private readonly options: {
-    cwd?: string
-    autoReconnect: boolean
-    maxReconnectAttempts: number
-    reconnectDelay: number
-  }
 
   constructor(url: string, options: TerminalOptions = {}) {
-    super()
-    this.url = url
-
-    this.options = {
-      cwd: options.cwd,
-      autoReconnect: options.autoReconnect ?? true,
-      maxReconnectAttempts: options.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS,
-      reconnectDelay: options.reconnectDelay ?? DEFAULT_RECONNECT_DELAY,
-    }
-
-    this.setupWebSocket()
+    super(url, {
+      autoReconnect: options.autoReconnect,
+      maxReconnectAttempts: options.maxReconnectAttempts,
+      reconnectDelay: options.reconnectDelay,
+    })
   }
 
-  /**
-   * Current connection state
-   */
   get state(): TerminalState {
-    return this._state
+    return super.state as TerminalState
   }
 
   /**
@@ -77,126 +51,24 @@ export class TerminalConnection extends EventEmitter<TerminalEvents> {
     }
   }
 
-  /**
-   * Close the connection (disables auto-reconnect)
-   */
-  close(): void {
-    this.manualClose = true
-    this.clearReconnectTimer()
-
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
-    }
-
-    this._state = 'closed'
+  protected configureWebSocket(ws: WebSocket): void {
+    ws.binaryType = 'arraybuffer'
   }
 
-  /**
-   * Manually trigger a reconnect
-   */
-  reconnect(): void {
-    if (this._state === 'closed' || this._state === 'closing') {
-      this.manualClose = false
-      this.reconnectAttempts = 0
-      this.wasReconnect = true
-      this.setupWebSocket()
+  protected onOpen(): void {
+    if (this.lastSize) {
+      this.resize(this.lastSize.cols, this.lastSize.rows)
     }
   }
 
-  /**
-   * Check if the connection is open
-   */
-  get isOpen(): boolean {
-    return this._state === 'open'
-  }
-
-  /**
-   * Check if the connection is connecting or reconnecting
-   */
-  get isConnecting(): boolean {
-    return this._state === 'connecting' || this._state === 'reconnecting'
-  }
-
-  private setupWebSocket(): void {
-    this._state = this.wasReconnect ? 'reconnecting' : 'connecting'
-
-    try {
-      this.ws = new WebSocket(this.url)
-      this.ws.binaryType = 'arraybuffer'
-
-      this.ws.onopen = () => {
-        this._state = 'open'
-        this.reconnectAttempts = 0
-
-        if (this.wasReconnect) {
-          this.emit('reconnected')
-          this.wasReconnect = false
-        } else {
-          this.emit('open')
-        }
-
-        // Restore terminal size if we have it
-        if (this.lastSize) {
-          this.resize(this.lastSize.cols, this.lastSize.rows)
-        }
-      }
-
-      this.ws.onclose = (event) => {
-        this.emit('close', event)
-
-        // Auto-reconnect if enabled and not manually closed
-        if (this.options.autoReconnect && !this.manualClose) {
-          this.scheduleReconnect()
-        } else {
-          this._state = 'closed'
-        }
-      }
-
-      this.ws.onerror = (error) => {
-        this.emit('error', error)
-      }
-
-      this.ws.onmessage = (event) => {
-        let data: string
-        if (event.data instanceof ArrayBuffer) {
-          data = this.decoder.decode(event.data)
-        } else {
-          data = event.data as string
-        }
-        this.emit('data', data)
-      }
-    } catch (error) {
-      this._state = 'closed'
-      this.emit('error', error as Event)
+  protected handleMessage(event: MessageEvent): void {
+    let data: string
+    if (event.data instanceof ArrayBuffer) {
+      data = this.decoder.decode(event.data)
+    } else {
+      data = event.data as string
     }
-  }
-
-  private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= this.options.maxReconnectAttempts) {
-      this._state = 'closed'
-      return
-    }
-
-    this._state = 'reconnecting'
-    this.reconnectAttempts++
-
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s...
-    const delay = this.options.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)
-
-    this.emit('reconnecting', this.reconnectAttempts)
-
-    this.reconnectTimer = setTimeout(() => {
-      this.wasReconnect = true
-      this.setupWebSocket()
-    }, delay)
-  }
-
-  private clearReconnectTimer(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer)
-      this.reconnectTimer = undefined
-    }
+    this.emit('data', data)
   }
 }
 

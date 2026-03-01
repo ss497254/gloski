@@ -1,6 +1,6 @@
 import { safe } from '../errors'
-import type { HttpClient } from '../http'
-import type { Job, JobLogsResponse, JobsResponse, Result } from '../types'
+import type { HttpClient, RequestOptions } from '../http'
+import type { Job, JobId, JobLogsResponse, JobStatus, JobsResponse, Result } from '../types'
 
 /**
  * Job management resource
@@ -18,8 +18,8 @@ export class JobsResource {
   /**
    * List all jobs
    */
-  async list(): Promise<Result<Job[]>> {
-    return safe(this.http.request<JobsResponse>('/jobs').then(r => r.jobs))
+  async list(options?: RequestOptions): Promise<Result<Job[]>> {
+    return safe(this.http.request<JobsResponse>('/jobs', options).then(r => r.jobs))
   }
 
   /**
@@ -27,8 +27,9 @@ export class JobsResource {
    * @param command - Command to execute
    * @param cwd - Working directory (optional)
    */
-  async start(command: string, cwd?: string): Promise<Result<Job>> {
+  async start(command: string, cwd?: string, options?: RequestOptions): Promise<Result<Job>> {
     return safe(this.http.request<Job>('/jobs', {
+      ...options,
       method: 'POST',
       body: { command, cwd },
     }))
@@ -38,24 +39,25 @@ export class JobsResource {
    * Get job by ID
    * @param id - Job ID
    */
-  async get(id: string): Promise<Result<Job>> {
-    return safe(this.http.request<Job>(`/jobs/${id}`))
+  async get(id: JobId, options?: RequestOptions): Promise<Result<Job>> {
+    return safe(this.http.request<Job>(`/jobs/${id}`, options))
   }
 
   /**
    * Get job logs
    * @param id - Job ID
    */
-  async getLogs(id: string): Promise<Result<string[]>> {
-    return safe(this.http.request<JobLogsResponse>(`/jobs/${id}/logs`).then(r => r.logs))
+  async getLogs(id: JobId, options?: RequestOptions): Promise<Result<string[]>> {
+    return safe(this.http.request<JobLogsResponse>(`/jobs/${id}/logs`, options).then(r => r.logs))
   }
 
   /**
    * Stop/kill a running job
    * @param id - Job ID
    */
-  async stop(id: string): Promise<Result<void>> {
+  async stop(id: JobId, options?: RequestOptions): Promise<Result<void>> {
     return safe(this.http.request(`/jobs/${id}/stop`, {
+      ...options,
       method: 'POST',
     }).then(() => {}))
   }
@@ -64,9 +66,59 @@ export class JobsResource {
    * Delete a job and its logs
    * @param id - Job ID
    */
-  async delete(id: string): Promise<Result<void>> {
+  async delete(id: JobId, options?: RequestOptions): Promise<Result<void>> {
     return safe(this.http.request(`/jobs/${id}`, {
+      ...options,
       method: 'DELETE',
     }).then(() => {}))
+  }
+
+  /**
+   * Stream job logs as they are produced (polling-based).
+   * Yields arrays of new log lines since the last poll.
+   * Stops automatically when the job reaches a terminal status.
+   *
+   * @param id - Job ID
+   * @param options - Polling interval (default: 1000ms) and AbortSignal
+   *
+   * @example
+   * ```ts
+   * for await (const lines of client.jobs.streamLogs(job.id)) {
+   *   lines.forEach(line => console.log(line))
+   * }
+   * ```
+   */
+  async *streamLogs(
+    id: JobId,
+    options?: { interval?: number; signal?: AbortSignal }
+  ): AsyncGenerator<string[], void, unknown> {
+    const interval = options?.interval ?? 1000
+    const terminalStatuses: JobStatus[] = ['finished', 'failed', 'stopped']
+    let lastCount = 0
+
+    while (!options?.signal?.aborted) {
+      const result = await this.getLogs(id)
+      if (result.error) throw result.error
+
+      const logs = result.data
+      if (logs.length > lastCount) {
+        yield logs.slice(lastCount)
+        lastCount = logs.length
+      }
+
+      // Check if job is finished
+      const job = await this.get(id)
+      if (job.error) throw job.error
+      if (terminalStatuses.includes(job.data.status)) {
+        // One final check for remaining logs
+        const final = await this.getLogs(id)
+        if (!final.error && final.data.length > lastCount) {
+          yield final.data.slice(lastCount)
+        }
+        return
+      }
+
+      await new Promise(r => setTimeout(r, interval))
+    }
   }
 }

@@ -1,5 +1,5 @@
 import { safe } from '../errors'
-import type { HttpClient } from '../http'
+import type { HttpClient, RequestOptions } from '../http'
 import type {
   InstalledPackagesResponse,
   Package,
@@ -22,23 +22,23 @@ export class PackagesResource {
   /**
    * Get package manager info
    */
-  async info(): Promise<Result<PackageManagerInfo>> {
-    return safe(this.http.request<PackageManagerInfo>('/packages/info'))
+  async info(options?: RequestOptions): Promise<Result<PackageManagerInfo>> {
+    return safe(this.http.request<PackageManagerInfo>('/packages/info', options))
   }
 
   /**
    * List installed packages
    * @param limit - Maximum number of packages to return (default: 100)
    */
-  async listInstalled(limit = 100): Promise<Result<InstalledPackagesResponse>> {
-    return safe(this.http.request<InstalledPackagesResponse>(`/packages/installed?limit=${limit}`))
+  async listInstalled(limit = 100, options?: RequestOptions): Promise<Result<InstalledPackagesResponse>> {
+    return safe(this.http.request<InstalledPackagesResponse>(`/packages/installed?limit=${limit}`, options))
   }
 
   /**
    * Check for available upgrades
    */
-  async checkUpgrades(): Promise<Result<UpgradeInfo>> {
-    return safe(this.http.request<UpgradeInfo>('/packages/upgrades'))
+  async checkUpgrades(options?: RequestOptions): Promise<Result<UpgradeInfo>> {
+    return safe(this.http.request<UpgradeInfo>('/packages/upgrades', options))
   }
 
   /**
@@ -46,9 +46,12 @@ export class PackagesResource {
    * @param query - Search query
    * @param limit - Maximum number of results (default: 50)
    */
-  async search(query: string, limit = 50): Promise<Result<PackageSearchResponse>> {
+  async search(query: string, limit = 50, options?: RequestOptions): Promise<Result<PackageSearchResponse>> {
     return safe(
-      this.http.request<PackageSearchResponse>(`/packages/search?q=${encodeURIComponent(query)}&limit=${limit}`)
+      this.http.request<PackageSearchResponse>(
+        `/packages/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+        options
+      )
     )
   }
 
@@ -56,7 +59,7 @@ export class PackagesResource {
    * Get package details
    * @param name - Package name
    */
-  async get(name: string): Promise<Result<Package>> {
-    return safe(this.http.request<Package>(`/packages/${encodeURIComponent(name)}`))
+  async get(name: string, options?: RequestOptions): Promise<Result<Package>> {
+    return safe(this.http.request<Package>(`/packages/${encodeURIComponent(name)}`, options))
   }
 }

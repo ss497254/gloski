@@ -1,6 +1,7 @@
+export { BaseWebSocketConnection, type BaseWebSocketEvents } from './base-ws'
 export { AuthResource } from './auth'
 export { CronResource } from './cron'
-export { DownloadsResource } from './downloads'
+export { DownloadsResource, DownloadWatcher } from './downloads'
 export { FilesResource, PinnedSubResource, type ProgressCallback } from './files'
 export { JobsResource } from './jobs'
 export { PackagesResource } from './packages'

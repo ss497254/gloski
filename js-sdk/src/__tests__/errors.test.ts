@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { GloskiError, getErrorMessage, safe } from '../errors'
+import { GloskiError, ErrorCode, getErrorMessage, safe, isGloskiError, isNetworkError } from '../errors'
 
 describe('GloskiError', () => {
   test('constructor sets properties correctly', () => {
@@ -56,6 +56,78 @@ describe('GloskiError', () => {
     expect(new GloskiError(499, 'Custom').isClientError).toBe(true)
     expect(new GloskiError(500, 'Server error').isClientError).toBe(false)
     expect(new GloskiError(399, 'Redirect').isClientError).toBe(false)
+  })
+
+  test('toJSON() returns serializable object with code', () => {
+    const error = new GloskiError(404, 'Not found', 'NOT_FOUND')
+    expect(error.toJSON()).toEqual({
+      name: 'GloskiError',
+      status: 404,
+      message: 'Not found',
+      code: 'NOT_FOUND',
+    })
+  })
+
+  test('toJSON() omits code when undefined', () => {
+    const error = new GloskiError(500, 'Server error')
+    const json = error.toJSON()
+    expect(json).toEqual({ name: 'GloskiError', status: 500, message: 'Server error' })
+    expect('code' in json).toBe(false)
+  })
+
+  test('JSON.stringify uses toJSON()', () => {
+    const error = new GloskiError(401, 'Unauthorized')
+    const parsed = JSON.parse(JSON.stringify(error))
+    expect(parsed.name).toBe('GloskiError')
+    expect(parsed.status).toBe(401)
+    expect(parsed.message).toBe('Unauthorized')
+  })
+})
+
+describe('isGloskiError', () => {
+  test('returns true for GloskiError', () => {
+    expect(isGloskiError(new GloskiError(404, 'Not found'))).toBe(true)
+  })
+
+  test('returns false for plain Error', () => {
+    expect(isGloskiError(new Error('oops'))).toBe(false)
+  })
+
+  test('returns false for non-errors', () => {
+    expect(isGloskiError('string')).toBe(false)
+    expect(isGloskiError(null)).toBe(false)
+    expect(isGloskiError(undefined)).toBe(false)
+  })
+})
+
+describe('isNetworkError', () => {
+  test('returns true for network errors (status 0)', () => {
+    expect(isNetworkError(new GloskiError(0, 'Network error'))).toBe(true)
+  })
+
+  test('returns false for HTTP errors', () => {
+    expect(isNetworkError(new GloskiError(500, 'Server error'))).toBe(false)
+  })
+
+  test('returns false for non-GloskiError', () => {
+    expect(isNetworkError(new Error('oops'))).toBe(false)
+  })
+})
+
+describe('ErrorCode', () => {
+  test('contains standard HTTP codes', () => {
+    expect(ErrorCode.NETWORK_ERROR).toBe(0)
+    expect(ErrorCode.UNAUTHORIZED).toBe(401)
+    expect(ErrorCode.FORBIDDEN).toBe(403)
+    expect(ErrorCode.NOT_FOUND).toBe(404)
+    expect(ErrorCode.RATE_LIMITED).toBe(429)
+    expect(ErrorCode.SERVER_ERROR).toBe(500)
+  })
+
+  test('works with GloskiError status comparison', () => {
+    const err = new GloskiError(404, 'Not found')
+    expect(err.status === ErrorCode.NOT_FOUND).toBe(true)
+    expect(err.status === ErrorCode.UNAUTHORIZED).toBe(false)
   })
 })
 

@@ -274,6 +274,79 @@ describe('HttpClient', () => {
     await promise.catch(() => {})
   })
 
+  test('uses custom fetch when provided', async () => {
+    const customFetch = mock(() => Promise.resolve(mockResponse({ success: true, data: 'custom' })))
+    const client = new HttpClient({
+      url: 'http://localhost:3000',
+      apiKey: 'key',
+      fetch: customFetch as unknown as typeof globalThis.fetch,
+    })
+
+    const result = await client.get('/test')
+
+    expect(customFetch).toHaveBeenCalledTimes(1)
+    expect(result).toBe('custom')
+  })
+
+  test('getFetch() returns the configured fetch function', () => {
+    const customFetch = mock(() => Promise.resolve(new Response()))
+    const client = new HttpClient({
+      url: 'http://localhost:3000',
+      apiKey: 'key',
+      fetch: customFetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(client.getFetch()).toBe(customFetch)
+  })
+
+  test('middleware intercepts requests in order', async () => {
+    const order: number[] = []
+    const client = new HttpClient({ url: 'http://localhost:3000', apiKey: 'key' })
+
+    client.use(async (req, next) => {
+      order.push(1)
+      const res = await next(req)
+      order.push(3)
+      return res
+    })
+    client.use(async (req, next) => {
+      order.push(2)
+      return next(req)
+    })
+
+    await client.get('/test')
+    expect(order).toEqual([1, 2, 3])
+  })
+
+  test('middleware can modify request headers', async () => {
+    const client = new HttpClient({ url: 'http://localhost:3000', apiKey: 'key' })
+
+    client.use(async (req, next) => {
+      req.headers['X-Custom'] = 'value'
+      return next(req)
+    })
+
+    await client.get('/test')
+
+    const [, options] = (globalThis.fetch as ReturnType<typeof mock>).mock.calls[0] as [string, RequestInit]
+    expect((options.headers as Record<string, string>)['X-Custom']).toBe('value')
+  })
+
+  test('middleware can short-circuit without calling next', async () => {
+    const client = new HttpClient({ url: 'http://localhost:3000', apiKey: 'key' })
+
+    client.use(async () => {
+      return new Response(JSON.stringify({ data: 'intercepted' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+
+    const result = await client.get('/test')
+    expect(result).toBe('intercepted')
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
   test('requestNoAuth does not include auth headers', async () => {
     const client = new HttpClient({ url: 'http://localhost:3000', apiKey: 'key' })
 

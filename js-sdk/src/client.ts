@@ -1,4 +1,6 @@
+import { safe } from './errors'
 import { HttpClient, checkHealth } from './http'
+import type { Middleware } from './types'
 import {
   AuthResource,
   CronResource,
@@ -10,7 +12,7 @@ import {
   SystemResource,
   TerminalResource,
 } from './resources'
-import type { GloskiClientConfig, HealthResponse } from './types'
+import type { GloskiClientConfig, HealthResponse, Result } from './types'
 
 /**
  * Gloski SDK Client
@@ -94,6 +96,25 @@ export class GloskiClient {
     this.packages = new PackagesResource(this.http)
     this.cron = new CronResource(this.http)
     this.downloads = new DownloadsResource(this.http)
+  }
+
+  /**
+   * Add a request middleware.
+   * Middlewares run in the order they are added.
+   */
+  use(middleware: Middleware): this {
+    this.http.use(middleware)
+    return this
+  }
+
+  /**
+   * Ping the server: checks health (unauthenticated) then auth status.
+   * Useful for verifying both connectivity and credentials in one call.
+   */
+  async ping(): Promise<Result<{ authenticated: boolean }>> {
+    const health = await safe(this.http.requestNoAuth<HealthResponse>('/health'))
+    if (health.error) return health as Result<{ authenticated: boolean }>
+    return this.auth.status()
   }
 
   /**

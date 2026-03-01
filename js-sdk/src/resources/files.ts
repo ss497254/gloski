@@ -1,5 +1,5 @@
 import { GloskiError, safe } from '../errors'
-import type { HttpClient } from '../http'
+import type { HttpClient, RequestOptions } from '../http'
 import type {
   ChunkedUploadChunkResponse,
   ChunkedUploadCompleteRequest,
@@ -8,9 +8,11 @@ import type {
   ChunkedUploadInit,
   ListResponse,
   PinnedFolder,
+  PinnedFolderId,
   PinnedFoldersResponse,
   ReadResponse,
   Result,
+  UploadId,
   UploadResponse,
 } from '../types'
 
@@ -27,8 +29,8 @@ export class PinnedSubResource {
   /**
    * List all pinned folders and get home directory
    */
-  async list(): Promise<Result<PinnedFoldersResponse>> {
-    return safe(this.http.request<PinnedFoldersResponse>('/files/pinned'))
+  async list(options?: RequestOptions): Promise<Result<PinnedFoldersResponse>> {
+    return safe(this.http.request<PinnedFoldersResponse>('/files/pinned', options))
   }
 
   /**
@@ -36,9 +38,10 @@ export class PinnedSubResource {
    * @param path - Folder path to pin
    * @param name - Display name for the pinned folder
    */
-  async pin(path: string, name: string): Promise<Result<PinnedFolder>> {
+  async pin(path: string, name: string, options?: RequestOptions): Promise<Result<PinnedFolder>> {
     return safe(
       this.http.request<PinnedFolder>('/files/pinned', {
+        ...options,
         method: 'POST',
         body: { path, name },
       })
@@ -49,10 +52,11 @@ export class PinnedSubResource {
    * Unpin a folder by ID
    * @param id - Pinned folder ID
    */
-  async unpin(id: string): Promise<Result<void>> {
+  async unpin(id: PinnedFolderId, options?: RequestOptions): Promise<Result<void>> {
     return safe(
       this.http
         .request(`/files/pinned/${id}`, {
+          ...options,
           method: 'DELETE',
         })
         .then(() => {})
@@ -83,16 +87,16 @@ export class FilesResource {
    * List directory contents
    * @param path - Directory path (default: "/")
    */
-  async list(path = '/'): Promise<Result<ListResponse>> {
-    return safe(this.http.request<ListResponse>(`/files?path=${encodeURIComponent(path)}`))
+  async list(path = '/', options?: RequestOptions): Promise<Result<ListResponse>> {
+    return safe(this.http.request<ListResponse>(`/files?path=${encodeURIComponent(path)}`, options))
   }
 
   /**
    * Read file content
    * @param path - File path
    */
-  async read(path: string): Promise<Result<ReadResponse>> {
-    return safe(this.http.request<ReadResponse>(`/files/read?path=${encodeURIComponent(path)}`))
+  async read(path: string, options?: RequestOptions): Promise<Result<ReadResponse>> {
+    return safe(this.http.request<ReadResponse>(`/files/read?path=${encodeURIComponent(path)}`, options))
   }
 
   /**
@@ -105,7 +109,7 @@ export class FilesResource {
       (async () => {
         const url = this.http.buildAuthUrl(`/files/read?path=${encodeURIComponent(path)}`)
 
-        const response = await fetch(url)
+        const response = await this.http.getFetch()(url)
         if (!response.ok) {
           const data = await response.json().catch(() => ({ error: 'Unknown error' }))
           throw new GloskiError(response.status, data.error || `HTTP ${response.status}`)
@@ -155,7 +159,7 @@ export class FilesResource {
   async *readStream(path: string): AsyncGenerator<string, void, unknown> {
     const url = this.http.buildAuthUrl(`/files/read?path=${encodeURIComponent(path)}`)
 
-    const response = await fetch(url)
+    const response = await this.http.getFetch()(url)
     if (!response.ok) {
       const data = await response.json().catch(() => ({ error: 'Unknown error' }))
       throw new GloskiError(response.status, data.error || `HTTP ${response.status}`)
@@ -184,10 +188,11 @@ export class FilesResource {
    * @param path - File path
    * @param content - File content
    */
-  async write(path: string, content: string): Promise<Result<void>> {
+  async write(path: string, content: string, options?: RequestOptions): Promise<Result<void>> {
     return safe(
       this.http
         .request('/files/write', {
+          ...options,
           method: 'POST',
           body: { path, content },
         })
@@ -199,10 +204,11 @@ export class FilesResource {
    * Create a directory
    * @param path - Directory path
    */
-  async mkdir(path: string): Promise<Result<void>> {
+  async mkdir(path: string, options?: RequestOptions): Promise<Result<void>> {
     return safe(
       this.http
         .request('/files/mkdir', {
+          ...options,
           method: 'POST',
           body: { path },
         })
@@ -214,10 +220,11 @@ export class FilesResource {
    * Delete a file or directory
    * @param path - Path to delete
    */
-  async delete(path: string): Promise<Result<void>> {
+  async delete(path: string, options?: RequestOptions): Promise<Result<void>> {
     return safe(
       this.http
         .request(`/files?path=${encodeURIComponent(path)}`, {
+          ...options,
           method: 'DELETE',
         })
         .then(() => {})
@@ -225,14 +232,23 @@ export class FilesResource {
   }
 
   /**
+   * Delete multiple files or directories in parallel
+   * @param paths - Array of paths to delete
+   */
+  async deleteMany(paths: string[], options?: RequestOptions): Promise<Result<void>[]> {
+    return Promise.all(paths.map(p => this.delete(p, options)))
+  }
+
+  /**
    * Rename or move a file/directory
    * @param oldPath - Current path
    * @param newPath - New path
    */
-  async rename(oldPath: string, newPath: string): Promise<Result<void>> {
+  async rename(oldPath: string, newPath: string, options?: RequestOptions): Promise<Result<void>> {
     return safe(
       this.http
         .request('/files/rename', {
+          ...options,
           method: 'POST',
           body: { old_path: oldPath, new_path: newPath },
         })
@@ -245,8 +261,14 @@ export class FilesResource {
    * @param destPath - Destination directory path
    * @param file - File or Blob to upload
    * @param filename - Optional filename (uses file.name if not provided)
+   * @param onProgress - Optional progress callback (requires XMLHttpRequest)
    */
-  async upload(destPath: string, file: File | Blob, filename?: string): Promise<Result<UploadResponse>> {
+  async upload(
+    destPath: string,
+    file: File | Blob,
+    filename?: string,
+    onProgress?: ProgressCallback
+  ): Promise<Result<UploadResponse>> {
     const formData = new FormData()
     formData.append('path', destPath)
 
@@ -256,6 +278,9 @@ export class FilesResource {
       formData.append('file', file, filename || 'upload')
     }
 
+    if (onProgress) {
+      return safe(this.http.uploadWithProgress<UploadResponse>('/files/upload', formData, onProgress))
+    }
     return safe(this.http.upload<UploadResponse>('/files/upload', formData))
   }
 
@@ -273,9 +298,10 @@ export class FilesResource {
    * Initialize a chunked upload session (for large files)
    * @param init - Chunked upload parameters
    */
-  async initChunkedUpload(init: ChunkedUploadInit): Promise<Result<ChunkedUploadInfo>> {
+  async initChunkedUpload(init: ChunkedUploadInit, options?: RequestOptions): Promise<Result<ChunkedUploadInfo>> {
     return safe(
       this.http.request<ChunkedUploadInfo>('/files/upload/init', {
+        ...options,
         method: 'POST',
         body: init,
       })
@@ -291,7 +317,7 @@ export class FilesResource {
    * @param chunk - Chunk data (File or Blob)
    */
   async uploadChunk(
-    uploadId: string,
+    uploadId: UploadId,
     destination: string,
     filename: string,
     chunkIndex: number,
@@ -311,9 +337,10 @@ export class FilesResource {
    * Complete a chunked upload by assembling all chunks
    * @param request - Completion parameters
    */
-  async completeChunkedUpload(request: ChunkedUploadCompleteRequest): Promise<Result<ChunkedUploadCompleteResponse>> {
+  async completeChunkedUpload(request: ChunkedUploadCompleteRequest, options?: RequestOptions): Promise<Result<ChunkedUploadCompleteResponse>> {
     return safe(
       this.http.request<ChunkedUploadCompleteResponse>('/files/upload/complete', {
+        ...options,
         method: 'POST',
         body: request,
       })
@@ -325,10 +352,11 @@ export class FilesResource {
    * @param uploadId - Upload session ID
    * @param destination - Destination directory
    */
-  async abortChunkedUpload(uploadId: string, destination: string): Promise<Result<void>> {
+  async abortChunkedUpload(uploadId: UploadId, destination: string, options?: RequestOptions): Promise<Result<void>> {
     return safe(
       this.http
         .request('/files/upload/abort', {
+          ...options,
           method: 'POST',
           body: { upload_id: uploadId, destination },
         })

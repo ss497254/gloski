@@ -1,17 +1,29 @@
 // Main client
 export { GloskiClient } from './client'
 
-// Error classes and utilities
-export { GloskiError, safe } from './errors'
+// Error classes, utilities, and type guards
+export { GloskiError, ErrorCode, safe, isGloskiError, isNetworkError } from './errors'
+export type { ErrorCode as ErrorCodeType } from './errors'
+
+// HTTP types (for request options)
+export type { RequestOptions } from './http'
+
+// Middleware and utilities
+export { withRetry, paginate } from './middleware'
+export type { RetryOptions, PaginateOptions } from './middleware'
 
 // Event emitter (for extending)
 export { EventEmitter } from './events'
+
+// Base WebSocket class (for extending)
+export { BaseWebSocketConnection, type BaseWebSocketEvents } from './resources'
 
 // Resources (for type inference)
 export {
   AuthResource,
   CronResource,
   DownloadsResource,
+  DownloadWatcher,
   FilesResource,
   JobsResource,
   PackagesResource,
@@ -24,11 +36,17 @@ export {
   type ProgressCallback,
 } from './resources'
 
+// Branded ID helpers
+export { jobId, downloadId, pinnedFolderId, uploadId } from './types'
+
 // All types
 export type {
   AddDownloadRequest,
   // API response types
   APIResponse,
+  // Base WebSocket types
+  BaseWebSocketOptions,
+  BaseWebSocketState,
   // Result type
   Result,
   AuthStatus,
@@ -48,12 +66,22 @@ export type {
   DiskStats,
   Download,
   DownloadsResponse,
+  // Branded ID types
+  Brand,
+  DownloadId,
   // Download types
   DownloadStatus,
+  // Download watcher types
+  DownloadWatcherEvents,
+  DownloadWatcherOptions,
   // File types
   FileEntry,
   // Client config
   GloskiClientConfig,
+  // Middleware types
+  Middleware,
+  MiddlewareNext,
+  MiddlewareRequest,
   GoRuntimeInfo,
   HealthCheck,
   HealthResponse,
@@ -62,6 +90,7 @@ export type {
   Job,
   JobLogsResponse,
   JobsResponse,
+  JobId,
   // Job types
   JobStatus,
   ListResponse,
@@ -72,6 +101,7 @@ export type {
   Package,
   PackageManagerInfo,
   PackageSearchResponse,
+  PinnedFolderId,
   // Pinned folder types
   PinnedFolder,
   PinnedFoldersResponse,
@@ -97,5 +127,6 @@ export type {
   TerminalOptions,
   TerminalState,
   UpgradeInfo,
+  UploadId,
   UploadResponse,
 } from './types'
