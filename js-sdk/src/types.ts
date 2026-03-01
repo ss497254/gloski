@@ -47,11 +47,6 @@ export interface HealthResponse {
 // Auth Types
 // =============================================================================
 
-export interface LoginResponse {
-  token: string
-  expires_in: number
-}
-
 export interface AuthStatus {
   authenticated: boolean
 }
@@ -170,6 +165,7 @@ export interface SystemInfo {
   uptime: number
   boot_time: number
   features: Record<string, boolean>
+  environment?: Record<string, string>
 }
 
 export interface ServerHealthReport {
@@ -247,6 +243,43 @@ export interface SearchResponse {
 }
 
 // =============================================================================
+// Chunked Upload Types
+// =============================================================================
+
+export interface ChunkedUploadInit {
+  filename: string
+  destination: string
+  total_size: number
+  chunk_size: number
+}
+
+export interface ChunkedUploadInfo {
+  upload_id: string
+  filename: string
+  destination: string
+  total_size: number
+  chunk_size: number
+  total_chunks: number
+}
+
+export interface ChunkedUploadChunkResponse {
+  chunk_index: number
+  status: string
+}
+
+export interface ChunkedUploadCompleteRequest {
+  upload_id: string
+  destination: string
+  filename: string
+  total_chunks: number
+}
+
+export interface ChunkedUploadCompleteResponse {
+  status: string
+  filename: string
+}
+
+// =============================================================================
 // Pinned Folder Types
 // =============================================================================
 
@@ -295,32 +328,51 @@ export interface JobLogsResponse {
 
 export interface PackageManagerInfo {
   manager: string
-  available: boolean
 }
 
 export interface Package {
   name: string
   version: string
+  architecture?: string
   description?: string
-  size?: number
-  installed?: boolean
+  status?: string
 }
 
-export interface PackageDetails extends Package {
-  dependencies?: string[]
-  homepage?: string
-  maintainer?: string
+export interface InstalledPackagesResponse {
+  manager: string
+  packages: Package[]
+  count: number
+}
+
+export interface UpgradeInfo {
+  upgradable_count: number
+  security_count: number
+  packages: Package[]
+}
+
+export interface PackageSearchResponse {
+  packages: Package[]
+  count: number
 }
 
 // =============================================================================
 // Cron Types
 // =============================================================================
 
+export type CronScope = 'user' | 'system' | 'all'
+
 export interface CronJob {
-  id: string
   schedule: string
   command: string
   user?: string
+  description?: string
+  enabled: boolean
+  source: string
+}
+
+export interface CronJobsResponse {
+  jobs: CronJob[]
+  count: number
 }
 
 export interface CronJobInput {

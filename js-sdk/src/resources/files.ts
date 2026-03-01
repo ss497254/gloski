@@ -1,6 +1,18 @@
 import { GloskiError, safe } from '../errors'
 import type { HttpClient } from '../http'
-import type { ListResponse, PinnedFolder, PinnedFoldersResponse, ReadResponse, Result, UploadResponse } from '../types'
+import type {
+  ChunkedUploadChunkResponse,
+  ChunkedUploadCompleteRequest,
+  ChunkedUploadCompleteResponse,
+  ChunkedUploadInfo,
+  ChunkedUploadInit,
+  ListResponse,
+  PinnedFolder,
+  PinnedFoldersResponse,
+  ReadResponse,
+  Result,
+  UploadResponse,
+} from '../types'
 
 /**
  * Pinned folders sub-resource (accessed via files.pinned)
@@ -25,10 +37,12 @@ export class PinnedSubResource {
    * @param name - Display name for the pinned folder
    */
   async pin(path: string, name: string): Promise<Result<PinnedFolder>> {
-    return safe(this.http.request<PinnedFolder>('/files/pinned', {
-      method: 'POST',
-      body: { path, name },
-    }))
+    return safe(
+      this.http.request<PinnedFolder>('/files/pinned', {
+        method: 'POST',
+        body: { path, name },
+      })
+    )
   }
 
   /**
@@ -36,9 +50,13 @@ export class PinnedSubResource {
    * @param id - Pinned folder ID
    */
   async unpin(id: string): Promise<Result<void>> {
-    return safe(this.http.request(`/files/pinned/${id}`, {
-      method: 'DELETE',
-    }).then(() => {}))
+    return safe(
+      this.http
+        .request(`/files/pinned/${id}`, {
+          method: 'DELETE',
+        })
+        .then(() => {})
+    )
   }
 }
 
@@ -83,48 +101,50 @@ export class FilesResource {
    * @param onProgress - Progress callback
    */
   async readWithProgress(path: string, onProgress?: ProgressCallback): Promise<Result<ReadResponse>> {
-    return safe((async () => {
-      const url = this.http.buildAuthUrl(`/files/read?path=${encodeURIComponent(path)}`)
+    return safe(
+      (async () => {
+        const url = this.http.buildAuthUrl(`/files/read?path=${encodeURIComponent(path)}`)
 
-      const response = await fetch(url)
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new GloskiError(response.status, data.error || `HTTP ${response.status}`)
-      }
+        const response = await fetch(url)
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({ error: 'Unknown error' }))
+          throw new GloskiError(response.status, data.error || `HTTP ${response.status}`)
+        }
 
-      const contentLength = response.headers.get('Content-Length')
-      const total = contentLength ? parseInt(contentLength, 10) : null
+        const contentLength = response.headers.get('Content-Length')
+        const total = contentLength ? parseInt(contentLength, 10) : null
 
-      const reader = response.body?.getReader()
-      if (!reader) {
-        // Fallback if streaming not supported
-        const json = await response.json()
+        const reader = response.body?.getReader()
+        if (!reader) {
+          // Fallback if streaming not supported
+          const json = await response.json()
+          return json.data ?? json
+        }
+
+        const chunks: Uint8Array[] = []
+        let loaded = 0
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          chunks.push(value)
+          loaded += value.length
+          onProgress?.(loaded, total)
+        }
+
+        const allChunks = new Uint8Array(loaded)
+        let position = 0
+        for (const chunk of chunks) {
+          allChunks.set(chunk, position)
+          position += chunk.length
+        }
+
+        const text = new TextDecoder().decode(allChunks)
+        const json = JSON.parse(text)
         return json.data ?? json
-      }
-
-      const chunks: Uint8Array[] = []
-      let loaded = 0
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        chunks.push(value)
-        loaded += value.length
-        onProgress?.(loaded, total)
-      }
-
-      const allChunks = new Uint8Array(loaded)
-      let position = 0
-      for (const chunk of chunks) {
-        allChunks.set(chunk, position)
-        position += chunk.length
-      }
-
-      const text = new TextDecoder().decode(allChunks)
-      const json = JSON.parse(text)
-      return json.data ?? json
-    })())
+      })()
+    )
   }
 
   /**
@@ -165,10 +185,14 @@ export class FilesResource {
    * @param content - File content
    */
   async write(path: string, content: string): Promise<Result<void>> {
-    return safe(this.http.request('/files/write', {
-      method: 'POST',
-      body: { path, content },
-    }).then(() => {}))
+    return safe(
+      this.http
+        .request('/files/write', {
+          method: 'POST',
+          body: { path, content },
+        })
+        .then(() => {})
+    )
   }
 
   /**
@@ -176,10 +200,14 @@ export class FilesResource {
    * @param path - Directory path
    */
   async mkdir(path: string): Promise<Result<void>> {
-    return safe(this.http.request('/files/mkdir', {
-      method: 'POST',
-      body: { path },
-    }).then(() => {}))
+    return safe(
+      this.http
+        .request('/files/mkdir', {
+          method: 'POST',
+          body: { path },
+        })
+        .then(() => {})
+    )
   }
 
   /**
@@ -187,9 +215,13 @@ export class FilesResource {
    * @param path - Path to delete
    */
   async delete(path: string): Promise<Result<void>> {
-    return safe(this.http.request(`/files?path=${encodeURIComponent(path)}`, {
-      method: 'DELETE',
-    }).then(() => {}))
+    return safe(
+      this.http
+        .request(`/files?path=${encodeURIComponent(path)}`, {
+          method: 'DELETE',
+        })
+        .then(() => {})
+    )
   }
 
   /**
@@ -198,10 +230,14 @@ export class FilesResource {
    * @param newPath - New path
    */
   async rename(oldPath: string, newPath: string): Promise<Result<void>> {
-    return safe(this.http.request('/files/rename', {
-      method: 'POST',
-      body: { old_path: oldPath, new_path: newPath },
-    }).then(() => {}))
+    return safe(
+      this.http
+        .request('/files/rename', {
+          method: 'POST',
+          body: { old_path: oldPath, new_path: newPath },
+        })
+        .then(() => {})
+    )
   }
 
   /**
@@ -231,5 +267,72 @@ export class FilesResource {
     return this.http.buildAuthUrl('/files/download', {
       path,
     })
+  }
+
+  /**
+   * Initialize a chunked upload session (for large files)
+   * @param init - Chunked upload parameters
+   */
+  async initChunkedUpload(init: ChunkedUploadInit): Promise<Result<ChunkedUploadInfo>> {
+    return safe(
+      this.http.request<ChunkedUploadInfo>('/files/upload/init', {
+        method: 'POST',
+        body: init,
+      })
+    )
+  }
+
+  /**
+   * Upload a single chunk
+   * @param uploadId - Upload session ID from initChunkedUpload
+   * @param destination - Destination directory
+   * @param filename - Original filename
+   * @param chunkIndex - 0-based chunk index
+   * @param chunk - Chunk data (File or Blob)
+   */
+  async uploadChunk(
+    uploadId: string,
+    destination: string,
+    filename: string,
+    chunkIndex: number,
+    chunk: File | Blob
+  ): Promise<Result<ChunkedUploadChunkResponse>> {
+    const formData = new FormData()
+    formData.append('upload_id', uploadId)
+    formData.append('destination', destination)
+    formData.append('filename', filename)
+    formData.append('chunk_index', String(chunkIndex))
+    formData.append('chunk', chunk)
+
+    return safe(this.http.upload<ChunkedUploadChunkResponse>('/files/upload/chunk', formData))
+  }
+
+  /**
+   * Complete a chunked upload by assembling all chunks
+   * @param request - Completion parameters
+   */
+  async completeChunkedUpload(request: ChunkedUploadCompleteRequest): Promise<Result<ChunkedUploadCompleteResponse>> {
+    return safe(
+      this.http.request<ChunkedUploadCompleteResponse>('/files/upload/complete', {
+        method: 'POST',
+        body: request,
+      })
+    )
+  }
+
+  /**
+   * Abort a chunked upload and clean up temporary chunks
+   * @param uploadId - Upload session ID
+   * @param destination - Destination directory
+   */
+  async abortChunkedUpload(uploadId: string, destination: string): Promise<Result<void>> {
+    return safe(
+      this.http
+        .request('/files/upload/abort', {
+          method: 'POST',
+          body: { upload_id: uploadId, destination },
+        })
+        .then(() => {})
+    )
   }
 }

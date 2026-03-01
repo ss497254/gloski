@@ -201,16 +201,29 @@ describe('GloskiClient resources', () => {
 
   // ─── Cron ─────────────────────────────────────────────────────────────
 
-  test('cron.list() calls /cron/jobs and unwraps .jobs', async () => {
+  test('cron.list() calls /cron/jobs and returns full response', async () => {
     globalThis.fetch = mock(() =>
-      Promise.resolve(mockResponse({ success: true, data: { jobs: [{ id: '1', schedule: '* * * * *' }] } }))
+      Promise.resolve(mockResponse({ success: true, data: { jobs: [{ schedule: '* * * * *', command: 'echo hi', enabled: true, source: 'user' }], count: 1 } }))
     )
     const client = setupClient()
 
     const result = await client.cron.list()
 
-    expect(result.data).toEqual([{ id: '1', schedule: '* * * * *' }])
+    expect(result.data!.jobs).toHaveLength(1)
+    expect(result.data!.count).toBe(1)
     expect(result.error).toBeNull()
+  })
+
+  test('cron.list() passes scope param', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(mockResponse({ success: true, data: { jobs: [], count: 0 } }))
+    )
+    const client = setupClient()
+
+    await client.cron.list('user')
+
+    const [url] = getLastFetchCall()
+    expect(url).toContain('scope=user')
   })
 
   test('cron.add() sends POST with schedule and command', async () => {
@@ -303,7 +316,7 @@ describe('GloskiClient resources', () => {
 
   // ─── Search ───────────────────────────────────────────────────────────
 
-  test('search.byName() sends correct params', async () => {
+  test('search.byName() sends correct params and returns full response', async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(mockResponse({ success: true, data: { results: [{ name: 'test.txt' }], count: 1 } }))
     )
@@ -315,7 +328,8 @@ describe('GloskiClient resources', () => {
     expect(url).toContain('path=%2Fhome')
     expect(url).toContain('q=test')
     expect(url).not.toContain('content=true')
-    expect(result.data).toEqual([{ name: 'test.txt' }])
+    expect(result.data!.results).toEqual([{ name: 'test.txt' }])
+    expect(result.data!.count).toBe(1)
     expect(result.error).toBeNull()
   })
 
@@ -329,14 +343,15 @@ describe('GloskiClient resources', () => {
 
     const [url] = getLastFetchCall()
     expect(url).toContain('content=true')
+    expect(result.data!.count).toBe(0)
     expect(result.error).toBeNull()
   })
 
   // ─── Packages ─────────────────────────────────────────────────────────
 
-  test('packages.search() encodes query', async () => {
+  test('packages.search() encodes query and returns full response', async () => {
     globalThis.fetch = mock(() =>
-      Promise.resolve(mockResponse({ success: true, data: { packages: [] } }))
+      Promise.resolve(mockResponse({ success: true, data: { packages: [{ name: 'nginx', version: '1.0' }], count: 1 } }))
     )
     const client = setupClient()
 
@@ -344,6 +359,35 @@ describe('GloskiClient resources', () => {
 
     const [url] = getLastFetchCall()
     expect(url).toContain('q=nginx%20server')
+    expect(result.data!.packages).toHaveLength(1)
+    expect(result.data!.count).toBe(1)
+    expect(result.error).toBeNull()
+  })
+
+  test('packages.listInstalled() returns full response with manager and count', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(mockResponse({ success: true, data: { manager: 'apt', packages: [{ name: 'curl', version: '7.68.0' }], count: 1 } }))
+    )
+    const client = setupClient()
+
+    const result = await client.packages.listInstalled()
+
+    expect(result.data!.manager).toBe('apt')
+    expect(result.data!.packages).toHaveLength(1)
+    expect(result.data!.count).toBe(1)
+    expect(result.error).toBeNull()
+  })
+
+  test('packages.checkUpgrades() returns upgrade info', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(mockResponse({ success: true, data: { upgradable_count: 5, security_count: 2, packages: [] } }))
+    )
+    const client = setupClient()
+
+    const result = await client.packages.checkUpgrades()
+
+    expect(result.data!.upgradable_count).toBe(5)
+    expect(result.data!.security_count).toBe(2)
     expect(result.error).toBeNull()
   })
 

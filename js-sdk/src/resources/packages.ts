@@ -1,6 +1,13 @@
 import { safe } from '../errors'
 import type { HttpClient } from '../http'
-import type { Package, PackageDetails, PackageManagerInfo, Result } from '../types'
+import type {
+  InstalledPackagesResponse,
+  Package,
+  PackageManagerInfo,
+  PackageSearchResponse,
+  Result,
+  UpgradeInfo,
+} from '../types'
 
 /**
  * Package manager resource
@@ -21,31 +28,35 @@ export class PackagesResource {
 
   /**
    * List installed packages
+   * @param limit - Maximum number of packages to return (default: 100)
    */
-  async listInstalled(): Promise<Result<Package[]>> {
-    return safe(this.http.request<{ packages: Package[] }>('/packages/installed').then(r => r.packages))
+  async listInstalled(limit = 100): Promise<Result<InstalledPackagesResponse>> {
+    return safe(this.http.request<InstalledPackagesResponse>(`/packages/installed?limit=${limit}`))
   }
 
   /**
    * Check for available upgrades
    */
-  async checkUpgrades(): Promise<Result<Package[]>> {
-    return safe(this.http.request<{ packages: Package[] }>('/packages/upgrades').then(r => r.packages))
+  async checkUpgrades(): Promise<Result<UpgradeInfo>> {
+    return safe(this.http.request<UpgradeInfo>('/packages/upgrades'))
   }
 
   /**
    * Search for packages
    * @param query - Search query
+   * @param limit - Maximum number of results (default: 50)
    */
-  async search(query: string): Promise<Result<Package[]>> {
-    return safe(this.http.request<{ packages: Package[] }>(`/packages/search?q=${encodeURIComponent(query)}`).then(r => r.packages))
+  async search(query: string, limit = 50): Promise<Result<PackageSearchResponse>> {
+    return safe(
+      this.http.request<PackageSearchResponse>(`/packages/search?q=${encodeURIComponent(query)}&limit=${limit}`)
+    )
   }
 
   /**
    * Get package details
    * @param name - Package name
    */
-  async get(name: string): Promise<Result<PackageDetails>> {
-    return safe(this.http.request<PackageDetails>(`/packages/${encodeURIComponent(name)}`))
+  async get(name: string): Promise<Result<Package>> {
+    return safe(this.http.request<Package>(`/packages/${encodeURIComponent(name)}`))
   }
 }

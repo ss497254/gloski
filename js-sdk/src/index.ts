@@ -32,11 +32,19 @@ export type {
   // Result type
   Result,
   AuthStatus,
+  // Chunked upload types
+  ChunkedUploadChunkResponse,
+  ChunkedUploadCompleteRequest,
+  ChunkedUploadCompleteResponse,
+  ChunkedUploadInfo,
+  ChunkedUploadInit,
   CPUStats,
   CreateShareOptions,
   // Cron types
   CronJob,
   CronJobInput,
+  CronJobsResponse,
+  CronScope,
   DiskStats,
   Download,
   DownloadsResponse,
@@ -49,6 +57,8 @@ export type {
   GoRuntimeInfo,
   HealthCheck,
   HealthResponse,
+  // Package types
+  InstalledPackagesResponse,
   Job,
   JobLogsResponse,
   JobsResponse,
@@ -56,15 +66,12 @@ export type {
   JobStatus,
   ListResponse,
   LoadAvg,
-  // Auth types
-  LoginResponse,
   MemoryStats,
   NetworkInterface,
   NetworkStats,
   Package,
-  PackageDetails,
-  // Package types
   PackageManagerInfo,
+  PackageSearchResponse,
   // Pinned folder types
   PinnedFolder,
   PinnedFoldersResponse,
@@ -89,5 +96,6 @@ export type {
   // Terminal types
   TerminalOptions,
   TerminalState,
+  UpgradeInfo,
   UploadResponse,
 } from './types'
