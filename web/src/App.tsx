@@ -13,14 +13,14 @@ const router = createBrowserRouter([
       {
         path: '/',
         lazy: {
-          Component: async () => (await import('@/features/dashboard')).default,
+          Component: async () => (await import('@/features/dashboard')).DashboardPage,
         },
       },
       // Settings
       {
         path: '/settings',
         lazy: {
-          Component: async () => (await import('@/features/settings')).default,
+          Component: async () => (await import('@/features/dashboard')).SettingsPage,
         },
       },
       // Servers - parent route grouping all server-related pages
@@ -31,7 +31,7 @@ const router = createBrowserRouter([
           {
             index: true,
             lazy: {
-              Component: async () => (await import('@/features/servers')).default,
+              Component: async () => (await import('@/features/servers')).ServersPage,
             },
           },
           // Add server page
