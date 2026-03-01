@@ -1,15 +1,75 @@
-import { NavLink, useLocation, useParams } from 'react-router-dom'
+import { getMainNavItems, getSettingsNavItem } from '@/app/navigation'
+import { useSettingsStore } from '@/features/dashboard/stores/settings'
+import type { Server } from '@/shared/lib/server'
+import { cn } from '@/shared/lib/utils'
+import { useServersStore } from '@/shared/store/servers'
+import { ChevronLeft, ChevronRight, Command, Layers, Plus, X } from 'lucide-react'
 import { useEffect } from 'react'
+import { NavLink, useLocation, useParams } from 'react-router-dom'
+import { useSnapshot } from 'valtio'
 import { NavItem } from './NavItem'
 import { ServerNav } from './ServerNav'
-import { getMainNavItems, getSettingsNavItem } from '@/app/navigation'
-import { useSettingsStore } from '@/features/settings'
-import { useServersStore } from '@/features/servers'
-import { cn } from '@/shared/lib/utils'
-import { ChevronLeft, ChevronRight, Command, Layers, Plus, X } from 'lucide-react'
 
 function openCommandPalette() {
   document.dispatchEvent(new CustomEvent('toggle-command-palette'))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-server reactive components (useSnapshot on individual proxy)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'online':
+      return 'bg-green-500'
+    case 'connecting':
+      return 'bg-yellow-500 animate-pulse'
+    case 'offline':
+      return 'bg-gray-400'
+    case 'unauthorized':
+      return 'bg-red-500'
+    default:
+      return 'bg-gray-400'
+  }
+}
+
+function CurrentServerBadge({ server }: { server: Server }) {
+  const snap = useSnapshot(server)
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={cn('h-1.5 w-1.5 rounded-full', getStatusColor(snap.getStatus()))} />
+      <span className="text-[11px] text-muted-foreground truncate max-w-20">{snap.name}</span>
+    </div>
+  )
+}
+
+function SidebarServerLink({ server, collapsed }: { server: Server; collapsed: boolean }) {
+  const snap = useSnapshot(server)
+  const status = snap.getStatus()
+
+  return (
+    <NavLink key={snap.id} to={`/servers/${snap.id}`}>
+      {({ isActive }) => (
+        <div
+          className={cn(
+            'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+            'hover:bg-accent hover:text-accent-foreground',
+            collapsed && 'justify-center px-2',
+            isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
+          )}
+        >
+          <span
+            className={cn(
+              'h-2 w-2 rounded-full shrink-0',
+              getStatusColor(status),
+              status === 'connecting' && 'animate-pulse'
+            )}
+          />
+          {!collapsed && <span className="truncate">{snap.name}</span>}
+        </div>
+      )}
+    </NavLink>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,18 +129,7 @@ function SidebarContent({ collapsed, onCommandPaletteOpen }: SidebarContentProps
                 <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
                   Server
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={cn(
-                      'h-1.5 w-1.5 rounded-full',
-                      currentServer.status === 'online' && 'bg-green-500',
-                      currentServer.status === 'connecting' && 'bg-yellow-500',
-                      currentServer.status === 'offline' && 'bg-gray-400',
-                      currentServer.status === 'unauthorized' && 'bg-red-500'
-                    )}
-                  />
-                  <span className="text-[11px] text-muted-foreground truncate max-w-20">{currentServer.name}</span>
-                </div>
+                <CurrentServerBadge server={currentServer} />
               </div>
             )}
             {collapsed && <div className="border-t my-3" />}
@@ -107,29 +156,7 @@ function SidebarContent({ collapsed, onCommandPaletteOpen }: SidebarContentProps
             {collapsed && <div className="border-t my-3" />}
             <div className="space-y-1">
               {servers.slice(0, 4).map((server) => (
-                <NavLink key={server.id} to={`/servers/${server.id}`}>
-                  {({ isActive }) => (
-                    <div
-                      className={cn(
-                        'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
-                        'hover:bg-accent hover:text-accent-foreground',
-                        collapsed && 'justify-center px-2',
-                        isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'h-2 w-2 rounded-full shrink-0',
-                          server.status === 'online' && 'bg-green-500',
-                          server.status === 'connecting' && 'bg-yellow-500 animate-pulse',
-                          server.status === 'offline' && 'bg-gray-400',
-                          server.status === 'unauthorized' && 'bg-red-500'
-                        )}
-                      />
-                      {!collapsed && <span className="truncate">{server.name}</span>}
-                    </div>
-                  )}
-                </NavLink>
+                <SidebarServerLink key={server.id} server={server} collapsed={collapsed} />
               ))}
               {servers.length > 4 && !collapsed && (
                 <NavLink

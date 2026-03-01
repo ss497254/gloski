@@ -1,4 +1,4 @@
-import { ServerProvider } from '@/features/servers'
+import { ServerProvider } from '@/shared/context'
 import { Outlet } from 'react-router-dom'
 
 /**

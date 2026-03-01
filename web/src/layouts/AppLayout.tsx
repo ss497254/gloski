@@ -1,11 +1,11 @@
+import { useSettingsStore } from '@/features/dashboard/stores/settings'
+import { NavigationProgress, PageLoader } from '@/shared/components'
+import { CommandPalette } from '@/shared/components/CommandPalette'
+import { TooltipProvider } from '@/ui/tooltip'
+import { Layers, Menu } from 'lucide-react'
 import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
-import { TooltipProvider } from '@/ui/tooltip'
 import { MobileSidebar, Sidebar } from './Sidebar'
-import { CommandPalette } from '@/shared/components/CommandPalette'
-import { NavigationProgress, PageLoader } from '@/shared/components'
-import { useSettingsStore } from '@/features/settings'
-import { Layers, Menu } from 'lucide-react'
 
 export function AppLayout() {
   const { toggleMobileSidebar } = useSettingsStore()
