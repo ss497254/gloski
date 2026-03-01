@@ -2,10 +2,10 @@ import { safe } from '../errors'
 import type { HttpClient, RequestOptions } from '../http'
 import type {
   InstalledPackagesResponse,
-  Package,
   PackageManagerInfo,
   PackageSearchResponse,
   Result,
+  SystemPackage,
   UpgradeInfo,
 } from '../types'
 
@@ -59,7 +59,7 @@ export class PackagesResource {
    * Get package details
    * @param name - Package name
    */
-  async get(name: string, options?: RequestOptions): Promise<Result<Package>> {
-    return safe(this.http.request<Package>(`/packages/${encodeURIComponent(name)}`, options))
+  async get(name: string, options?: RequestOptions): Promise<Result<SystemPackage>> {
+    return safe(this.http.request<SystemPackage>(`/packages/${encodeURIComponent(name)}`, options))
   }
 }

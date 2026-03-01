@@ -2,7 +2,7 @@ import { safe } from '../errors'
 import { EventEmitter } from '../events'
 import type { HttpClient, RequestOptions } from '../http'
 import type {
-  AddDownloadRequest,
+  NewDownloadRequest,
   CreateShareOptions,
   Download,
   DownloadId,
@@ -24,7 +24,7 @@ export class DownloadsResource {
    * List all downloads
    */
   async list(options?: RequestOptions): Promise<Result<Download[]>> {
-    return safe(this.http.get<DownloadsResponse>('/downloads', options).then(r => r.downloads))
+    return safe(this.http.get<DownloadsResponse>('/downloads', options).then((response) => response.downloads))
   }
 
   /**
@@ -41,7 +41,7 @@ export class DownloadsResource {
    * @param filename - Optional filename (auto-detected if not provided)
    */
   async add(url: string, destination: string, filename?: string, options?: RequestOptions): Promise<Result<Download>> {
-    const request: AddDownloadRequest = { url, destination }
+    const request: NewDownloadRequest = { url, destination }
     if (filename) {
       request.filename = filename
     }
@@ -90,21 +90,21 @@ export class DownloadsResource {
    * Cancel multiple downloads in parallel
    */
   async cancelAll(ids: DownloadId[], options?: RequestOptions): Promise<Result<void>[]> {
-    return Promise.all(ids.map(id => this.cancel(id, options)))
+    return Promise.all(ids.map((id) => this.cancel(id, options)))
   }
 
   /**
    * Pause multiple downloads in parallel
    */
   async pauseAll(ids: DownloadId[], options?: RequestOptions): Promise<Result<void>[]> {
-    return Promise.all(ids.map(id => this.pause(id, options)))
+    return Promise.all(ids.map((id) => this.pause(id, options)))
   }
 
   /**
    * Resume multiple downloads in parallel
    */
   async resumeAll(ids: DownloadId[], options?: RequestOptions): Promise<Result<void>[]> {
-    return Promise.all(ids.map(id => this.resume(id, options)))
+    return Promise.all(ids.map((id) => this.resume(id, options)))
   }
 
   /**
@@ -119,7 +119,11 @@ export class DownloadsResource {
    * @param id - Download ID
    * @param shareOptions - Share options (expiry time)
    */
-  async createShareLink(id: DownloadId, shareOptions?: CreateShareOptions, options?: RequestOptions): Promise<Result<ShareLink>> {
+  async createShareLink(
+    id: DownloadId,
+    shareOptions?: CreateShareOptions,
+    options?: RequestOptions
+  ): Promise<Result<ShareLink>> {
     return safe(this.http.post<ShareLink>(`/downloads/${id}/share`, shareOptions ?? {}, options))
   }
 
@@ -149,7 +153,7 @@ export class DownloadWatcher extends EventEmitter<DownloadWatcherEvents> {
   private interval: number
   private timerId: ReturnType<typeof setInterval> | null = null
   private polling = false
-  private previous = new Map<DownloadId, Download>()
+  private previousDownloads = new Map<DownloadId, Download>()
 
   constructor(resource: DownloadsResource, options?: DownloadWatcherOptions) {
     super()
@@ -187,22 +191,22 @@ export class DownloadWatcher extends EventEmitter<DownloadWatcherEvents> {
       const downloads = result.data
       this.emit('update', downloads)
 
-      for (const dl of downloads) {
-        const prev = this.previous.get(dl.id)
+      for (const download of downloads) {
+        const previousState = this.previousDownloads.get(download.id)
 
-        if (prev) {
-          if (dl.progress !== prev.progress || dl.status !== prev.status) {
-            this.emit('progress', dl)
+        if (previousState) {
+          if (download.progress !== previousState.progress || download.status !== previousState.status) {
+            this.emit('progress', download)
           }
-          if (dl.status === 'completed' && prev.status !== 'completed') {
-            this.emit('completed', dl)
+          if (download.status === 'completed' && previousState.status !== 'completed') {
+            this.emit('completed', download)
           }
-          if (dl.status === 'failed' && prev.status !== 'failed') {
-            this.emit('failed', dl)
+          if (download.status === 'failed' && previousState.status !== 'failed') {
+            this.emit('failed', download)
           }
         }
 
-        this.previous.set(dl.id, dl)
+        this.previousDownloads.set(download.id, download)
       }
     } catch (err) {
       this.emit('error', err instanceof Error ? err : new Error(String(err)))

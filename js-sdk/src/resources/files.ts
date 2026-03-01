@@ -6,20 +6,20 @@ import type {
   ChunkedUploadCompleteResponse,
   ChunkedUploadInfo,
   ChunkedUploadInit,
-  ListResponse,
+  DirectoryListing,
+  FileContent,
+  FileUploadResult,
   PinnedFolder,
   PinnedFolderId,
   PinnedFoldersResponse,
-  ReadResponse,
   Result,
   UploadId,
-  UploadResponse,
 } from '../types'
 
 /**
  * Pinned folders sub-resource (accessed via files.pinned)
  */
-export class PinnedSubResource {
+export class PinnedFoldersResource {
   private http: HttpClient
 
   constructor(http: HttpClient) {
@@ -65,9 +65,9 @@ export class PinnedSubResource {
 }
 
 /**
- * Progress callback for file operations
+ * Progress callback for file transfer operations (uploads and streamed reads)
  */
-export type ProgressCallback = (loaded: number, total: number | null) => void
+export type TransferProgressCallback = (loaded: number, total: number | null) => void
 
 /**
  * File operations resource
@@ -76,27 +76,27 @@ export class FilesResource {
   private http: HttpClient
 
   /** Pinned folders sub-resource */
-  readonly pinned: PinnedSubResource
+  readonly pinned: PinnedFoldersResource
 
   constructor(http: HttpClient) {
     this.http = http
-    this.pinned = new PinnedSubResource(http)
+    this.pinned = new PinnedFoldersResource(http)
   }
 
   /**
    * List directory contents
    * @param path - Directory path (default: "/")
    */
-  async list(path = '/', options?: RequestOptions): Promise<Result<ListResponse>> {
-    return safe(this.http.request<ListResponse>(`/files?path=${encodeURIComponent(path)}`, options))
+  async list(path = '/', options?: RequestOptions): Promise<Result<DirectoryListing>> {
+    return safe(this.http.request<DirectoryListing>(`/files?path=${encodeURIComponent(path)}`, options))
   }
 
   /**
    * Read file content
    * @param path - File path
    */
-  async read(path: string, options?: RequestOptions): Promise<Result<ReadResponse>> {
-    return safe(this.http.request<ReadResponse>(`/files/read?path=${encodeURIComponent(path)}`, options))
+  async read(path: string, options?: RequestOptions): Promise<Result<FileContent>> {
+    return safe(this.http.request<FileContent>(`/files/read?path=${encodeURIComponent(path)}`, options))
   }
 
   /**
@@ -104,7 +104,7 @@ export class FilesResource {
    * @param path - File path
    * @param onProgress - Progress callback
    */
-  async readWithProgress(path: string, onProgress?: ProgressCallback): Promise<Result<ReadResponse>> {
+  async readWithProgress(path: string, onProgress?: TransferProgressCallback): Promise<Result<FileContent>> {
     return safe(
       (async () => {
         const url = this.http.buildAuthUrl(`/files/read?path=${encodeURIComponent(path)}`)
@@ -236,7 +236,7 @@ export class FilesResource {
    * @param paths - Array of paths to delete
    */
   async deleteMany(paths: string[], options?: RequestOptions): Promise<Result<void>[]> {
-    return Promise.all(paths.map(p => this.delete(p, options)))
+    return Promise.all(paths.map((filePath) => this.delete(filePath, options)))
   }
 
   /**
@@ -267,8 +267,8 @@ export class FilesResource {
     destPath: string,
     file: File | Blob,
     filename?: string,
-    onProgress?: ProgressCallback
-  ): Promise<Result<UploadResponse>> {
+    onProgress?: TransferProgressCallback
+  ): Promise<Result<FileUploadResult>> {
     const formData = new FormData()
     formData.append('path', destPath)
 
@@ -279,9 +279,9 @@ export class FilesResource {
     }
 
     if (onProgress) {
-      return safe(this.http.uploadWithProgress<UploadResponse>('/files/upload', formData, onProgress))
+      return safe(this.http.uploadWithProgress<FileUploadResult>('/files/upload', formData, onProgress))
     }
-    return safe(this.http.upload<UploadResponse>('/files/upload', formData))
+    return safe(this.http.upload<FileUploadResult>('/files/upload', formData))
   }
 
   /**
@@ -337,7 +337,10 @@ export class FilesResource {
    * Complete a chunked upload by assembling all chunks
    * @param request - Completion parameters
    */
-  async completeChunkedUpload(request: ChunkedUploadCompleteRequest, options?: RequestOptions): Promise<Result<ChunkedUploadCompleteResponse>> {
+  async completeChunkedUpload(
+    request: ChunkedUploadCompleteRequest,
+    options?: RequestOptions
+  ): Promise<Result<ChunkedUploadCompleteResponse>> {
     return safe(
       this.http.request<ChunkedUploadCompleteResponse>('/files/upload/complete', {
         ...options,

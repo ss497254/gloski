@@ -1,10 +1,10 @@
 import { EventEmitter } from '../events'
-import type { BaseWebSocketOptions, BaseWebSocketState } from '../types'
+import type { WebSocketConnectionOptions, WebSocketConnectionState } from '../types'
 
 /**
  * Base event shape that all WebSocket connections must include
  */
-export interface BaseWebSocketEvents {
+export interface WebSocketConnectionEvents {
   open: []
   close: [event: CloseEvent]
   error: [error: Event | Error]
@@ -20,15 +20,15 @@ const DEFAULT_MAX_RECONNECT_DELAY = 30000
  * Abstract base class for WebSocket connections with auto-reconnect.
  * Subclasses implement `handleMessage()` for protocol-specific parsing.
  */
-export abstract class BaseWebSocketConnection<
-  Events extends BaseWebSocketEvents & Record<keyof Events, unknown[]>,
+export abstract class WebSocketConnection<
+  Events extends WebSocketConnectionEvents & Record<keyof Events, unknown[]>,
 > extends EventEmitter<Events> {
   protected ws: WebSocket | null = null
-  private _state: BaseWebSocketState = 'connecting'
+  private _state: WebSocketConnectionState = 'connecting'
   private reconnectAttempts = 0
   private reconnectTimer?: ReturnType<typeof setTimeout>
   private manualClose = false
-  private wasReconnect = false
+  private isReconnectAttempt = false
   protected readonly url: string
 
   protected readonly wsOptions: {
@@ -38,7 +38,7 @@ export abstract class BaseWebSocketConnection<
     maxReconnectDelay: number
   }
 
-  constructor(url: string, options: BaseWebSocketOptions = {}) {
+  constructor(url: string, options: WebSocketConnectionOptions = {}) {
     super()
     this.url = url
     this.wsOptions = {
@@ -51,7 +51,7 @@ export abstract class BaseWebSocketConnection<
   }
 
   /** Current connection state */
-  get state(): BaseWebSocketState {
+  get state(): WebSocketConnectionState {
     return this._state
   }
 
@@ -81,7 +81,7 @@ export abstract class BaseWebSocketConnection<
     if (this._state === 'closed' || this._state === 'closing') {
       this.manualClose = false
       this.reconnectAttempts = 0
-      this.wasReconnect = true
+      this.isReconnectAttempt = true
       this.setupWebSocket()
     }
   }
@@ -100,13 +100,13 @@ export abstract class BaseWebSocketConnection<
   }
 
   /** Emit a base event with proper typing */
-  private emitBase<K extends keyof BaseWebSocketEvents>(event: K, ...args: BaseWebSocketEvents[K]): void {
-    // Safe: subclass Events always extends BaseWebSocketEvents
+  private emitBase<K extends keyof WebSocketConnectionEvents>(event: K, ...args: WebSocketConnectionEvents[K]): void {
+    // Safe: subclass Events always extends WebSocketConnectionEvents
     this.emit(event as keyof Events, ...(args as unknown as Events[keyof Events]))
   }
 
   private setupWebSocket(): void {
-    this._state = this.wasReconnect ? 'reconnecting' : 'connecting'
+    this._state = this.isReconnectAttempt ? 'reconnecting' : 'connecting'
 
     try {
       this.ws = new WebSocket(this.url)
@@ -116,9 +116,9 @@ export abstract class BaseWebSocketConnection<
         this._state = 'open'
         this.reconnectAttempts = 0
 
-        if (this.wasReconnect) {
+        if (this.isReconnectAttempt) {
           this.emitBase('reconnected')
-          this.wasReconnect = false
+          this.isReconnectAttempt = false
         } else {
           this.emitBase('open')
         }
@@ -164,7 +164,7 @@ export abstract class BaseWebSocketConnection<
     this.emitBase('reconnecting', this.reconnectAttempts)
 
     this.reconnectTimer = setTimeout(() => {
-      this.wasReconnect = true
+      this.isReconnectAttempt = true
       this.setupWebSocket()
     }, delay)
   }

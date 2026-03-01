@@ -1,6 +1,6 @@
 import { safe } from '../errors'
 import type { HttpClient, RequestOptions } from '../http'
-import type { Result, SearchOptions, SearchResponse } from '../types'
+import type { FileSearchOptions, FileSearchResponse, Result } from '../types'
 
 /**
  * File search resource
@@ -17,7 +17,7 @@ export class SearchResource {
    * @param options - Search options
    * @param requestOptions - Request options (signal, timeout, etc.)
    */
-  async search(options: SearchOptions, requestOptions?: RequestOptions): Promise<Result<SearchResponse>> {
+  async search(options: FileSearchOptions, requestOptions?: RequestOptions): Promise<Result<FileSearchResponse>> {
     const params = new URLSearchParams({
       path: options.path,
       q: options.query,
@@ -28,7 +28,7 @@ export class SearchResource {
       params.set('content', 'true')
     }
 
-    return safe(this.http.request<SearchResponse>(`/search?${params}`, requestOptions))
+    return safe(this.http.request<FileSearchResponse>(`/search?${params}`, requestOptions))
   }
 
   /**
@@ -37,7 +37,7 @@ export class SearchResource {
    * @param query - Search query
    * @param limit - Max results
    */
-  async byName(path: string, query: string, limit = 100, options?: RequestOptions): Promise<Result<SearchResponse>> {
+  async byName(path: string, query: string, limit = 100, options?: RequestOptions): Promise<Result<FileSearchResponse>> {
     return this.search({ path, query, content: false, limit }, options)
   }
 
@@ -47,7 +47,7 @@ export class SearchResource {
    * @param query - Search query
    * @param limit - Max results
    */
-  async byContent(path: string, query: string, limit = 100, options?: RequestOptions): Promise<Result<SearchResponse>> {
+  async byContent(path: string, query: string, limit = 100, options?: RequestOptions): Promise<Result<FileSearchResponse>> {
     return this.search({ path, query, content: true, limit }, options)
   }
 }

@@ -1,6 +1,5 @@
 import { safe } from './errors'
 import { HttpClient, checkHealth } from './http'
-import type { Middleware } from './types'
 import {
   AuthResource,
   CronResource,
@@ -12,7 +11,7 @@ import {
   SystemResource,
   TerminalResource,
 } from './resources'
-import type { GloskiClientConfig, HealthResponse, Result } from './types'
+import type { GloskiClientConfig, HealthResponse, Middleware, Result } from './types'
 
 /**
  * Gloski SDK Client

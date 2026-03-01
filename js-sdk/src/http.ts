@@ -22,7 +22,7 @@ export interface ClientCallbacks {
  * HTTP client for making API requests
  */
 export class HttpClient {
-  private wasOffline = false
+  private isDisconnected = false
   private config: GloskiClientConfig
   private callbacks: ClientCallbacks
   private apiPrefix: string
@@ -466,8 +466,8 @@ export class HttpClient {
    * Handle server coming back online
    */
   private handleOnline(): void {
-    if (this.wasOffline) {
-      this.wasOffline = false
+    if (this.isDisconnected) {
+      this.isDisconnected = false
       this.callbacks.onOnline?.()
     }
   }
@@ -476,8 +476,8 @@ export class HttpClient {
    * Handle server going offline
    */
   private handleOffline(): void {
-    if (!this.wasOffline) {
-      this.wasOffline = true
+    if (!this.isDisconnected) {
+      this.isDisconnected = true
       this.callbacks.onOffline?.()
     }
   }

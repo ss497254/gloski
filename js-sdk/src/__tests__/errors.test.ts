@@ -1,5 +1,5 @@
-import { describe, test, expect } from 'bun:test'
-import { GloskiError, ErrorCode, getErrorMessage, safe, isGloskiError, isNetworkError } from '../errors'
+import { describe, expect, test } from 'bun:test'
+import { ErrorCode, getErrorMessage, GloskiError, isGloskiError, isNetworkError, safe } from '../errors'
 
 describe('GloskiError', () => {
   test('constructor sets properties correctly', () => {

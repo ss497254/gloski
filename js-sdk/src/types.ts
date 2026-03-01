@@ -23,9 +23,7 @@ export const uploadId = (id: string) => id as UploadId
 // Result Type
 // =============================================================================
 
-export type Result<T> =
-  | { data: T; error: null }
-  | { data: null; error: import('./errors').GloskiError }
+export type Result<T> = { data: T; error: null } | { data: null; error: import('./errors').GloskiError }
 
 // =============================================================================
 // Client Configuration
@@ -241,21 +239,21 @@ export interface FileEntry {
   permissions: string
 }
 
-export interface ListResponse {
+export interface DirectoryListing {
   path: string
   entries: FileEntry[]
 }
 
-export interface ReadResponse {
+export interface FileContent {
   content: string
   path: string
 }
 
-export interface UploadResponse {
+export interface FileUploadResult {
   filename: string
 }
 
-export interface SearchResult {
+export interface FileSearchMatch {
   path: string
   name: string
   type: 'file' | 'directory'
@@ -264,7 +262,7 @@ export interface SearchResult {
   line_num?: number
 }
 
-export interface SearchOptions {
+export interface FileSearchOptions {
   /** Starting path for search */
   path: string
   /** Search query */
@@ -275,8 +273,8 @@ export interface SearchOptions {
   limit?: number
 }
 
-export interface SearchResponse {
-  results: SearchResult[]
+export interface FileSearchResponse {
+  results: FileSearchMatch[]
   count: number
 }
 
@@ -368,7 +366,7 @@ export interface PackageManagerInfo {
   manager: string
 }
 
-export interface Package {
+export interface SystemPackage {
   name: string
   version: string
   architecture?: string
@@ -378,18 +376,18 @@ export interface Package {
 
 export interface InstalledPackagesResponse {
   manager: string
-  packages: Package[]
+  packages: SystemPackage[]
   count: number
 }
 
 export interface UpgradeInfo {
   upgradable_count: number
   security_count: number
-  packages: Package[]
+  packages: SystemPackage[]
 }
 
 export interface PackageSearchResponse {
-  packages: Package[]
+  packages: SystemPackage[]
   count: number
 }
 
@@ -413,16 +411,16 @@ export interface CronJobsResponse {
   count: number
 }
 
-export interface CronJobInput {
+export interface NewCronJob {
   schedule: string
   command: string
 }
 
 // =============================================================================
-// Base WebSocket Types
+// WebSocket Types
 // =============================================================================
 
-export interface BaseWebSocketOptions {
+export interface WebSocketConnectionOptions {
   /** Auto-reconnect on disconnect (default: true) */
   autoReconnect?: boolean
   /** Max reconnect attempts (default: 5) */
@@ -433,7 +431,7 @@ export interface BaseWebSocketOptions {
   maxReconnectDelay?: number
 }
 
-export type BaseWebSocketState = 'connecting' | 'open' | 'closing' | 'closed' | 'reconnecting'
+export type WebSocketConnectionState = 'connecting' | 'open' | 'closing' | 'closed' | 'reconnecting'
 
 // =============================================================================
 // Terminal Types
@@ -450,8 +448,6 @@ export interface TerminalOptions {
   reconnectDelay?: number
 }
 
-export type TerminalState = 'connecting' | 'open' | 'closing' | 'closed' | 'reconnecting'
-
 export interface TerminalEvents {
   open: []
   data: [data: string]
@@ -464,19 +460,6 @@ export interface TerminalEvents {
 // =============================================================================
 // Stats WebSocket Types
 // =============================================================================
-
-export interface StatsConnectionOptions {
-  /** Auto-reconnect on disconnect (default: true) */
-  autoReconnect?: boolean
-  /** Max reconnect attempts (default: 10) */
-  maxReconnectAttempts?: number
-  /** Initial reconnect delay in ms (default: 1000, with exponential backoff) */
-  reconnectDelay?: number
-  /** Max reconnect delay in ms (default: 30000) */
-  maxReconnectDelay?: number
-}
-
-export type StatsConnectionState = 'connecting' | 'open' | 'closing' | 'closed' | 'reconnecting'
 
 export interface StatsConnectionEvents {
   open: []
@@ -523,7 +506,7 @@ export interface DownloadsResponse {
   downloads: Download[]
 }
 
-export interface AddDownloadRequest {
+export interface NewDownloadRequest {
   url: string
   destination: string
   filename?: string

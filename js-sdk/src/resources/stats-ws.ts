@@ -1,13 +1,13 @@
 import type { HttpClient } from '../http'
-import type { StatsConnectionEvents, StatsConnectionOptions, SystemStats } from '../types'
-import { BaseWebSocketConnection } from './base-ws'
+import type { StatsConnectionEvents, SystemStats, WebSocketConnectionOptions } from '../types'
+import { WebSocketConnection } from './base-ws'
 
 /**
  * Stats WebSocket connection with auto-reconnect
  * Provides real-time system stats updates
  */
-export class StatsConnection extends BaseWebSocketConnection<StatsConnectionEvents> {
-  constructor(url: string, options: StatsConnectionOptions = {}) {
+export class StatsConnection extends WebSocketConnection<StatsConnectionEvents> {
+  constructor(url: string, options: WebSocketConnectionOptions = {}) {
     super(url, {
       autoReconnect: options.autoReconnect,
       maxReconnectAttempts: options.maxReconnectAttempts ?? 10,
@@ -30,7 +30,7 @@ export class StatsConnection extends BaseWebSocketConnection<StatsConnectionEven
  * Factory function to create stats WebSocket connections
  * @internal - Used by SystemResource
  */
-export function createStatsConnection(http: HttpClient, options?: StatsConnectionOptions): StatsConnection {
+export function createStatsConnection(http: HttpClient, options?: WebSocketConnectionOptions): StatsConnection {
   const url = http.buildWebSocketUrl('/system/stats/ws')
   return new StatsConnection(url, options)
 }

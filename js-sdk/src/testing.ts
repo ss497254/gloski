@@ -23,7 +23,7 @@ type MockOverrides = {
     : GloskiClient[K]
 }
 
-function notMocked(): Result<never> {
+function unmockedResult(): Result<never> {
   return { data: null, error: new GloskiError(0, 'Not mocked') }
 }
 
@@ -34,7 +34,7 @@ function createResourceProxy(overrides?: Record<string, unknown>): unknown {
       if (prop in target) return (target as Record<string, unknown>)[prop]
 
       // Return a function that returns a fresh not-mocked result
-      return () => Promise.resolve(notMocked())
+      return () => Promise.resolve(unmockedResult())
     },
   })
 }
@@ -70,7 +70,7 @@ export function createMockClient(overrides?: MockOverrides): GloskiClient {
   const client: Record<string, unknown> = {
     use: () => client,
     dispose: () => {},
-    ping: () => Promise.resolve(notMocked()),
+    ping: () => Promise.resolve(unmockedResult()),
   }
 
   for (const name of resources) {

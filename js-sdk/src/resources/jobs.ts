@@ -19,7 +19,7 @@ export class JobsResource {
    * List all jobs
    */
   async list(options?: RequestOptions): Promise<Result<Job[]>> {
-    return safe(this.http.request<JobsResponse>('/jobs', options).then(r => r.jobs))
+    return safe(this.http.request<JobsResponse>('/jobs', options).then((response) => response.jobs))
   }
 
   /**
@@ -28,11 +28,13 @@ export class JobsResource {
    * @param cwd - Working directory (optional)
    */
   async start(command: string, cwd?: string, options?: RequestOptions): Promise<Result<Job>> {
-    return safe(this.http.request<Job>('/jobs', {
-      ...options,
-      method: 'POST',
-      body: { command, cwd },
-    }))
+    return safe(
+      this.http.request<Job>('/jobs', {
+        ...options,
+        method: 'POST',
+        body: { command, cwd },
+      })
+    )
   }
 
   /**
@@ -48,7 +50,7 @@ export class JobsResource {
    * @param id - Job ID
    */
   async getLogs(id: JobId, options?: RequestOptions): Promise<Result<string[]>> {
-    return safe(this.http.request<JobLogsResponse>(`/jobs/${id}/logs`, options).then(r => r.logs))
+    return safe(this.http.request<JobLogsResponse>(`/jobs/${id}/logs`, options).then((response) => response.logs))
   }
 
   /**
@@ -56,10 +58,14 @@ export class JobsResource {
    * @param id - Job ID
    */
   async stop(id: JobId, options?: RequestOptions): Promise<Result<void>> {
-    return safe(this.http.request(`/jobs/${id}/stop`, {
-      ...options,
-      method: 'POST',
-    }).then(() => {}))
+    return safe(
+      this.http
+        .request(`/jobs/${id}/stop`, {
+          ...options,
+          method: 'POST',
+        })
+        .then(() => {})
+    )
   }
 
   /**
@@ -67,10 +73,14 @@ export class JobsResource {
    * @param id - Job ID
    */
   async delete(id: JobId, options?: RequestOptions): Promise<Result<void>> {
-    return safe(this.http.request(`/jobs/${id}`, {
-      ...options,
-      method: 'DELETE',
-    }).then(() => {}))
+    return safe(
+      this.http
+        .request(`/jobs/${id}`, {
+          ...options,
+          method: 'DELETE',
+        })
+        .then(() => {})
+    )
   }
 
   /**
@@ -94,16 +104,16 @@ export class JobsResource {
   ): AsyncGenerator<string[], void, unknown> {
     const interval = options?.interval ?? 1000
     const terminalStatuses: JobStatus[] = ['finished', 'failed', 'stopped']
-    let lastCount = 0
+    let lastLogCount = 0
 
     while (!options?.signal?.aborted) {
       const result = await this.getLogs(id)
       if (result.error) throw result.error
 
       const logs = result.data
-      if (logs.length > lastCount) {
-        yield logs.slice(lastCount)
-        lastCount = logs.length
+      if (logs.length > lastLogCount) {
+        yield logs.slice(lastLogCount)
+        lastLogCount = logs.length
       }
 
       // Check if job is finished
@@ -112,13 +122,13 @@ export class JobsResource {
       if (terminalStatuses.includes(job.data.status)) {
         // One final check for remaining logs
         const final = await this.getLogs(id)
-        if (!final.error && final.data.length > lastCount) {
-          yield final.data.slice(lastCount)
+        if (!final.error && final.data.length > lastLogCount) {
+          yield final.data.slice(lastLogCount)
         }
         return
       }
 
-      await new Promise(r => setTimeout(r, interval))
+      await new Promise((r) => setTimeout(r, interval))
     }
   }
 }

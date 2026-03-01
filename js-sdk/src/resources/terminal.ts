@@ -1,11 +1,11 @@
 import type { HttpClient } from '../http'
-import type { TerminalEvents, TerminalOptions, TerminalState } from '../types'
-import { BaseWebSocketConnection } from './base-ws'
+import type { TerminalEvents, TerminalOptions } from '../types'
+import { WebSocketConnection } from './base-ws'
 
 /**
  * Terminal WebSocket connection with auto-reconnect
  */
-export class TerminalConnection extends BaseWebSocketConnection<TerminalEvents> {
+export class TerminalConnection extends WebSocketConnection<TerminalEvents> {
   private lastSize: { cols: number; rows: number } | null = null
   private readonly decoder = new TextDecoder()
 
@@ -15,10 +15,6 @@ export class TerminalConnection extends BaseWebSocketConnection<TerminalEvents> 
       maxReconnectAttempts: options.maxReconnectAttempts,
       reconnectDelay: options.reconnectDelay,
     })
-  }
-
-  get state(): TerminalState {
-    return super.state as TerminalState
   }
 
   /**

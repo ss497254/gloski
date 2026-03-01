@@ -62,7 +62,7 @@ export class GloskiError extends Error {
 }
 
 /**
- * Wraps a promise into a Result, catching errors
+ * Wraps a promise into a Result, catching errors into a discriminated union
  */
 export async function safe<T>(promise: Promise<T>): Promise<import('./types').Result<T>> {
   try {

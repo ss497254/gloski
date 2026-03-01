@@ -227,7 +227,7 @@ describe('paginate', () => {
       return { data: offset < 20 ? [1, 2] : [], error: null }
     }
 
-    for await (const _ of paginate(fetcher, { limit: 2, offset: 10 })) {
+    for await (const _page of paginate(fetcher, { limit: 2, offset: 10 })) {
       // consume
     }
 

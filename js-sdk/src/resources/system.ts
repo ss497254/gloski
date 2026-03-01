@@ -4,10 +4,10 @@ import type {
   ProcessInfo,
   Result,
   ServerHealthReport,
-  StatsConnectionOptions,
   StatsHistoryResponse,
   SystemInfo,
   SystemStats,
+  WebSocketConnectionOptions,
 } from '../types'
 import { createStatsConnection, type StatsConnection } from './stats-ws'
 
@@ -59,7 +59,7 @@ export class SystemResource {
     return safe(
       this.http
         .request<{ processes: ProcessInfo[] }>(`/system/processes?limit=${limit}`, options)
-        .then((r) => r.processes)
+        .then((response) => response.processes)
     )
   }
 
@@ -87,10 +87,11 @@ export class SystemResource {
    * statsConn.close()
    * ```
    *
-   * @param options - Connection options (auto-reconnect, retry settings)
+   * @param options - Connection options (auto-reconnect, retry settings).
+   *   Defaults to maxReconnectAttempts=10 (vs 5 for other WebSocket connections).
    * @returns StatsConnection instance with event emitter
    */
-  connectStats(options?: StatsConnectionOptions): StatsConnection {
+  connectStats(options?: WebSocketConnectionOptions): StatsConnection {
     return createStatsConnection(this.http, options)
   }
 }

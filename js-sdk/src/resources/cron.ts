@@ -1,6 +1,6 @@
 import { safe } from '../errors'
 import type { HttpClient, RequestOptions } from '../http'
-import type { CronJobInput, CronJobsResponse, CronScope, Result } from '../types'
+import type { CronJobsResponse, CronScope, NewCronJob, Result } from '../types'
 
 /**
  * Cron job management resource
@@ -25,7 +25,7 @@ export class CronResource {
    * Add a new cron job
    * @param job - Cron job configuration
    */
-  async add(job: CronJobInput, options?: RequestOptions): Promise<Result<void>> {
+  async add(job: NewCronJob, options?: RequestOptions): Promise<Result<void>> {
     return safe(
       this.http
         .request('/cron/jobs', {

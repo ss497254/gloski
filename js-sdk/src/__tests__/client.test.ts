@@ -437,7 +437,7 @@ describe('GloskiClient resources', () => {
     const results = await client.files.deleteMany(['/tmp/a', '/tmp/b', '/tmp/c'])
 
     expect(results).toHaveLength(3)
-    expect(results.every(r => r.error === null)).toBe(true)
+    expect(results.every(result => result.error === null)).toBe(true)
     expect(globalThis.fetch).toHaveBeenCalledTimes(3)
   })
 
@@ -450,7 +450,7 @@ describe('GloskiClient resources', () => {
     const results = await client.downloads.cancelAll([downloadId('d1'), downloadId('d2')])
 
     expect(results).toHaveLength(2)
-    expect(results.every(r => r.error === null)).toBe(true)
+    expect(results.every(result => result.error === null)).toBe(true)
     expect(globalThis.fetch).toHaveBeenCalledTimes(2)
   })
 
@@ -463,7 +463,7 @@ describe('GloskiClient resources', () => {
     const results = await client.downloads.pauseAll([downloadId('d1'), downloadId('d2')])
 
     expect(results).toHaveLength(2)
-    expect(results.every(r => r.error === null)).toBe(true)
+    expect(results.every(result => result.error === null)).toBe(true)
   })
 
   test('downloads.resumeAll() resumes multiple downloads', async () => {
@@ -475,7 +475,7 @@ describe('GloskiClient resources', () => {
     const results = await client.downloads.resumeAll([downloadId('d1'), downloadId('d2')])
 
     expect(results).toHaveLength(2)
-    expect(results.every(r => r.error === null)).toBe(true)
+    expect(results.every(result => result.error === null)).toBe(true)
   })
 
   test('batch operations return per-item errors', async () => {

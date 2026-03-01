@@ -2,21 +2,21 @@
 export { GloskiClient } from './client'
 
 // Error classes, utilities, and type guards
-export { GloskiError, ErrorCode, safe, isGloskiError, isNetworkError } from './errors'
+export { ErrorCode, GloskiError, isGloskiError, isNetworkError, safe } from './errors'
 export type { ErrorCode as ErrorCodeType } from './errors'
 
 // HTTP types (for request options)
 export type { RequestOptions } from './http'
 
 // Middleware and utilities
-export { withRetry, paginate } from './middleware'
-export type { RetryOptions, PaginateOptions } from './middleware'
+export { paginate, withRetry } from './middleware'
+export type { PaginateOptions, RetryOptions } from './middleware'
 
 // Event emitter (for extending)
 export { EventEmitter } from './events'
 
-// Base WebSocket class (for extending)
-export { BaseWebSocketConnection, type BaseWebSocketEvents } from './resources'
+// WebSocket base class (for extending)
+export { WebSocketConnection, type WebSocketConnectionEvents } from './resources'
 
 // Resources (for type inference)
 export {
@@ -27,106 +27,102 @@ export {
   FilesResource,
   JobsResource,
   PackagesResource,
-  PinnedSubResource,
+  PinnedFoldersResource,
   SearchResource,
   StatsConnection,
   SystemResource,
   TerminalConnection,
   TerminalResource,
-  type ProgressCallback,
+  type TransferProgressCallback,
 } from './resources'
 
 // Branded ID helpers
-export { jobId, downloadId, pinnedFolderId, uploadId } from './types'
+export { downloadId, jobId, pinnedFolderId, uploadId } from './types'
 
 // All types
 export type {
-  AddDownloadRequest,
-  // API response types
+  // API envelope
   APIResponse,
-  // Base WebSocket types
-  BaseWebSocketOptions,
-  BaseWebSocketState,
-  // Result type
-  Result,
   AuthStatus,
+  // Branded ID types
+  Brand,
   // Chunked upload types
   ChunkedUploadChunkResponse,
   ChunkedUploadCompleteRequest,
   ChunkedUploadCompleteResponse,
   ChunkedUploadInfo,
   ChunkedUploadInit,
+  // System types
   CPUStats,
+  // Download types
   CreateShareOptions,
   // Cron types
   CronJob,
-  CronJobInput,
   CronJobsResponse,
   CronScope,
+  // File types
+  DirectoryListing,
   DiskStats,
   Download,
-  DownloadsResponse,
-  // Branded ID types
-  Brand,
   DownloadId,
-  // Download types
+  DownloadsResponse,
   DownloadStatus,
-  // Download watcher types
   DownloadWatcherEvents,
   DownloadWatcherOptions,
-  // File types
+  FileContent,
   FileEntry,
+  FileSearchMatch,
+  FileSearchOptions,
+  FileSearchResponse,
+  FileUploadResult,
   // Client config
   GloskiClientConfig,
-  // Middleware types
-  Middleware,
-  MiddlewareNext,
-  MiddlewareRequest,
   GoRuntimeInfo,
   HealthCheck,
   HealthResponse,
   // Package types
   InstalledPackagesResponse,
+  // Job types
   Job,
+  JobId,
   JobLogsResponse,
   JobsResponse,
-  JobId,
-  // Job types
   JobStatus,
-  ListResponse,
   LoadAvg,
   MemoryStats,
+  // Middleware types
+  Middleware,
+  MiddlewareNext,
+  MiddlewareRequest,
   NetworkInterface,
   NetworkStats,
-  Package,
+  NewCronJob,
+  NewDownloadRequest,
   PackageManagerInfo,
   PackageSearchResponse,
-  PinnedFolderId,
   // Pinned folder types
   PinnedFolder,
+  PinnedFolderId,
   PinnedFoldersResponse,
   ProcessInfo,
-  ReadResponse,
-  SearchOptions,
-  SearchResponse,
-  SearchResult,
+  // Result type
+  Result,
   ServerHealthReport,
   ShareLink,
   StatsConnectionEvents,
-  // Stats WebSocket types
-  StatsConnectionOptions,
-  StatsConnectionState,
   StatsHistoryResponse,
   StatsSample,
   SwapStats,
   SystemInfo,
-  // System types
+  SystemPackage,
   SystemStats,
-  TerminalEvents,
   // Terminal types
+  TerminalEvents,
   TerminalOptions,
-  TerminalState,
   UpgradeInfo,
+  // Upload types
   UploadId,
-  UploadResponse,
+  // WebSocket types
+  WebSocketConnectionOptions,
+  WebSocketConnectionState,
 } from './types'
