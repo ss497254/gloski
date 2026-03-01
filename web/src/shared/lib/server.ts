@@ -1,16 +1,6 @@
+import type { ServerData, ServerStats, ServerStatus } from '@/shared/lib/types'
 import { GloskiClient } from '@gloski/sdk'
-
-export type ServerStatus = 'online' | 'offline' | 'connecting' | 'unauthorized'
-
-// Plain data shape (what gets persisted)
-export interface ServerData {
-  id: string
-  url: string
-  name: string
-  apiKey: string | null
-  token: string | null
-  status: ServerStatus
-}
+import type { RequestOptions } from '../../../../js-sdk/src/http'
 
 // Single instance per server — created once, mutated in place via valtio proxy
 export class Server {
@@ -20,9 +10,7 @@ export class Server {
   private apiKey: string | null
   private token: string | null
   private status: ServerStatus
-
-  private client: GloskiClient | null = null
-  private fingerprint: string | null = null
+  private client: GloskiClient
 
   constructor(data: ServerData) {
     this.id = data.id
@@ -31,14 +19,6 @@ export class Server {
     this.apiKey = data.apiKey
     this.token = data.token
     this.status = data.status
-  }
-
-  getClient(): GloskiClient {
-    const fp = `${this.url}|${this.apiKey || ''}|${this.token || ''}`
-
-    if (this.fingerprint === fp && this.client) {
-      return this.client
-    }
 
     this.client = new GloskiClient({
       url: this.url,
@@ -54,9 +34,9 @@ export class Server {
         this.status = 'online'
       },
     })
+  }
 
-    this.fingerprint = fp
-
+  getClient(): GloskiClient {
     return this.client
   }
 
@@ -66,5 +46,48 @@ export class Server {
 
   getStatus(): ServerStatus {
     return this.status
+  }
+
+  async getStats(requestOptions?: RequestOptions): Promise<ServerStats> {
+    // If not authenticated, return early with error (no need to attempt API call)
+    if (!this.isAuthenticated()) {
+      return { status: this.getStatus(), stats: null, statsError: 'No authentication configured' }
+    }
+
+    try {
+      const stats = await this.client.system.getStats(requestOptions)
+      // If the call succeeded but status is not online, update it to online
+      if (this.getStatus() !== 'online') this.status = 'online'
+
+      return { stats, status: 'online', statsError: null }
+    } catch (err) {
+      if (!(err instanceof Error)) {
+        return {
+          status: this.getStatus(),
+          stats: null,
+          statsError: 'Unknown error',
+        }
+      } else if (err.name === 'AbortError') {
+        return {
+          status: this.getStatus(),
+          stats: null,
+          statsError: 'Request cancelled',
+        }
+      } else if (err.message.includes('401')) {
+        this.status = 'unauthorized'
+        return {
+          status: 'unauthorized',
+          stats: null,
+          statsError: 'Unauthorized - invalid API key or token',
+        }
+      } else {
+        this.status = 'offline'
+        return {
+          status: 'offline',
+          stats: null,
+          statsError: err.message,
+        }
+      }
+    }
   }
 }
