@@ -1,4 +1,12 @@
 // =============================================================================
+// Result Type
+// =============================================================================
+
+export type Result<T> =
+  | { data: T; error: null }
+  | { data: null; error: import('./errors').GloskiError }
+
+// =============================================================================
 // Client Configuration
 // =============================================================================
 
@@ -341,7 +349,7 @@ export interface TerminalEvents {
   open: []
   data: [data: string]
   close: [event: CloseEvent]
-  error: [error: Event]
+  error: [error: Event | Error]
   reconnecting: [attempt: number]
   reconnected: []
 }
@@ -367,7 +375,7 @@ export interface StatsConnectionEvents {
   open: []
   stats: [stats: SystemStats]
   close: [event: CloseEvent]
-  error: [error: Event]
+  error: [error: Event | Error]
   reconnecting: [attempt: number]
   reconnected: []
 }

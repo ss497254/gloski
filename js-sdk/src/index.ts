@@ -1,8 +1,8 @@
 // Main client
 export { GloskiClient } from './client'
 
-// Error classes
-export { GloskiError } from './errors'
+// Error classes and utilities
+export { GloskiError, safe } from './errors'
 
 // Event emitter (for extending)
 export { EventEmitter } from './events'
@@ -29,6 +29,8 @@ export type {
   AddDownloadRequest,
   // API response types
   APIResponse,
+  // Result type
+  Result,
   AuthStatus,
   CPUStats,
   CreateShareOptions,

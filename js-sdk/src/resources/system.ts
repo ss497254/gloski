@@ -1,6 +1,8 @@
+import { safe } from '../errors'
 import type { HttpClient, RequestOptions } from '../http'
 import type {
   ProcessInfo,
+  Result,
   ServerHealthReport,
   StatsConnectionOptions,
   StatsHistoryResponse,
@@ -22,40 +24,39 @@ export class SystemResource {
   /**
    * Get server status (health checks, version, uptime, runtime info)
    */
-  async getStatus(options?: RequestOptions): Promise<ServerHealthReport> {
-    return this.http.request<ServerHealthReport>('/system/status', options)
+  async getStatus(options?: RequestOptions): Promise<Result<ServerHealthReport>> {
+    return safe(this.http.request<ServerHealthReport>('/system/status', options))
   }
 
   /**
    * Get current system stats
    */
-  async getStats(options?: RequestOptions): Promise<SystemStats> {
-    return this.http.request<SystemStats>('/system/stats', options)
+  async getStats(options?: RequestOptions): Promise<Result<SystemStats>> {
+    return safe(this.http.request<SystemStats>('/system/stats', options))
   }
 
   /**
    * Get system stats history
    * @param duration - Duration string (e.g., "5m", "1h")
    */
-  async getHistory(duration?: string, options?: RequestOptions): Promise<StatsHistoryResponse> {
+  async getHistory(duration?: string, options?: RequestOptions): Promise<Result<StatsHistoryResponse>> {
     const params = duration ? `?duration=${encodeURIComponent(duration)}` : ''
-    return this.http.request<StatsHistoryResponse>(`/system/stats/history${params}`, options)
+    return safe(this.http.request<StatsHistoryResponse>(`/system/stats/history${params}`, options))
   }
 
   /**
    * Get system information
    */
-  async getInfo(options?: RequestOptions): Promise<SystemInfo> {
-    return this.http.request<SystemInfo>('/system/info', options)
+  async getInfo(options?: RequestOptions): Promise<Result<SystemInfo>> {
+    return safe(this.http.request<SystemInfo>('/system/info', options))
   }
 
   /**
    * Get list of running processes
    * @param limit - Maximum number of processes to return (default: 100)
    */
-  async getProcesses(limit = 100): Promise<ProcessInfo[]> {
-    const response = await this.http.request<{ processes: ProcessInfo[] }>(`/system/processes?limit=${limit}`)
-    return response.processes
+  async getProcesses(limit = 100): Promise<Result<ProcessInfo[]>> {
+    return safe(this.http.request<{ processes: ProcessInfo[] }>(`/system/processes?limit=${limit}`).then(r => r.processes))
   }
 
   /**

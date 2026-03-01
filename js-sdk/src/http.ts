@@ -1,5 +1,5 @@
 import { GloskiError, getErrorMessage } from './errors'
-import type { GloskiClientConfig } from './types'
+import type { GloskiClientConfig, HealthResponse } from './types'
 
 const DEFAULT_TIMEOUT = 30000
 const DEFAULT_API_PREFIX = '/api'
@@ -71,6 +71,13 @@ export class HttpClient {
    */
   async post<T>(endpoint: string, body: unknown): Promise<T> {
     return this.request<T>(endpoint, { method: 'POST', body })
+  }
+
+  /**
+   * PUT request
+   */
+  async put<T>(endpoint: string, body: unknown): Promise<T> {
+    return this.request<T>(endpoint, { method: 'PUT', body })
   }
 
   /**
@@ -353,7 +360,7 @@ export async function checkHealth(
   url: string,
   timeout = 5000,
   apiPrefix = DEFAULT_API_PREFIX
-): Promise<{ status: string }> {
+): Promise<HealthResponse> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 

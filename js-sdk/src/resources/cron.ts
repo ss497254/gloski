@@ -1,5 +1,6 @@
+import { safe } from '../errors'
 import type { HttpClient } from '../http'
-import type { CronJob, CronJobInput } from '../types'
+import type { CronJob, CronJobInput, Result } from '../types'
 
 /**
  * Cron job management resource
@@ -14,20 +15,19 @@ export class CronResource {
   /**
    * List all cron jobs
    */
-  async list(): Promise<CronJob[]> {
-    const response = await this.http.request<{ jobs: CronJob[] }>('/cron/jobs')
-    return response.jobs
+  async list(): Promise<Result<CronJob[]>> {
+    return safe(this.http.request<{ jobs: CronJob[] }>('/cron/jobs').then(r => r.jobs))
   }
 
   /**
    * Add a new cron job
    * @param job - Cron job configuration
    */
-  async add(job: CronJobInput): Promise<void> {
-    await this.http.request('/cron/jobs', {
+  async add(job: CronJobInput): Promise<Result<void>> {
+    return safe(this.http.request('/cron/jobs', {
       method: 'POST',
       body: job,
-    })
+    }).then(() => {}))
   }
 
   /**
@@ -35,10 +35,10 @@ export class CronResource {
    * @param schedule - Cron schedule expression
    * @param command - Command string
    */
-  async remove(schedule: string, command: string): Promise<void> {
-    await this.http.request('/cron/jobs', {
+  async remove(schedule: string, command: string): Promise<Result<void>> {
+    return safe(this.http.request('/cron/jobs', {
       method: 'DELETE',
       body: { schedule, command },
-    })
+    }).then(() => {}))
   }
 }

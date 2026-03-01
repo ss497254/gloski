@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { GloskiError, getErrorMessage } from '../errors'
+import { GloskiError, getErrorMessage, safe } from '../errors'
 
 describe('GloskiError', () => {
   test('constructor sets properties correctly', () => {
@@ -89,5 +89,35 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage('string error')).toBe('An unexpected error occurred')
     expect(getErrorMessage(null)).toBe('An unexpected error occurred')
     expect(getErrorMessage(undefined)).toBe('An unexpected error occurred')
+  })
+})
+
+describe('safe', () => {
+  test('returns data on success', async () => {
+    const result = await safe(Promise.resolve(42))
+    expect(result).toEqual({ data: 42, error: null })
+  })
+
+  test('returns GloskiError on GloskiError throw', async () => {
+    const err = new GloskiError(404, 'Not found')
+    const result = await safe(Promise.reject(err))
+    expect(result.data).toBeNull()
+    expect(result.error).toBe(err)
+  })
+
+  test('wraps unknown errors in GloskiError with status 0', async () => {
+    const result = await safe(Promise.reject(new Error('boom')))
+    expect(result.data).toBeNull()
+    expect(result.error).toBeInstanceOf(GloskiError)
+    expect(result.error!.status).toBe(0)
+    expect(result.error!.message).toBe('boom')
+  })
+
+  test('wraps non-Error throws in GloskiError', async () => {
+    const result = await safe(Promise.reject('string error'))
+    expect(result.data).toBeNull()
+    expect(result.error).toBeInstanceOf(GloskiError)
+    expect(result.error!.status).toBe(0)
+    expect(result.error!.message).toBe('An unexpected error occurred')
   })
 })

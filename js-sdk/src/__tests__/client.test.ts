@@ -57,7 +57,8 @@ describe('GloskiClient', () => {
       onUnauthorized,
     })
 
-    try { await client.auth.status() } catch {}
+    const result = await client.auth.status()
+    expect(result.error).not.toBeNull()
 
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
@@ -92,7 +93,8 @@ describe('GloskiClient resources', () => {
 
     const [url] = getLastFetchCall()
     expect(url).toContain('/api/auth/status')
-    expect(result).toEqual({ authenticated: true })
+    expect(result.data).toEqual({ authenticated: true })
+    expect(result.error).toBeNull()
   })
 
   // ─── System ───────────────────────────────────────────────────────────
@@ -107,7 +109,8 @@ describe('GloskiClient resources', () => {
 
     const [url] = getLastFetchCall()
     expect(url).toContain('/api/system/stats')
-    expect(result.hostname).toBe('test')
+    expect(result.data!.hostname).toBe('test')
+    expect(result.error).toBeNull()
   })
 
   test('system.getHistory() includes duration param', async () => {
@@ -116,10 +119,11 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    await client.system.getHistory('5m')
+    const result = await client.system.getHistory('5m')
 
     const [url] = getLastFetchCall()
     expect(url).toContain('duration=5m')
+    expect(result.error).toBeNull()
   })
 
   test('system.getProcesses() calls /system/processes with limit', async () => {
@@ -132,7 +136,8 @@ describe('GloskiClient resources', () => {
 
     const [url] = getLastFetchCall()
     expect(url).toContain('limit=50')
-    expect(result).toEqual([{ pid: 1 }])
+    expect(result.data).toEqual([{ pid: 1 }])
+    expect(result.error).toBeNull()
   })
 
   // ─── Jobs ─────────────────────────────────────────────────────────────
@@ -143,11 +148,12 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const jobs = await client.jobs.list()
+    const result = await client.jobs.list()
 
     const [url] = getLastFetchCall()
     expect(url).toContain('/api/jobs')
-    expect(jobs).toEqual([{ id: '1', command: 'ls' }])
+    expect(result.data).toEqual([{ id: '1', command: 'ls' }])
+    expect(result.error).toBeNull()
   })
 
   test('jobs.start() sends POST with command', async () => {
@@ -156,12 +162,13 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const job = await client.jobs.start('echo hi', '/tmp')
+    const result = await client.jobs.start('echo hi', '/tmp')
 
     const [url, options] = getLastFetchCall()
     expect(url).toContain('/api/jobs')
     expect(options.method).toBe('POST')
     expect(JSON.parse(options.body as string)).toEqual({ command: 'echo hi', cwd: '/tmp' })
+    expect(result.error).toBeNull()
   })
 
   test('jobs.stop() sends POST to /jobs/:id/stop', async () => {
@@ -170,11 +177,12 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    await client.jobs.stop('abc')
+    const result = await client.jobs.stop('abc')
 
     const [url, options] = getLastFetchCall()
     expect(url).toContain('/api/jobs/abc/stop')
     expect(options.method).toBe('POST')
+    expect(result.error).toBeNull()
   })
 
   test('jobs.delete() sends DELETE to /jobs/:id', async () => {
@@ -183,11 +191,12 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    await client.jobs.delete('abc')
+    const result = await client.jobs.delete('abc')
 
     const [url, options] = getLastFetchCall()
     expect(url).toContain('/api/jobs/abc')
     expect(options.method).toBe('DELETE')
+    expect(result.error).toBeNull()
   })
 
   // ─── Cron ─────────────────────────────────────────────────────────────
@@ -198,9 +207,10 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const jobs = await client.cron.list()
+    const result = await client.cron.list()
 
-    expect(jobs).toEqual([{ id: '1', schedule: '* * * * *' }])
+    expect(result.data).toEqual([{ id: '1', schedule: '* * * * *' }])
+    expect(result.error).toBeNull()
   })
 
   test('cron.add() sends POST with schedule and command', async () => {
@@ -209,11 +219,12 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    await client.cron.add({ schedule: '0 * * * *', command: '/usr/bin/backup' })
+    const result = await client.cron.add({ schedule: '0 * * * *', command: '/usr/bin/backup' })
 
     const [, options] = getLastFetchCall()
     expect(options.method).toBe('POST')
     expect(JSON.parse(options.body as string)).toEqual({ schedule: '0 * * * *', command: '/usr/bin/backup' })
+    expect(result.error).toBeNull()
   })
 
   test('cron.remove() sends DELETE with schedule and command in body', async () => {
@@ -222,14 +233,27 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    await client.cron.remove('0 * * * *', '/usr/bin/backup')
+    const result = await client.cron.remove('0 * * * *', '/usr/bin/backup')
 
     const [, options] = getLastFetchCall()
     expect(options.method).toBe('DELETE')
     expect(JSON.parse(options.body as string)).toEqual({ schedule: '0 * * * *', command: '/usr/bin/backup' })
+    expect(result.error).toBeNull()
   })
 
   // ─── Downloads ────────────────────────────────────────────────────────
+
+  test('downloads.list() calls /downloads and unwraps .downloads', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(mockResponse({ success: true, data: { downloads: [{ id: 'd1', url: 'http://example.com' }] } }))
+    )
+    const client = setupClient()
+
+    const result = await client.downloads.list()
+
+    expect(result.data).toEqual([{ id: 'd1', url: 'http://example.com' }])
+    expect(result.error).toBeNull()
+  })
 
   test('downloads.add() sends POST with url and destination', async () => {
     globalThis.fetch = mock(() =>
@@ -237,7 +261,7 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const dl = await client.downloads.add('http://example.com/file', '/tmp')
+    const result = await client.downloads.add('http://example.com/file', '/tmp')
 
     const [, options] = getLastFetchCall()
     expect(options.method).toBe('POST')
@@ -245,7 +269,8 @@ describe('GloskiClient resources', () => {
       url: 'http://example.com/file',
       destination: '/tmp',
     })
-    expect(dl.id).toBe('d1')
+    expect(result.data!.id).toBe('d1')
+    expect(result.error).toBeNull()
   })
 
   test('downloads.pause() sends POST to /downloads/:id/pause', async () => {
@@ -254,11 +279,12 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    await client.downloads.pause('d1')
+    const result = await client.downloads.pause('d1')
 
     const [url, options] = getLastFetchCall()
     expect(url).toContain('/api/downloads/d1/pause')
     expect(options.method).toBe('POST')
+    expect(result.error).toBeNull()
   })
 
   test('downloads.delete() with deleteFile appends query param', async () => {
@@ -267,11 +293,12 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    await client.downloads.delete('d1', true)
+    const result = await client.downloads.delete('d1', true)
 
     const [url, options] = getLastFetchCall()
     expect(url).toContain('delete_file=true')
     expect(options.method).toBe('DELETE')
+    expect(result.error).toBeNull()
   })
 
   // ─── Search ───────────────────────────────────────────────────────────
@@ -282,13 +309,14 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    const results = await client.search.byName('/home', 'test')
+    const result = await client.search.byName('/home', 'test')
 
     const [url] = getLastFetchCall()
     expect(url).toContain('path=%2Fhome')
     expect(url).toContain('q=test')
     expect(url).not.toContain('content=true')
-    expect(results).toEqual([{ name: 'test.txt' }])
+    expect(result.data).toEqual([{ name: 'test.txt' }])
+    expect(result.error).toBeNull()
   })
 
   test('search.byContent() includes content=true', async () => {
@@ -297,10 +325,11 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    await client.search.byContent('/home', 'TODO')
+    const result = await client.search.byContent('/home', 'TODO')
 
     const [url] = getLastFetchCall()
     expect(url).toContain('content=true')
+    expect(result.error).toBeNull()
   })
 
   // ─── Packages ─────────────────────────────────────────────────────────
@@ -311,9 +340,25 @@ describe('GloskiClient resources', () => {
     )
     const client = setupClient()
 
-    await client.packages.search('nginx server')
+    const result = await client.packages.search('nginx server')
 
     const [url] = getLastFetchCall()
     expect(url).toContain('q=nginx%20server')
+    expect(result.error).toBeNull()
+  })
+
+  // ─── Error handling ───────────────────────────────────────────────────
+
+  test('resource methods return error on API failure', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(mockResponse({ error: 'Not found' }, 404))
+    )
+    const client = setupClient()
+
+    const result = await client.jobs.get('nonexistent')
+
+    expect(result.data).toBeNull()
+    expect(result.error).not.toBeNull()
+    expect(result.error!.status).toBe(404)
   })
 })

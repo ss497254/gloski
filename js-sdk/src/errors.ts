@@ -52,6 +52,18 @@ export class GloskiError extends Error {
 }
 
 /**
+ * Wraps a promise into a Result, catching errors
+ */
+export async function safe<T>(promise: Promise<T>): Promise<import('./types').Result<T>> {
+  try {
+    return { data: await promise, error: null }
+  } catch (error) {
+    if (error instanceof GloskiError) return { data: null, error }
+    return { data: null, error: new GloskiError(0, getErrorMessage(error)) }
+  }
+}
+
+/**
  * Get a user-friendly error message from various error types
  */
 export function getErrorMessage(error: unknown): string {
