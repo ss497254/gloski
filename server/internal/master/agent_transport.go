@@ -125,106 +125,122 @@ func (l *localAgent) run() {
 	defer close(l.done)
 	backoff := time.Second
 
-	for {
-		if l.isStopping() {
-			return
-		}
-
-		logFile, err := os.OpenFile(l.logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	for !l.isStopping() {
+		command, logFile, exited, err := l.startProcess()
 		if err != nil {
-			logger.Error("local agent: failed to open log %s: %v", l.logPath, err)
 			l.wait(backoff)
+			backoff = nextBackoff(backoff)
 			continue
 		}
 
-		command := exec.Command(l.binary)
-		command.Env = append(os.Environ(),
-			"GLOSKI_MODE=agent",
-			"GLOSKI_AGENT_MASTER_URL="+l.masterURL,
-			"GLOSKI_AGENT_JOIN_TOKEN="+l.joinToken,
-			"GLOSKI_AGENT_NAME="+l.name,
-			"GLOSKI_AGENT_IS_MASTER=true",
-			"GLOSKI_DATA_DIR="+l.dataDir,
-			"GLOSKI_SHELL="+l.shell,
-		)
-		command.Stdout = logFile
-		command.Stderr = logFile
-		command.Stdin = nil
-
-		logger.Info("local agent: starting %s (binary=%s)", l.name, l.binary)
-		if err := command.Start(); err != nil {
-			logger.Error("local agent: failed to start: %v", err)
-			_ = logFile.Close()
-			l.wait(backoff)
-			continue
-		}
-		pid := command.Process.Pid
-		logger.Info("local agent: started pid=%d", pid)
-
-		l.mu.Lock()
-		l.cmd = command
-		l.mu.Unlock()
-
-		exited := make(chan error, 1)
-		go func() { exited <- command.Wait() }()
-
-		ticker := time.NewTicker(agentHealthInterval)
-		unhealthySince := time.Time{}
-		healthy := false
-
-	healthLoop:
-		for {
-			select {
-			case <-l.stopCh:
-				logger.Info("local agent: stop requested for pid=%d", pid)
-				ticker.Stop()
-				l.terminate(command, exited)
-				break healthLoop
-			case err := <-exited:
-				ticker.Stop()
-				logger.Warn("local agent: process pid=%d exited: %v", pid, err)
-				break healthLoop
-			case <-ticker.C:
-				connected := l.health != nil && l.health()
-				if connected {
-					if !healthy {
-						logger.Info("local agent: gRPC session is live (pid=%d)", pid)
-					}
-					healthy = true
-					unhealthySince = time.Time{}
-					continue
-				}
-				if healthy {
-					logger.Warn("local agent: gRPC session lost (pid=%d)", pid)
-				}
-				healthy = false
-				if unhealthySince.IsZero() {
-					unhealthySince = time.Now()
-					logger.Warn("local agent: no gRPC session for pid=%d, waiting before restart", pid)
-					continue
-				}
-				if time.Since(unhealthySince) >= agentUnhealthyLimit {
-					logger.Warn("local agent: no gRPC session for 20s, restarting pid=%d", pid)
-					l.terminate(command, exited)
-					ticker.Stop()
-					break healthLoop
-				}
-			}
-		}
-
+		stopPermanently := l.supervise(command, exited)
 		_ = logFile.Close()
-		l.mu.Lock()
-		l.cmd = nil
-		l.mu.Unlock()
-		if l.isStopping() {
+		l.clearCommand()
+		if stopPermanently {
 			return
 		}
+
 		logger.Info("local agent: restart in %s", backoff)
 		l.wait(backoff)
-		if backoff < agentMaxBackoff {
-			backoff *= 2
+		backoff = nextBackoff(backoff)
+	}
+}
+
+func (l *localAgent) startProcess() (*exec.Cmd, *os.File, <-chan error, error) {
+	logFile, err := os.OpenFile(l.logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		logger.Error("local agent: failed to open log %s: %v", l.logPath, err)
+		return nil, nil, nil, err
+	}
+
+	command := exec.Command(l.binary)
+	command.Env = append(os.Environ(),
+		"GLOSKI_MODE=agent",
+		"GLOSKI_AGENT_MASTER_URL="+l.masterURL,
+		"GLOSKI_AGENT_JOIN_TOKEN="+l.joinToken,
+		"GLOSKI_AGENT_NAME="+l.name,
+		"GLOSKI_AGENT_IS_MASTER=true",
+		"GLOSKI_DATA_DIR="+l.dataDir,
+		"GLOSKI_SHELL="+l.shell,
+	)
+	command.Stdout = logFile
+	command.Stderr = logFile
+	command.Stdin = nil
+
+	logger.Info("local agent: starting %s (binary=%s)", l.name, l.binary)
+	if err := command.Start(); err != nil {
+		logger.Error("local agent: failed to start: %v", err)
+		_ = logFile.Close()
+		return nil, nil, nil, err
+	}
+	logger.Info("local agent: started pid=%d", command.Process.Pid)
+
+	l.mu.Lock()
+	l.cmd = command
+	l.mu.Unlock()
+
+	exited := make(chan error, 1)
+	go func() { exited <- command.Wait() }()
+	return command, logFile, exited, nil
+}
+
+// supervise watches the process and its gRPC session. It returns true when the
+// master is shutting down and no restart should be attempted.
+func (l *localAgent) supervise(command *exec.Cmd, exited <-chan error) bool {
+	pid := command.Process.Pid
+	ticker := time.NewTicker(agentHealthInterval)
+	defer ticker.Stop()
+
+	unhealthySince := time.Time{}
+	healthy := false
+
+	for {
+		select {
+		case <-l.stopCh:
+			logger.Info("local agent: stop requested for pid=%d", pid)
+			l.terminate(command, exited)
+			return true
+		case err := <-exited:
+			logger.Warn("local agent: process pid=%d exited: %v", pid, err)
+			return false
+		case <-ticker.C:
+			if l.health != nil && l.health() {
+				if !healthy {
+					logger.Info("local agent: gRPC session is live (pid=%d)", pid)
+				}
+				healthy = true
+				unhealthySince = time.Time{}
+				continue
+			}
+			if healthy {
+				logger.Warn("local agent: gRPC session lost (pid=%d)", pid)
+			}
+			healthy = false
+			if unhealthySince.IsZero() {
+				unhealthySince = time.Now()
+				logger.Warn("local agent: no gRPC session for pid=%d, waiting before restart", pid)
+				continue
+			}
+			if time.Since(unhealthySince) >= agentUnhealthyLimit {
+				logger.Warn("local agent: no gRPC session for %s, restarting pid=%d", agentUnhealthyLimit, pid)
+				l.terminate(command, exited)
+				return false
+			}
 		}
 	}
+}
+
+func (l *localAgent) clearCommand() {
+	l.mu.Lock()
+	l.cmd = nil
+	l.mu.Unlock()
+}
+
+func nextBackoff(current time.Duration) time.Duration {
+	if current < agentMaxBackoff {
+		return current * 2
+	}
+	return current
 }
 
 func (l *localAgent) isStopping() bool {
