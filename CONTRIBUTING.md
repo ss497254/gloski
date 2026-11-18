@@ -27,7 +27,7 @@ You need two terminals:
 **Terminal 1 - Backend:**
 ```bash
 cd server
-GLOSKI_API_KEY=dev-key go run ./cmd/gloski
+go run ./cmd/gloski
 ```
 
 **Terminal 2 - Frontend:**
@@ -38,10 +38,9 @@ bun run dev
 
 ### 3. Access the App
 
-1. Open http://localhost:5173
-2. Click "Add Server"
-3. URL: `http://127.0.0.1:8080`
-4. API Key: `dev-key`
+Open http://localhost:3000. The dev server proxies API calls to the master on
+`127.0.0.1:8080`; the master starts its own local agent, so one device appears
+without any setup.
 
 ## Project Structure Overview
 
@@ -85,9 +84,10 @@ See [docs/frontend.md](docs/frontend.md) and [docs/backend.md](docs/backend.md) 
 
 ### Backend Changes
 
-1. **Handlers** go in `server/internal/api/handlers/`
-2. **Services** go in `server/internal/{service-name}/`
-3. **New routes** are registered in `server/internal/api/routes/routes.go`
+1. **Browser endpoints** go in `server/internal/controltower/` and are registered in `routes.go`
+2. **Master-to-agent commands** go in `server/internal/controltower/agents/`
+3. **Device-side handling** goes in `server/internal/worker/`
+4. **Protocol changes** go in `server/proto/agentv1/agent.proto` (regenerate the checked-in Go code)
 
 ## Testing Your Changes
 
@@ -124,14 +124,14 @@ go build ./cmd/gloski
 
 1. Create feature folder: `web/src/features/{name}/`
 2. Add page component: `pages/{Name}Page.tsx`
-3. Add to feature registry: `web/src/app/feature-registry.ts`
-4. Add route: `web/src/app/routes.tsx`
+3. Add the nav item in `web/src/app/navigation.ts`
+4. Add the route in `web/src/App.tsx`
 
 ### Adding a New API Endpoint
 
-1. Create handler in `server/internal/api/handlers/`
-2. Register route in `server/internal/api/routes/routes.go`
-3. Add API method in `web/src/shared/services/api.ts`
+1. Add the handler in `server/internal/controltower/`
+2. Register the route in `server/internal/controltower/routes.go`
+3. Add the client method in `web/src/shared/api/` (device calls) or `web/src/shared/tower/client.ts` (master calls)
 
 ### Adding a Shared Component
 

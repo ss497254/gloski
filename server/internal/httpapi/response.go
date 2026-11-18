@@ -1,4 +1,6 @@
-package response
+// Package httpapi holds the response helpers and middleware shared by the
+// master's browser-facing API.
+package httpapi
 
 import (
 	"encoding/json"

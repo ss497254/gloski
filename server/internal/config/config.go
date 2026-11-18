@@ -9,13 +9,12 @@ import (
 )
 
 const (
-	ModeStandalone = "standalone"
-	ModeMaster     = "master"
-	ModeAgent      = "agent"
+	ModeMaster = "master"
+	ModeAgent  = "agent"
 )
 
 type Config struct {
-	// Operating mode: master (default) or agent. Standalone is legacy-only.
+	// Operating mode: master (default) or agent.
 	Mode string `json:"mode"`
 
 	// Server settings
@@ -232,16 +231,8 @@ func (c *Config) validate() error {
 		if c.Agent.HeartbeatInterval <= 0 {
 			c.Agent.HeartbeatInterval = 10
 		}
-	case ModeStandalone:
-		// At least one auth method is required
-		hasAPIKey := c.APIKey != ""
-		hasJWT := c.JWTPublicKey != "" || c.JWTPublicKeyFile != ""
-
-		if !hasAPIKey && !hasJWT {
-			return fmt.Errorf("at least one authentication method is required (set GLOSKI_API_KEY or GLOSKI_JWT_PUBLIC_KEY)")
-		}
 	default:
-		return fmt.Errorf("invalid mode %q (expected standalone, master, or agent)", c.Mode)
+		return fmt.Errorf("invalid mode %q (expected master or agent; standalone mode was removed)", c.Mode)
 	}
 
 	// Load JWT public key from file if specified

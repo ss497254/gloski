@@ -1,4 +1,4 @@
-package middleware
+package httpapi
 
 import (
 	"net/http"
@@ -92,25 +92,6 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	}
 
 	return false
-}
-
-// RateLimit returns a middleware that limits requests per IP.
-func RateLimit(rate int, window time.Duration) func(http.Handler) http.Handler {
-	limiter := NewRateLimiter(rate, window)
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := getClientIP(r)
-
-			if !limiter.Allow(ip) {
-				w.Header().Set("Retry-After", "60")
-				http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
 }
 
 func getClientIP(r *http.Request) string {

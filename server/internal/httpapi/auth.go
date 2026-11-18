@@ -1,4 +1,4 @@
-package middleware
+package httpapi
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ss497254/gloski/internal/api/response"
 	"github.com/ss497254/gloski/internal/auth"
 )
 
@@ -29,7 +28,7 @@ func Auth(authService *auth.Service) func(http.Handler) http.Handler {
 			// Check auth rate limit before processing
 			if !authLimiter.Allow(ip) {
 				w.Header().Set("Retry-After", "60")
-				response.Error(w, http.StatusTooManyRequests, "too many authentication attempts")
+				Error(w, http.StatusTooManyRequests, "too many authentication attempts")
 				return
 			}
 
@@ -51,7 +50,7 @@ func Auth(authService *auth.Service) func(http.Handler) http.Handler {
 				}
 			}
 
-			response.Unauthorized(w, "invalid or missing authentication")
+			Unauthorized(w, "invalid or missing authentication")
 		})
 	}
 }

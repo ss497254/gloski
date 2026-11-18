@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/ss497254/gloski/internal/api/handlers"
 	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/fleet"
+	"github.com/ss497254/gloski/internal/httpapi"
 )
 
 var deviceWSUpgrader = websocket.Upgrader{
@@ -25,7 +25,7 @@ func decodeJSON[T any](w http.ResponseWriter, r *http.Request, maxBytes int64) (
 	var value T
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBytes))
 	if err := decoder.Decode(&value); err != nil {
-		handlers.BadRequest(w, "invalid request body")
+		httpapi.BadRequest(w, "invalid request body")
 		return value, false
 	}
 	return value, true
@@ -34,16 +34,16 @@ func decodeJSON[T any](w http.ResponseWriter, r *http.Request, maxBytes int64) (
 func (t *Tower) handleDeviceStats(w http.ResponseWriter, r *http.Request) {
 	device, err := t.fleetSvc.Get(r.PathValue("id"))
 	if err != nil {
-		handlers.NotFound(w, "device not found")
+		httpapi.NotFound(w, "device not found")
 		return
 	}
-	handlers.Success(w, device.Stats)
+	httpapi.Success(w, device.Stats)
 }
 
 func (t *Tower) handleDeviceStatsWS(w http.ResponseWriter, r *http.Request) {
 	deviceID := r.PathValue("id")
 	if _, err := t.fleetSvc.Get(deviceID); err != nil {
-		handlers.NotFound(w, "device not found")
+		httpapi.NotFound(w, "device not found")
 		return
 	}
 	connection, err := deviceWSUpgrader.Upgrade(w, r, nil)
@@ -93,10 +93,10 @@ func (t *Tower) handleDeviceProcesses(w http.ResponseWriter, r *http.Request) {
 func writeAgentError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, agents.ErrNoAgent):
-		handlers.Error(w, http.StatusBadGateway, err.Error())
+		httpapi.Error(w, http.StatusBadGateway, err.Error())
 	case errors.Is(err, fleet.ErrDeviceNotFound):
-		handlers.NotFound(w, "device not found")
+		httpapi.NotFound(w, "device not found")
 	default:
-		handlers.InternalError(w, "agent request failed", err.Error())
+		httpapi.InternalError(w, "agent request failed", err.Error())
 	}
 }

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ss497254/gloski/internal/api/handlers"
 	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/fleet"
+	"github.com/ss497254/gloski/internal/httpapi"
 	"github.com/ss497254/gloski/internal/logger"
 )
 
@@ -31,7 +31,7 @@ type dashboardIssue struct {
 func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	list, err := t.fleetSvc.List()
 	if err != nil {
-		handlers.InternalError(w, "failed to load dashboard", err.Error())
+		httpapi.InternalError(w, "failed to load dashboard", err.Error())
 		return
 	}
 	if list == nil {
@@ -134,7 +134,7 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		recentJobs = []agents.Job{}
 	}
 
-	handlers.SuccessWithMessage(w, map[string]interface{}{
+	httpapi.SuccessWithMessage(w, map[string]interface{}{
 		"devices":      len(list),
 		"online":       online,
 		"offline":      len(list) - online,

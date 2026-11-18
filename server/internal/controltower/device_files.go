@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ss497254/gloski/internal/api/handlers"
+	"github.com/ss497254/gloski/internal/httpapi"
 	"github.com/ss497254/gloski/proto/agentv1"
 )
 
@@ -49,7 +49,7 @@ func (t *Tower) performFile(w http.ResponseWriter, deviceID string, request *age
 		return nil
 	}
 	if result.GetCode() != 0 {
-		handlers.Error(w, http.StatusBadRequest, result.GetMessage())
+		httpapi.Error(w, http.StatusBadRequest, result.GetMessage())
 		return nil
 	}
 	return result
@@ -74,7 +74,7 @@ func (t *Tower) handleReadFile(w http.ResponseWriter, r *http.Request) {
 	if result == nil {
 		return
 	}
-	handlers.Success(w, map[string]interface{}{"content": string(result.GetContent()), "path": path})
+	httpapi.Success(w, map[string]interface{}{"content": string(result.GetContent()), "path": path})
 }
 
 func (t *Tower) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +90,7 @@ func (t *Tower) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 func (t *Tower) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	if t.performFile(w, r.PathValue("id"), fileRequest(path, "delete")) != nil {
-		handlers.SuccessWithMessage(w, nil)
+		httpapi.SuccessWithMessage(w, nil)
 	}
 }
 
@@ -102,7 +102,7 @@ func (t *Tower) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 	grpcRequest := fileRequest(request.Path, "write")
 	grpcRequest.Content = []byte(request.Content)
 	if t.performFile(w, r.PathValue("id"), grpcRequest) != nil {
-		handlers.SuccessWithMessage(w, nil)
+		httpapi.SuccessWithMessage(w, nil)
 	}
 }
 
@@ -112,7 +112,7 @@ func (t *Tower) handleMkdir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if t.performFile(w, r.PathValue("id"), fileRequest(request.Path, "mkdir")) != nil {
-		handlers.SuccessWithMessage(w, nil)
+		httpapi.SuccessWithMessage(w, nil)
 	}
 }
 
@@ -124,13 +124,13 @@ func (t *Tower) handleRename(w http.ResponseWriter, r *http.Request) {
 	grpcRequest := fileRequest(request.OldPath, "rename")
 	grpcRequest.NewPath = request.NewPath
 	if t.performFile(w, r.PathValue("id"), grpcRequest) != nil {
-		handlers.SuccessWithMessage(w, nil)
+		httpapi.SuccessWithMessage(w, nil)
 	}
 }
 
 func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		handlers.BadRequest(w, "invalid upload")
+		httpapi.BadRequest(w, "invalid upload")
 		return
 	}
 	destination := r.FormValue("path")
@@ -139,19 +139,19 @@ func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		handlers.BadRequest(w, "file is required")
+		httpapi.BadRequest(w, "file is required")
 		return
 	}
 	defer file.Close()
 	content, err := io.ReadAll(io.LimitReader(file, 32<<20))
 	if err != nil {
-		handlers.InternalError(w, "failed to read upload", err.Error())
+		httpapi.InternalError(w, "failed to read upload", err.Error())
 		return
 	}
 	path := strings.TrimRight(destination, "/") + "/" + header.Filename
 	grpcRequest := fileRequest(path, "write")
 	grpcRequest.Content = content
 	if t.performFile(w, r.PathValue("id"), grpcRequest) != nil {
-		handlers.Success(w, map[string]interface{}{"filename": header.Filename})
+		httpapi.Success(w, map[string]interface{}{"filename": header.Filename})
 	}
 }

@@ -3,8 +3,7 @@ package controltower
 import (
 	"net/http"
 
-	"github.com/ss497254/gloski/internal/api/handlers"
-	"github.com/ss497254/gloski/internal/api/middleware"
+	"github.com/ss497254/gloski/internal/httpapi"
 )
 
 func (t *Tower) routes() http.Handler {
@@ -13,7 +12,7 @@ func (t *Tower) routes() http.Handler {
 	// Public endpoints. Agents enroll over the gRPC stream; the dashboard is
 	// protected by tailnet access and, optionally, by an API key / JWT.
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
-		handlers.Success(w, map[string]string{"status": "ok"})
+		httpapi.Success(w, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /api/tower/info", t.handleTowerInfo)
 	mux.Handle("GET /api/dashboard", t.userAuth(http.HandlerFunc(t.handleDashboard)))
@@ -56,14 +55,14 @@ func (t *Tower) routes() http.Handler {
 	// Dashboard static assets and SPA fallback.
 	mux.HandleFunc("/", t.serveSPA)
 
-	return middleware.Logging(securityHeaders(mux))
+	return httpapi.Logging(securityHeaders(mux))
 }
 
 func (t *Tower) userAuth(next http.Handler) http.Handler {
 	if t.cfg.APIKey == "" && t.cfg.JWTPublicKey == "" {
 		return next
 	}
-	return middleware.Auth(t.auth)(next)
+	return httpapi.Auth(t.auth)(next)
 }
 
 func securityHeaders(next http.Handler) http.Handler {

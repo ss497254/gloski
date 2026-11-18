@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ss497254/gloski/internal/api/handlers"
+	"github.com/ss497254/gloski/internal/httpapi"
 )
 
 type runJobRequest struct {
@@ -18,7 +18,7 @@ func (t *Tower) handleListJobs(w http.ResponseWriter, r *http.Request) {
 		writeAgentError(w, err)
 		return
 	}
-	handlers.Success(w, map[string]interface{}{"jobs": jobs})
+	httpapi.Success(w, map[string]interface{}{"jobs": jobs})
 }
 
 func (t *Tower) handleRunJob(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +27,7 @@ func (t *Tower) handleRunJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(request.Command) == "" {
-		handlers.BadRequest(w, "command is required")
+		httpapi.BadRequest(w, "command is required")
 		return
 	}
 	job, err := t.agentService.RunJob(r.PathValue("id"), request.Command, request.CWD)
@@ -35,16 +35,16 @@ func (t *Tower) handleRunJob(w http.ResponseWriter, r *http.Request) {
 		writeAgentError(w, err)
 		return
 	}
-	handlers.Success(w, job)
+	httpapi.Success(w, job)
 }
 
 func (t *Tower) handleGetJob(w http.ResponseWriter, r *http.Request) {
 	job, err := t.agentService.GetJob(r.PathValue("jobId"))
 	if err != nil {
-		handlers.NotFound(w, "job not found")
+		httpapi.NotFound(w, "job not found")
 		return
 	}
-	handlers.Success(w, job)
+	httpapi.Success(w, job)
 }
 
 func (t *Tower) handleJobLogs(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +53,7 @@ func (t *Tower) handleJobLogs(w http.ResponseWriter, r *http.Request) {
 		writeAgentError(w, err)
 		return
 	}
-	handlers.Success(w, map[string]interface{}{"logs": logs})
+	httpapi.Success(w, map[string]interface{}{"logs": logs})
 }
 
 func (t *Tower) handleCancelJob(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +61,7 @@ func (t *Tower) handleCancelJob(w http.ResponseWriter, r *http.Request) {
 		writeAgentError(w, err)
 		return
 	}
-	handlers.SuccessWithMessage(w, nil)
+	httpapi.SuccessWithMessage(w, nil)
 }
 
 func (t *Tower) handleDeleteJob(w http.ResponseWriter, r *http.Request) {
@@ -69,5 +69,5 @@ func (t *Tower) handleDeleteJob(w http.ResponseWriter, r *http.Request) {
 		writeAgentError(w, err)
 		return
 	}
-	handlers.SuccessWithMessage(w, nil)
+	httpapi.SuccessWithMessage(w, nil)
 }

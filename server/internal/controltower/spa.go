@@ -6,14 +6,14 @@ import (
 	"os"
 	"path"
 
-	"github.com/ss497254/gloski/internal/api/handlers"
+	"github.com/ss497254/gloski/internal/httpapi"
 	"path/filepath"
 	"strings"
 )
 
 func (t *Tower) serveSPA(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/api/") {
-		handlers.NotFound(w, "endpoint not found")
+		httpapi.NotFound(w, "endpoint not found")
 		return
 	}
 

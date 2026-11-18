@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ss497254/gloski/internal/api/handlers"
 	"github.com/ss497254/gloski/internal/fleet"
+	"github.com/ss497254/gloski/internal/httpapi"
 	"github.com/ss497254/gloski/internal/logger"
 	"github.com/ss497254/gloski/internal/provisioning"
 	"github.com/ss497254/gloski/internal/tailnet"
@@ -27,7 +27,7 @@ type deployRequest struct {
 
 func (t *Tower) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
 	if !t.tailnetClient.Available() {
-		handlers.SuccessWithMessage(w, map[string]interface{}{
+		httpapi.SuccessWithMessage(w, map[string]interface{}{
 			"available": false,
 			"error":     "tailscaled API is not reachable from the master",
 			"peers":     []tailnet.Node{},
@@ -40,7 +40,7 @@ func (t *Tower) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
 
 	status, err := t.tailnetClient.Status(ctx)
 	if err != nil {
-		handlers.SuccessWithMessage(w, map[string]interface{}{
+		httpapi.SuccessWithMessage(w, map[string]interface{}{
 			"available": false,
 			"error":     err.Error(),
 			"peers":     []tailnet.Node{},
@@ -48,7 +48,7 @@ func (t *Tower) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	handlers.SuccessWithMessage(w, map[string]interface{}{
+	httpapi.SuccessWithMessage(w, map[string]interface{}{
 		"available":     true,
 		"backend_state": status.BackendState,
 		"self":          status.Self,
@@ -58,13 +58,13 @@ func (t *Tower) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
 
 func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 	if !t.installer.Available() {
-		handlers.BadRequest(w, fmt.Sprintf("gloski-agent binary not found at %q", t.installer.Binary()))
+		httpapi.BadRequest(w, fmt.Sprintf("gloski-agent binary not found at %q", t.installer.Binary()))
 		return
 	}
 
 	var request deployRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&request); err != nil {
-		handlers.BadRequest(w, "invalid deployment request")
+		httpapi.BadRequest(w, "invalid deployment request")
 		return
 	}
 
@@ -83,7 +83,7 @@ func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 		DeployID:  uuid.NewString(),
 	}
 	if err := target.Validate(); err != nil {
-		handlers.BadRequest(w, err.Error())
+		httpapi.BadRequest(w, err.Error())
 		return
 	}
 
@@ -101,12 +101,12 @@ func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: now,
 	}
 	if err := t.fleetSvc.CreateDeployment(deployment); err != nil {
-		handlers.InternalError(w, "failed to record deployment", err.Error())
+		httpapi.InternalError(w, "failed to record deployment", err.Error())
 		return
 	}
 
 	go t.runDeployment(deployment, target)
-	handlers.SuccessWithMessage(w, deployment)
+	httpapi.SuccessWithMessage(w, deployment)
 }
 
 func (t *Tower) runDeployment(deployment *fleet.Deployment, target provisioning.Target) {
@@ -139,32 +139,32 @@ func (t *Tower) runDeployment(deployment *fleet.Deployment, target provisioning.
 func (t *Tower) handleListDeployments(w http.ResponseWriter, r *http.Request) {
 	list, err := t.fleetSvc.ListDeployments()
 	if err != nil {
-		handlers.InternalError(w, "failed to list deployments", err.Error())
+		httpapi.InternalError(w, "failed to list deployments", err.Error())
 		return
 	}
 	if list == nil {
 		list = []fleet.Deployment{}
 	}
-	handlers.SuccessWithMessage(w, map[string]interface{}{"deployments": list})
+	httpapi.SuccessWithMessage(w, map[string]interface{}{"deployments": list})
 }
 
 func (t *Tower) handleGetDeployment(w http.ResponseWriter, r *http.Request) {
 	deployment, err := t.fleetSvc.GetDeployment(r.PathValue("id"))
 	if err != nil {
 		if errors.Is(err, fleet.ErrDeploymentNotFound) {
-			handlers.NotFound(w, "deployment not found")
+			httpapi.NotFound(w, "deployment not found")
 			return
 		}
-		handlers.InternalError(w, "failed to get deployment", err.Error())
+		httpapi.InternalError(w, "failed to get deployment", err.Error())
 		return
 	}
-	handlers.SuccessWithMessage(w, deployment)
+	httpapi.SuccessWithMessage(w, deployment)
 }
 
 func (t *Tower) handleStartDevice(w http.ResponseWriter, r *http.Request) {
 	target, err := t.deviceTarget(r.PathValue("id"))
 	if err != nil {
-		handlers.NotFound(w, err.Error())
+		httpapi.NotFound(w, err.Error())
 		return
 	}
 
@@ -174,24 +174,24 @@ func (t *Tower) handleStartDevice(w http.ResponseWriter, r *http.Request) {
 	pid, err := t.installer.Start(ctx, target)
 	if err != nil {
 		_ = t.fleetSvc.SetDeploymentStatus(target.DeployID, fleet.DeployFailed, err.Error())
-		handlers.InternalError(w, "failed to start agent", err.Error())
+		httpapi.InternalError(w, "failed to start agent", err.Error())
 		return
 	}
 	if err := t.fleetSvc.SetDeploymentRunning(target.DeployID, pid); err != nil {
 		logger.Warn("Failed to update deployment %s: %v", target.DeployID, err)
 	}
-	handlers.SuccessWithMessage(w, map[string]interface{}{"pid": pid, "status": fleet.DeployRunning})
+	httpapi.SuccessWithMessage(w, map[string]interface{}{"pid": pid, "status": fleet.DeployRunning})
 }
 
 func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 	device, err := t.fleetSvc.Get(r.PathValue("id"))
 	if err != nil {
-		handlers.NotFound(w, "device not found")
+		httpapi.NotFound(w, "device not found")
 		return
 	}
 	target, err := t.deviceTarget(device.ID)
 	if err != nil {
-		handlers.BadRequest(w, err.Error())
+		httpapi.BadRequest(w, err.Error())
 		return
 	}
 
@@ -201,7 +201,7 @@ func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 	stopped, err := t.installer.Stop(ctx, target)
 	if err != nil {
 		_ = t.fleetSvc.SetDeploymentStatus(target.DeployID, fleet.DeployFailed, err.Error())
-		handlers.InternalError(w, "failed to stop agent", err.Error())
+		httpapi.InternalError(w, "failed to stop agent", err.Error())
 		return
 	}
 	if err := t.fleetSvc.SetDeploymentStopped(target.DeployID); err != nil {
@@ -210,7 +210,7 @@ func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 	if err := t.fleetSvc.MarkOffline(device.ID); err != nil {
 		logger.Warn("Failed to mark device %s offline: %v", device.ID, err)
 	}
-	handlers.SuccessWithMessage(w, map[string]interface{}{"stopped": stopped, "status": fleet.DeployStopped})
+	httpapi.SuccessWithMessage(w, map[string]interface{}{"stopped": stopped, "status": fleet.DeployStopped})
 }
 
 func (t *Tower) deviceTarget(deviceID string) (provisioning.Target, error) {

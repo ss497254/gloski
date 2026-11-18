@@ -57,8 +57,7 @@ server/
     │   └── agent_dial.go     # Dial master over Unix socket or h2c
     ├── config/               # Config types, defaults, env overrides
     ├── database/             # SQLite migrations
-    ├── api/                  # Legacy HTTP server used by standalone mode
-    ├── app/                  # Legacy application container
+    ├── httpapi/              # JSON responses, auth and logging middleware
     └── files/, system/       # Shared filesystem and stats helpers
 ```
 

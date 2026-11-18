@@ -86,7 +86,7 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
-			name:    "missing authentication",
+			name:    "removed standalone mode",
 			config:  `{"mode": "standalone", "host": "127.0.0.1", "port": 8080}`,
 			wantErr: true,
 		},

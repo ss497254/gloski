@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ss497254/gloski/internal/api/middleware"
 	"github.com/ss497254/gloski/internal/auth"
 	"github.com/ss497254/gloski/internal/config"
+	"github.com/ss497254/gloski/internal/httpapi"
 	"github.com/ss497254/gloski/tests/testutil"
 )
 
@@ -27,7 +27,7 @@ func TestAuthMiddleware(t *testing.T) {
 	})
 
 	// Wrap with auth middleware
-	authMiddleware := middleware.Auth(authService)
+	authMiddleware := httpapi.Auth(authService)
 	protectedHandler := authMiddleware(testHandler)
 
 	tests := []struct {
@@ -105,7 +105,7 @@ func TestAuthMiddleware_ContextValue(t *testing.T) {
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check if user context was set
-		user := r.Context().Value(middleware.UserContextKey)
+		user := r.Context().Value(httpapi.UserContextKey)
 		if user == nil {
 			t.Error("user context not set")
 		}
@@ -115,7 +115,7 @@ func TestAuthMiddleware_ContextValue(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	authMiddleware := middleware.Auth(authService)
+	authMiddleware := httpapi.Auth(authService)
 	protectedHandler := authMiddleware(testHandler)
 
 	w := testutil.MakeRequest(t, protectedHandler, testutil.HTTPRequest{
