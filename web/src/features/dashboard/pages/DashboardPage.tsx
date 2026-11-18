@@ -53,7 +53,7 @@ function DeviceCard({ device }: { device: FleetDevice }) {
   const stats = device.stats
   return (
     <Link
-      to={`/fleet/${device.id}`}
+      to={`/devices/${device.id}`}
       className="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50"
     >
       <div className="flex items-start justify-between gap-2">
@@ -187,7 +187,7 @@ export function DashboardPage() {
             {issues.slice(0, 8).map((issue) => (
               <Link
                 key={issue.id}
-                to={issue.device_id ? `/fleet/${issue.device_id}` : '/fleet'}
+                to={issue.device_id ? `/devices/${issue.device_id}` : '/devices'}
                 className="flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/40"
               >
                 <Circle
@@ -209,7 +209,7 @@ export function DashboardPage() {
       <section className="mt-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Devices</h2>
-          <Link to="/fleet" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+          <Link to="/devices" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
             View all
           </Link>
         </div>

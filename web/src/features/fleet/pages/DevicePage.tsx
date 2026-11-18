@@ -24,7 +24,7 @@ export function DevicePage() {
         description={mode === 'standalone' ? 'Not connected to a control tower' : 'Device not found'}
       >
         <Button asChild variant="outline">
-          <Link to="/fleet">
+          <Link to="/devices">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to fleet
           </Link>
@@ -45,7 +45,7 @@ export function DevicePage() {
       if (action === 'stop') await stopDevice(managedDevice.id)
       if (action === 'remove') {
         await removeDevice(managedDevice.id)
-        navigate('/fleet')
+        navigate('/devices')
       }
       toast.success(
         action === 'start' ? 'Agent start requested' : action === 'stop' ? 'Agent stopped' : 'Device removed'
@@ -64,9 +64,9 @@ export function DevicePage() {
       actions={
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link to="/fleet">
+            <Link to="/devices">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Fleet
+              Devices
             </Link>
           </Button>
           {managedDevice.managed && (

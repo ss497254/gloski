@@ -1,4 +1,5 @@
 export { AppLayout } from './AppLayout'
+export { DeviceLayout } from './DeviceLayout'
 export { PageLayout } from './PageLayout'
 export { ServerLayout } from './ServerLayout'
 export { Sidebar, NavItem, NavSection, ServerNav } from './Sidebar'

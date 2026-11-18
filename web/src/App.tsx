@@ -1,11 +1,18 @@
-import { AppLayout, ServerLayout } from '@/layouts'
+import { AppLayout, DeviceLayout } from '@/layouts'
 import { RouteErrorBoundary } from '@/shared/components'
 import { TowerProvider } from '@/shared/tower'
 import { Toaster } from '@/ui/sonner'
-import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, Navigate, RouterProvider, useLocation, useParams } from 'react-router-dom'
 
-// The dashboard is master-only. Device tools are mounted under internal
-// /servers/<virtual-device-id> routes but are reached from the Device page.
+function LegacyRedirect({ prefix }: { prefix: '/fleet' | '/servers' }) {
+  const params = useParams<{ deviceId?: string; serverId?: string }>()
+  const location = useLocation()
+  const id = (params.deviceId ?? params.serverId ?? '').replace(/^tower-/, '')
+  const remainder = location.pathname.replace(new RegExp(`^${prefix}/[^/]+`), '')
+  if (!id) return <Navigate to="/devices" replace />
+  return <Navigate to={`/devices/${id}${remainder}`} replace />
+}
+
 const router = createBrowserRouter([
   {
     element: <AppLayout />,
@@ -18,28 +25,22 @@ const router = createBrowserRouter([
         },
       },
       {
-        path: '/fleet',
+        path: '/devices',
         lazy: {
           Component: async () => (await import('@/features/fleet')).FleetPage,
         },
       },
       {
-        path: '/fleet/:deviceId',
-        lazy: {
-          Component: async () => (await import('@/features/fleet')).DevicePage,
-        },
-      },
-      {
-        path: '/settings',
-        lazy: {
-          Component: async () => (await import('@/features/dashboard')).SettingsPage,
-        },
-      },
-      {
-        path: '/servers/:serverId',
-        element: <ServerLayout />,
+        path: '/devices/:deviceId',
+        element: <DeviceLayout />,
         errorElement: <RouteErrorBoundary />,
         children: [
+          {
+            index: true,
+            lazy: {
+              Component: async () => (await import('@/features/fleet')).DevicePage,
+            },
+          },
           {
             path: 'files',
             lazy: {
@@ -58,23 +59,29 @@ const router = createBrowserRouter([
               Component: async () => (await import('@/features/jobs')).default,
             },
           },
-          {
-            path: 'downloads',
-            lazy: {
-              Component: async () => (await import('@/features/downloads')).default,
-            },
-          },
-          {
-            path: 'search',
-            lazy: {
-              Component: async () => (await import('@/features/search')).default,
-            },
-          },
         ],
       },
       {
+        path: '/fleet',
+        element: <Navigate to="/devices" replace />,
+      },
+      {
+        path: '/fleet/:deviceId',
+        element: <LegacyRedirect prefix="/fleet" />,
+      },
+      {
+        path: '/servers/:serverId/*',
+        element: <LegacyRedirect prefix="/servers" />,
+      },
+      {
+        path: '/settings',
+        lazy: {
+          Component: async () => (await import('@/features/dashboard')).SettingsPage,
+        },
+      },
+      {
         path: '*',
-        element: <Navigate to="/fleet" replace />,
+        element: <Navigate to="/" replace />,
       },
     ],
   },

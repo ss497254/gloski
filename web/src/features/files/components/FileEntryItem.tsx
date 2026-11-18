@@ -1,4 +1,5 @@
 import { cn } from '@/shared/lib/utils'
+import { useServer } from '@/shared/context'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -77,6 +78,8 @@ export function FileEntryItem({
   onDuplicate,
   onShowProperties,
 }: FileEntryItemProps) {
+  const { serverId } = useServer()
+  const deviceId = serverId.replace(/^tower-/, '')
   const Icon = getFileIcon(entry.name, entry.type)
   const color = getFileColor(entry.name, entry.type)
 
@@ -181,7 +184,7 @@ export function FileEntryItem({
         {entry.type === 'directory' && (
           <>
             <ContextMenuItem asChild>
-              <Link to={`/servers/[id]/terminal?cwd=${encodeURIComponent(entry.path)}`}>
+              <Link to={`/devices/${deviceId}/terminal?cwd=${encodeURIComponent(entry.path)}`}>
                 <Terminal className="h-4 w-4 mr-2" />
                 Open in Terminal
               </Link>

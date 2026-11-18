@@ -18,6 +18,7 @@ const ServerContext = createContext<ServerContextValue | null>(null)
 
 interface ServerProviderProps {
   children: ReactNode
+  serverId?: string
 }
 
 /**
@@ -30,8 +31,9 @@ interface ServerProviderProps {
  * - Context provides the store instance (not the data)
  * - Components subscribe to specific slices using selectors
  */
-export function ServerProvider({ children }: ServerProviderProps) {
-  const { serverId } = useParams<{ serverId: string }>()
+export function ServerProvider({ children, serverId: serverIdProp }: ServerProviderProps) {
+  const params = useParams<{ serverId: string; deviceId: string }>()
+  const serverId = serverIdProp ?? params.serverId ?? (params.deviceId ? `tower-${params.deviceId}` : undefined)
   const server = useServersStore((state) => (serverId ? state.servers.find((s) => s.id === serverId) : undefined))
   const tower = useTower()
 

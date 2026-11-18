@@ -52,7 +52,7 @@ function DeviceRow({ device }: { device: FleetDevice }) {
   return (
     <tr
       className="cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40"
-      onClick={() => navigate(`/fleet/${device.id}`)}
+      onClick={() => navigate(`/devices/${device.id}`)}
     >
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ function DeviceRow({ device }: { device: FleetDevice }) {
           >
             <Trash2 className="h-3.5 w-3.5 text-destructive" />
           </Button>
-          <Button variant="ghost" size="icon-sm" title="Open device" onClick={() => navigate(`/fleet/${device.id}`)}>
+          <Button variant="ghost" size="icon-sm" title="Open device" onClick={() => navigate(`/devices/${device.id}`)}>
             <ArrowUpRight className="h-4 w-4" />
           </Button>
         </div>
@@ -137,7 +137,7 @@ export function FleetPage() {
 
   if (mode === 'loading') {
     return (
-      <PageLayout title="Fleet" description="Connecting to the control tower…">
+      <PageLayout title="Devices" description="Connecting to the control tower…">
         <div className="space-y-2 rounded-lg border border-border bg-card p-4">
           {[0, 1, 2].map((index) => (
             <Skeleton key={index} className="h-12 w-full" />
@@ -149,7 +149,7 @@ export function FleetPage() {
 
   if (mode === 'standalone') {
     return (
-      <PageLayout title="Fleet" description="Waiting for the control tower">
+      <PageLayout title="Devices" description="Waiting for the control tower">
         <EmptyState
           icon={Radar}
           title="No control tower detected"
@@ -164,7 +164,7 @@ export function FleetPage() {
 
   return (
     <PageLayout
-      title="Fleet"
+      title="Devices"
       description={`${online} of ${devices.length} devices online${info?.name ? ` · tower ${info.name}` : ''}`}
       actions={
         <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-import { mainNavItems } from '@/app/navigation'
+import { mainNavItems, settingsNavItem } from '@/app/navigation'
 import { useSettingsStore } from '@/features/dashboard/stores/settings'
 import type { Server } from '@/shared/lib/server'
 import { cn } from '@/shared/lib/utils'
@@ -29,8 +29,7 @@ function getStatusColor(status: string) {
 function SidebarServerLink({ server, collapsed }: { server: Server; collapsed: boolean }) {
   const snap = useSnapshot(server)
   const status = snap.getStatus()
-  const isManaged = snap.managedBy === 'tower'
-  const to = isManaged ? `/fleet/${snap.id.replace(/^tower-/, '')}` : `/servers/${snap.id}`
+  const to = `/devices/${snap.id.replace(/^tower-/, '')}`
 
   return (
     <NavLink to={to}>
@@ -81,8 +80,7 @@ function SidebarContent({ collapsed }: SidebarContentProps) {
   const servers = useServersStore((s) => s.servers)
   const currentServer = servers.find((s) => s.id === effectiveServerId)
 
-  const navItems = mainNavItems.filter((item) => item.id === 'dashboard' || item.id === 'fleet')
-  const settingsItem = mainNavItems.find((item) => item.id === 'settings')!
+  const navItems = mainNavItems
 
   return (
     <>
@@ -128,7 +126,7 @@ function SidebarContent({ collapsed }: SidebarContentProps) {
               ))}
               {servers.length > 5 && !collapsed && (
                 <NavLink
-                  to="/fleet"
+                  to="/devices"
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <span className="text-xs">+{servers.length - 5} more</span>
@@ -141,7 +139,12 @@ function SidebarContent({ collapsed }: SidebarContentProps) {
 
       <div className="border-t p-3 bg-background/30 space-y-1">
         <ThemeToggle collapsed={collapsed} />
-        <NavItem to={settingsItem.path} icon={settingsItem.icon} label={settingsItem.name} collapsed={collapsed} />
+        <NavItem
+          to={settingsNavItem.path}
+          icon={settingsNavItem.icon}
+          label={settingsNavItem.name}
+          collapsed={collapsed}
+        />
       </div>
     </>
   )
@@ -165,7 +168,7 @@ export function Sidebar({ className }: SidebarProps) {
       )}
     >
       <div className="h-18 flex items-center justify-between px-3 border-b border-border">
-        <NavLink to={mode === 'tower' ? '/fleet' : '/'} className="flex items-center gap-2.5">
+        <NavLink to="/" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Layers className="h-4 w-4" />
           </div>
@@ -206,7 +209,6 @@ export function MobileSidebar() {
   const location = useLocation()
   const mobileSidebarOpen = useSettingsStore((s) => s.mobileSidebarOpen)
   const setMobileSidebarOpen = useSettingsStore((s) => s.setMobileSidebarOpen)
-  const { mode } = useTower()
 
   useEffect(() => {
     setMobileSidebarOpen(false)
@@ -234,7 +236,7 @@ export function MobileSidebar() {
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
       <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] flex flex-col border-r border-border bg-sidebar text-sidebar-foreground shadow-xl animate-in slide-in-from-left duration-200">
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
-          <NavLink to={mode === 'tower' ? '/fleet' : '/'} className="flex items-center gap-2.5">
+          <NavLink to="/" className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Layers className="h-4 w-4" />
             </div>

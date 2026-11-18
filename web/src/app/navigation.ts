@@ -1,16 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
 import { FolderOpen, LayoutDashboard, ListTodo, Radar, Settings, Terminal } from 'lucide-react'
 
-export type NavSection = 'main' | 'server'
-
 export interface NavItem {
   id: string
   name: string
   icon: LucideIcon
   path: string
-  section: NavSection
-  serverScoped?: boolean
-  shortcut?: string
 }
 
 export const mainNavItems: NavItem[] = [
@@ -19,63 +14,45 @@ export const mainNavItems: NavItem[] = [
     name: 'Dashboard',
     icon: LayoutDashboard,
     path: '/',
-    section: 'main',
-    shortcut: 'g d',
   },
   {
-    id: 'fleet',
+    id: 'devices',
     name: 'Devices',
     icon: Radar,
-    path: '/fleet',
-    section: 'main',
-    shortcut: 'g f',
-  },
-  {
-    id: 'settings',
-    name: 'Settings',
-    icon: Settings,
-    path: '/settings',
-    section: 'main',
-    shortcut: 'g ,',
+    path: '/devices',
   },
 ]
 
-export const serverNavItems: NavItem[] = [
+export const settingsNavItem: NavItem = {
+  id: 'settings',
+  name: 'Settings',
+  icon: Settings,
+  path: '/settings',
+}
+
+export const deviceNavItems: NavItem[] = [
   {
-    id: 'server-overview',
+    id: 'overview',
     name: 'Overview',
     icon: Radar,
-    path: '/fleet/:serverId',
-    section: 'server',
-    serverScoped: true,
+    path: '/devices/:deviceId',
   },
   {
     id: 'files',
     name: 'Files',
     icon: FolderOpen,
-    path: '/servers/:serverId/files',
-    section: 'server',
-    serverScoped: true,
+    path: '/devices/:deviceId/files',
   },
   {
     id: 'terminal',
     name: 'Terminal',
     icon: Terminal,
-    path: '/servers/:serverId/terminal',
-    section: 'server',
-    serverScoped: true,
+    path: '/devices/:deviceId/terminal',
   },
   {
     id: 'jobs',
     name: 'Jobs',
     icon: ListTodo,
-    path: '/servers/:serverId/jobs',
-    section: 'server',
-    serverScoped: true,
+    path: '/devices/:deviceId/jobs',
   },
 ]
-
-export const getMainNavItems = () => mainNavItems.filter((item) => item.id !== 'settings')
-export const getSettingsNavItem = () => mainNavItems.find((item) => item.id === 'settings')!
-export const getAllNavItems = () => [...mainNavItems, ...serverNavItems]
-export const getNavItemById = (id: string) => getAllNavItems().find((item) => item.id === id)
