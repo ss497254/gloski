@@ -5,11 +5,9 @@
   "allowed_paths": [],
   "log_level": "info",
   "agent": {
-    "master_url": "https://gloski.tailnet-name.ts.net",
+    "master_url": "https://gloski.tailnet-name.ts.net:9090",
     "join_token": "",
     "name": "my-device",
-    "advertise_url": "",
-    "heartbeat_interval": 10,
-    "state_file": ""
+    "heartbeat_interval": 10
   }
 }

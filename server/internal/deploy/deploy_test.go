@@ -54,7 +54,6 @@ func TestStartScriptContainsEnvironment(t *testing.T) {
 		"GLOSKI_AGENT_MASTER_URL='https://tower.tailnet.ts.net'",
 		"GLOSKI_AGENT_JOIN_TOKEN='join-token'",
 		"GLOSKI_AGENT_DEPLOY_ID='deploy-id'",
-		"GLOSKI_PORT='18081'",
 		"/tmp/gloski-agent",
 		"/tmp/gloski-agent.pid",
 	} {

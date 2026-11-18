@@ -72,8 +72,7 @@ export interface DeployRequest {
   host: string
   user: string
   ssh_port: number
-  agent_port: number
-  master_url: string
+  agent_port?: number
 }
 
 export interface DashboardIssue {

@@ -21,7 +21,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { DeployDeviceDialog } from '@/features/fleet/components/DeployDeviceDialog'
+import { DeployDeviceDialog } from '@/features/devices/components/DeployDeviceDialog'
 
 function Metric({ icon: Icon, label, value, tone }: { icon: typeof Cpu; label: string; value: string; tone?: string }) {
   return (

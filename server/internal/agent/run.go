@@ -144,7 +144,6 @@ func runSession(cfg *config.Config, version, name string, statsService *system.S
 		return errors.New("master did not return a registration response")
 	}
 	agent.deviceID = registration.GetDeviceId()
-	agent.token = registration.GetDeviceToken()
 	interval := int(registration.GetHeartbeatInterval())
 	if interval <= 0 {
 		interval = cfg.Agent.HeartbeatInterval
@@ -176,7 +175,6 @@ type agentRuntime struct {
 	stats    *system.Service
 	files    *files.Service
 	deviceID string
-	token    string
 
 	sendMu sync.Mutex
 	mu     sync.Mutex
@@ -549,9 +547,9 @@ func (a *agentRuntime) closeTerminal(id string) {
 
 func dialMaster(ctx context.Context, raw string) (*grpc.ClientConn, error) {
 	raw = strings.TrimSpace(raw)
-	transport := insecure.NewCredentials()
+	credentials := insecure.NewCredentials()
 	options := []grpc.DialOption{
-		grpc.WithTransportCredentials(transport),
+		grpc.WithTransportCredentials(credentials),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(32<<20), grpc.MaxCallSendMsgSize(32<<20)),
 	}
 

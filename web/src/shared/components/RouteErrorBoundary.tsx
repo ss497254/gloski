@@ -23,7 +23,7 @@ export function RouteErrorBoundary() {
       message = 'You do not have permission to access this resource'
     } else if (error.status === 500) {
       title = 'Server Error'
-      message = 'An error occurred on the server. Please try again later'
+      message = 'An error occurred on the device. Please try again later'
     }
   } else if (error instanceof Error) {
     // This is a JavaScript error

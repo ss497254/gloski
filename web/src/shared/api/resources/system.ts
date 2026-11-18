@@ -22,7 +22,7 @@ export class SystemResource {
   }
 
   /**
-   * Get server status (health checks, version, uptime, runtime info)
+   * Get device status (health checks, version, uptime, runtime info)
    */
   async getStatus(options?: RequestOptions): Promise<Result<ServerHealthReport>> {
     return safe(this.http.request<ServerHealthReport>('/system/status', options))

@@ -1,7 +1,7 @@
 import { GloskiClient } from '@/shared/api'
 
 /**
- * Check server health (static, no auth required)
+ * Check device health (static, no auth required)
  */
 export async function checkServerHealth(serverUrl: string): Promise<{ status: string }> {
   return GloskiClient.checkHealth(serverUrl, 5000)

@@ -9,6 +9,15 @@ import (
 	"github.com/ss497254/gloski/internal/agentgrpc"
 	"github.com/ss497254/gloski/internal/api/handlers"
 	"github.com/ss497254/gloski/internal/devices"
+	"github.com/ss497254/gloski/internal/logger"
+)
+
+const (
+	highCPUPercent    = 85
+	highMemoryPercent = 90
+	maxIssueDetail    = 140
+	maxJobDetail      = 120
+	jobIssueLimit     = 10
 )
 
 type dashboardIssue struct {
@@ -30,9 +39,13 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	online := 0
+	masterConnected := false
 	issues := []dashboardIssue{}
 	for i := range list {
 		device := &list[i]
+		if device.Master && s.agents.Connected(device.ID) {
+			masterConnected = true
+		}
 		if device.Status == devices.StatusOnline {
 			online++
 		} else {
@@ -45,7 +58,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 		if device.Stats != nil {
-			if device.Stats.CPU.UsagePercent > 85 {
+			if device.Stats.CPU.UsagePercent > highCPUPercent {
 				issues = append(issues, dashboardIssue{
 					ID:       "cpu-" + device.ID,
 					Severity: "warning",
@@ -54,7 +67,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 					DeviceID: device.ID,
 				})
 			}
-			if device.Stats.Memory.UsedPercent > 90 {
+			if device.Stats.Memory.UsedPercent > highMemoryPercent {
 				issues = append(issues, dashboardIssue{
 					ID:       "memory-" + device.ID,
 					Severity: "warning",
@@ -66,13 +79,6 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	masterConnected := false
-	for i := range list {
-		if list[i].Master && s.agents.Connected(list[i].ID) {
-			masterConnected = true
-			break
-		}
-	}
 	if !masterConnected {
 		issues = append(issues, dashboardIssue{
 			ID:       "master-agent",
@@ -83,22 +89,26 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deployments, err := s.devices.ListDeployments()
-	if err == nil {
+	if err != nil {
+		logger.Warn("Dashboard could not load deployments: %v", err)
+	} else {
 		for _, deployment := range deployments {
 			if deployment.Status == devices.DeployFailed {
 				issues = append(issues, dashboardIssue{
 					ID:       "deploy-" + deployment.ID,
 					Severity: "error",
 					Title:    "Deployment failed",
-					Detail:   fmt.Sprintf("%s: %s", deployment.Name, firstLine(deployment.Error, 140)),
+					Detail:   fmt.Sprintf("%s: %s", deployment.Name, firstLine(deployment.Error, maxIssueDetail)),
 					DeviceID: deployment.DeviceID,
 				})
 			}
 		}
 	}
 
-	problemJobs, err := s.agents.ProblemJobs(10)
-	if err == nil {
+	problemJobs, err := s.agents.ProblemJobs(jobIssueLimit)
+	if err != nil {
+		logger.Warn("Dashboard could not load problem jobs: %v", err)
+	} else {
 		for _, job := range problemJobs {
 			severity := "error"
 			if job.Status == agentgrpc.JobAbandoned {
@@ -106,7 +116,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			}
 			detail := strings.TrimSpace(job.Command)
 			if job.Error != "" {
-				detail += " — " + firstLine(job.Error, 120)
+				detail += " — " + firstLine(job.Error, maxJobDetail)
 			}
 			issues = append(issues, dashboardIssue{
 				ID:       "job-" + job.ID,
@@ -118,8 +128,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recentJobs, err := s.agents.RecentJobs(10)
+	recentJobs, err := s.agents.RecentJobs(jobIssueLimit)
 	if err != nil {
+		logger.Warn("Dashboard could not load recent jobs: %v", err)
 		recentJobs = []agentgrpc.Job{}
 	}
 

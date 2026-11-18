@@ -52,7 +52,7 @@ func main() {
 	case config.ModeAgent:
 		logger.Fatal("gloski no longer runs in agent mode; use the gloski-agent binary")
 	case config.ModeStandalone:
-		logger.Info("Gloski %s starting in standalone mode...", version)
+		logger.Warn("Standalone mode is deprecated; use master mode")
 		runStandalone(cfg)
 	default:
 		logger.Fatal("Unknown mode %q", cfg.Mode)

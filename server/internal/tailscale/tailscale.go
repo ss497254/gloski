@@ -169,15 +169,6 @@ func (c *Client) Self(ctx context.Context) (*Node, error) {
 	return &self, nil
 }
 
-// SelfIPs returns this node's tailnet addresses, IPv4 first.
-func (c *Client) SelfIPs(ctx context.Context) []string {
-	self, err := c.Self(ctx)
-	if err != nil {
-		return nil
-	}
-	return self.IPs
-}
-
 // PrimaryIP returns the first IPv4 address, falling back to the first address.
 func PrimaryIP(ips []string) string {
 	for _, ip := range ips {
@@ -194,22 +185,6 @@ func PrimaryIP(ips []string) string {
 // CleanDNSName removes the trailing dot Tailscale uses in DNS names.
 func CleanDNSName(name string) string {
 	return strings.TrimSuffix(strings.TrimSpace(name), ".")
-}
-
-// EndpointURL builds a usable URL for a peer, preferring MagicDNS when
-// available and otherwise falling back to the primary tailnet IP.
-func EndpointURL(node Node, scheme string, port int) string {
-	host := CleanDNSName(node.DNSName)
-	if host == "" {
-		host = PrimaryIP(node.IPs)
-	}
-	if host == "" {
-		return ""
-	}
-	if port <= 0 {
-		return scheme + "://" + host
-	}
-	return fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, fmt.Sprint(port)))
 }
 
 // KnownHostsPath returns a master-owned known_hosts path for SSH TOFU.

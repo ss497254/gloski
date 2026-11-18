@@ -1,15 +1,15 @@
 import { mainNavItems, settingsNavItem } from '@/app/navigation'
 import { useSettingsStore } from '@/features/dashboard/stores/settings'
-import type { Server } from '@/shared/lib/server'
+import type { DeviceClient } from '@/shared/lib/device'
 import { cn } from '@/shared/lib/utils'
 import { useTower } from '@/shared/tower'
-import { useServersStore } from '@/shared/store/servers'
+import { useDevicesStore } from '@/shared/store/devices'
 import { ChevronLeft, ChevronRight, Layers, Moon, Sun, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation, useParams } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
 import { NavItem } from './NavItem'
-import { ServerNav } from './ServerNav'
+import { DeviceNav } from './DeviceNav'
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -26,13 +26,10 @@ function getStatusColor(status: string) {
   }
 }
 
-function SidebarServerLink({ server, collapsed }: { server: Server; collapsed: boolean }) {
-  const snap = useSnapshot(server)
-  const status = snap.getStatus()
-  const to = `/devices/${snap.id.replace(/^tower-/, '')}`
-
+function SidebarDeviceLink({ device, collapsed }: { device: DeviceClient; collapsed: boolean }) {
+  const snap = useSnapshot(device)
   return (
-    <NavLink to={to}>
+    <NavLink to={`/devices/${snap.id}`}>
       {({ isActive }) => (
         <div
           className={cn(
@@ -42,7 +39,7 @@ function SidebarServerLink({ server, collapsed }: { server: Server; collapsed: b
             isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
           )}
         >
-          <span className={cn('h-2 w-2 rounded-full shrink-0', getStatusColor(status))} />
+          <span className={cn('h-2 w-2 rounded-full shrink-0', getStatusColor(snap.getStatus()))} />
           {!collapsed && <span className="truncate">{snap.name}</span>}
         </div>
       )}
@@ -70,23 +67,16 @@ function ThemeToggle({ collapsed }: { collapsed: boolean }) {
   )
 }
 
-interface SidebarContentProps {
-  collapsed: boolean
-}
-
-function SidebarContent({ collapsed }: SidebarContentProps) {
-  const { serverId, deviceId } = useParams()
-  const effectiveServerId = serverId ?? (deviceId ? `tower-${deviceId}` : undefined)
-  const servers = useServersStore((s) => s.servers)
-  const currentServer = servers.find((s) => s.id === effectiveServerId)
-
-  const navItems = mainNavItems
+function SidebarContent({ collapsed }: { collapsed: boolean }) {
+  const { deviceId } = useParams()
+  const devices = useDevicesStore((state) => state.devices)
+  const currentDevice = devices.find((device) => device.id === deviceId)
 
   return (
     <>
       <nav className="flex-1 overflow-y-auto px-3 py-3">
         <div className="space-y-1">
-          {navItems.map((item) => (
+          {mainNavItems.map((item) => (
             <NavItem
               key={item.id}
               to={item.path}
@@ -98,38 +88,36 @@ function SidebarContent({ collapsed }: SidebarContentProps) {
           ))}
         </div>
 
-        {currentServer && (
+        {currentDevice && (
           <div className="mt-6">
             {!collapsed && (
               <div className="mb-2 truncate px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                {currentServer.name}
+                {currentDevice.name}
               </div>
             )}
             {collapsed && <div className="border-t my-3" />}
-            <ServerNav collapsed={collapsed} serverId={effectiveServerId} />
+            <DeviceNav collapsed={collapsed} />
           </div>
         )}
 
-        {!currentServer && servers.length > 0 && (
+        {!currentDevice && devices.length > 0 && (
           <div className="mt-6">
             {!collapsed && (
-              <div className="px-3 mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                  Devices
-                </span>
+              <div className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                Devices
               </div>
             )}
             {collapsed && <div className="border-t my-3" />}
             <div className="space-y-1">
-              {servers.slice(0, 5).map((server) => (
-                <SidebarServerLink key={server.id} server={server} collapsed={collapsed} />
+              {devices.slice(0, 5).map((device) => (
+                <SidebarDeviceLink key={device.id} device={device} collapsed={collapsed} />
               ))}
-              {servers.length > 5 && !collapsed && (
+              {devices.length > 5 && !collapsed && (
                 <NavLink
                   to="/devices"
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <span className="text-xs">+{servers.length - 5} more</span>
+                  <span className="text-xs">+{devices.length - 5} more</span>
                 </NavLink>
               )}
             </div>
@@ -150,14 +138,28 @@ function SidebarContent({ collapsed }: SidebarContentProps) {
   )
 }
 
-interface SidebarProps {
-  className?: string
+function Brand({ collapsed }: { collapsed: boolean }) {
+  const { mode } = useTower()
+  return (
+    <NavLink to="/" className="flex items-center gap-2.5">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <Layers className="h-4 w-4" />
+      </div>
+      {!collapsed && (
+        <div className="flex flex-col">
+          <span className="font-semibold leading-none">Gloski</span>
+          <span className="text-[10px] text-muted-foreground leading-none mt-0.5">
+            {mode === 'loading' ? 'Connecting…' : 'Control tower'}
+          </span>
+        </div>
+      )}
+    </NavLink>
+  )
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className }: { className?: string }) {
   const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useSettingsStore((s) => s.toggleSidebar)
-  const { mode } = useTower()
 
   return (
     <aside
@@ -168,19 +170,7 @@ export function Sidebar({ className }: SidebarProps) {
       )}
     >
       <div className="h-18 flex items-center justify-between px-3 border-b border-border">
-        <NavLink to="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Layers className="h-4 w-4" />
-          </div>
-          {!sidebarCollapsed && (
-            <div className="flex flex-col">
-              <span className="font-semibold leading-none">Gloski</span>
-              <span className="text-[10px] text-muted-foreground leading-none mt-0.5">
-                {mode === 'tower' ? 'Control tower' : mode === 'loading' ? 'Connecting…' : 'Server management'}
-              </span>
-            </div>
-          )}
-        </NavLink>
+        <Brand collapsed={sidebarCollapsed} />
         {!sidebarCollapsed && (
           <button
             onClick={toggleSidebar}
@@ -215,8 +205,8 @@ export function MobileSidebar() {
   }, [location.pathname, setMobileSidebarOpen])
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && mobileSidebarOpen) setMobileSidebarOpen(false)
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && mobileSidebarOpen) setMobileSidebarOpen(false)
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
@@ -236,15 +226,7 @@ export function MobileSidebar() {
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
       <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] flex flex-col border-r border-border bg-sidebar text-sidebar-foreground shadow-xl animate-in slide-in-from-left duration-200">
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
-          <NavLink to="/" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Layers className="h-4 w-4" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold leading-none">Gloski</span>
-              <span className="text-[10px] text-muted-foreground leading-none mt-0.5">Control tower</span>
-            </div>
-          </NavLink>
+          <Brand collapsed={false} />
           <button
             onClick={() => setMobileSidebarOpen(false)}
             className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"

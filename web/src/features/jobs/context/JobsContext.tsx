@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useServer } from '@/shared/context'
+import { useDevice } from '@/shared/context'
 import { jobId as toJobId, unwrap, type Job } from '@/shared/api'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
@@ -48,7 +48,7 @@ interface JobsProviderProps {
 }
 
 export function JobsProvider({ children }: JobsProviderProps) {
-  const { server, serverId } = useServer()
+  const { device, deviceId } = useDevice()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -61,13 +61,13 @@ export function JobsProvider({ children }: JobsProviderProps) {
 
   const fetchJobs = useCallback(async () => {
     try {
-      const result = unwrap(await server.getClient().jobs.list())
+      const result = unwrap(await device.getClient().jobs.list())
       setJobs(result || [])
       setError('') // Clear error on successful fetch
     } catch {
       setError('Failed to fetch jobs')
     }
-  }, [server])
+  }, [device])
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -83,7 +83,7 @@ export function JobsProvider({ children }: JobsProviderProps) {
     if (!newCommand.trim()) return
 
     try {
-      await server.getClient().jobs.start(newCommand, newCwd || undefined)
+      await device.getClient().jobs.start(newCommand, newCwd || undefined)
       setNewCommand('')
       setNewCwd('')
       setError('') // Clear error on success
@@ -91,25 +91,25 @@ export function JobsProvider({ children }: JobsProviderProps) {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to start job')
     }
-  }, [server, newCommand, newCwd, fetchJobs])
+  }, [device, newCommand, newCwd, fetchJobs])
 
   const stopJob = useCallback(
     async (id: string) => {
       try {
-        await server.getClient().jobs.stop(toJobId(id))
+        await device.getClient().jobs.stop(toJobId(id))
         setError('') // Clear error on success
         fetchJobs()
       } catch {
         setError('Failed to stop job')
       }
     },
-    [server, fetchJobs]
+    [device, fetchJobs]
   )
 
   const fetchJobLogs = useCallback(
     async (id: string) => {
       try {
-        const logs = unwrap(await server.getClient().jobs.getLogs(toJobId(id)))
+        const logs = unwrap(await device.getClient().jobs.getLogs(toJobId(id)))
         setJobLogs(logs || [])
         setSelectedJob(id)
         setError('') // Clear error on success
@@ -117,7 +117,7 @@ export function JobsProvider({ children }: JobsProviderProps) {
         setError('Failed to fetch logs')
       }
     },
-    [server]
+    [device]
   )
 
   const clearSelectedJob = useCallback(() => {
@@ -137,7 +137,7 @@ export function JobsProvider({ children }: JobsProviderProps) {
     return () => {
       isMounted = false
     }
-  }, [serverId, refresh])
+  }, [deviceId, refresh])
 
   // Polling for job updates
   useEffect(() => {

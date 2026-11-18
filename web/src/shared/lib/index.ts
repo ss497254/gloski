@@ -1,3 +1,2 @@
-export * from './server'
-export * from './types'
+export * from './device'
 export * from './utils'

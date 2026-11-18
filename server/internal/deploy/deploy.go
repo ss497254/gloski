@@ -38,10 +38,11 @@ var (
 
 // Target describes one remote agent deployment.
 type Target struct {
-	Name       string
-	Host       string
-	User       string
-	SSHPort    int
+	Name    string
+	Host    string
+	User    string
+	SSHPort int
+	// AgentPort is retained in deployment records only; agents do not listen on HTTP.
 	AgentPort  int
 	MasterURL  string
 	JoinToken  string
@@ -220,8 +221,7 @@ mkdir -p %s
 cat > %s
 chmod 755 %s
 mv %s %s
-rm -f %s
-`, quote(paths.dataDir), quote(paths.upload), quote(paths.upload), quote(paths.upload), quote(paths.binary), quote(paths.stateFile))
+`, quote(paths.dataDir), quote(paths.upload), quote(paths.upload), quote(paths.upload), quote(paths.binary))
 
 	if _, err := m.runCommand(ctx, target, script, file); err != nil {
 		return fmt.Errorf("failed to copy agent binary: %w", err)
@@ -430,13 +430,12 @@ func (m *Manager) trustHost(file, hostname string, key ssh.PublicKey) error {
 }
 
 type remotePaths struct {
-	binary    string
-	dataDir   string
-	envFile   string
-	pidFile   string
-	logFile   string
-	stateFile string
-	upload    string
+	binary  string
+	dataDir string
+	envFile string
+	pidFile string
+	logFile string
+	upload  string
 }
 
 func targetPaths(target Target) remotePaths {
@@ -446,13 +445,12 @@ func targetPaths(target Target) remotePaths {
 	}
 	binary := path.Join(base, "gloski-agent")
 	return remotePaths{
-		binary:    binary,
-		dataDir:   path.Join(base, "gloski-agent-data"),
-		envFile:   path.Join(base, "gloski-agent.env"),
-		pidFile:   path.Join(base, "gloski-agent.pid"),
-		logFile:   path.Join(base, "gloski-agent.log"),
-		stateFile: path.Join(base, "gloski-agent-data", "agent.json"),
-		upload:    binary + ".upload",
+		binary:  binary,
+		dataDir: path.Join(base, "gloski-agent-data"),
+		envFile: path.Join(base, "gloski-agent.env"),
+		pidFile: path.Join(base, "gloski-agent.pid"),
+		logFile: path.Join(base, "gloski-agent.log"),
+		upload:  binary + ".upload",
 	}
 }
 
@@ -470,8 +468,6 @@ func startScript(target Target) string {
 	writeEnv("GLOSKI_AGENT_JOIN_TOKEN", target.JoinToken)
 	writeEnv("GLOSKI_AGENT_NAME", target.Name)
 	writeEnv("GLOSKI_AGENT_DEPLOY_ID", target.DeployID)
-	writeEnv("GLOSKI_HOST", "0.0.0.0")
-	writeEnv("GLOSKI_PORT", strconv.Itoa(target.AgentPort))
 	writeEnv("GLOSKI_DATA_DIR", paths.dataDir)
 
 	return fmt.Sprintf(`set -eu

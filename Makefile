@@ -25,7 +25,7 @@ dev: ## Run both backend and frontend (requires tmux)
 	@tmux new-session -d -s gloski 'make dev-server' \; split-window -h 'make dev-web' \; attach
 
 # Build
-build-server: ## Build backend binary (standalone/master)
+build-server: ## Build master binary
 	@mkdir -p bin
 	cd server && CGO_ENABLED=0 go build $(LDFLAGS) -o ../bin/gloski ./cmd/gloski
 	@echo "$(GREEN)Built bin/gloski$(NC)"

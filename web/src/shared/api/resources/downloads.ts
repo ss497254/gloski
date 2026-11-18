@@ -37,7 +37,7 @@ export class DownloadsResource {
   /**
    * Add a new download
    * @param url - URL to download from
-   * @param destination - Destination directory on the server
+   * @param destination - Destination directory on the device
    * @param filename - Optional filename (auto-detected if not provided)
    */
   async add(url: string, destination: string, filename?: string, options?: RequestOptions): Promise<Result<Download>> {

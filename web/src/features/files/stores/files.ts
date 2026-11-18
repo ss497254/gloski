@@ -18,7 +18,7 @@ export interface ClipboardItem {
 }
 
 interface FilesState {
-  // Pinned folders (synced with server)
+  // Pinned folders (synced with device)
   pinnedFolders: PinnedFolder[]
   setPinnedFolders: (folders: PinnedFolder[]) => void
   addPinnedFolder: (folder: PinnedFolder) => void
@@ -62,7 +62,7 @@ interface FilesState {
 export const useFilesStore = create<FilesState>()(
   persist(
     (set, get) => ({
-      // Pinned folders (synced with server, not persisted locally)
+      // Pinned folders (synced with device, not persisted locally)
       pinnedFolders: [],
 
       setPinnedFolders: (folders) => {
@@ -181,7 +181,7 @@ export const useFilesStore = create<FilesState>()(
     }),
     {
       name: 'gloski-files',
-      // Only persist view preferences locally, not pinned folders (those come from server)
+      // Only persist view preferences locally, not pinned folders (those come from device)
       partialize: (state) => ({
         viewMode: state.viewMode,
         sortBy: state.sortBy,

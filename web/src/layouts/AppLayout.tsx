@@ -24,7 +24,7 @@ export function AppLayout() {
             <div className="flex flex-col">
               <span className="font-semibold text-foreground leading-none">Gloski</span>
               <span className="text-[10px] text-muted-foreground leading-none mt-0.5">
-                {mode === 'tower' ? 'Control tower' : mode === 'loading' ? 'Connecting…' : 'Server management'}
+                {mode === 'loading' ? 'Connecting…' : 'Control tower'}
               </span>
             </div>
           </div>

@@ -90,8 +90,6 @@ type MasterConfig struct {
 	DeployTimeout int `json:"deploy_timeout"`
 	// LocalAgent controls whether the master also runs an agent for itself.
 	LocalAgent bool `json:"local_agent"`
-	// LocalAgentPort is the loopback port used by that agent.
-	LocalAgentPort int `json:"local_agent_port"`
 	// LocalAgentName overrides the display name of the master device.
 	LocalAgentName string `json:"local_agent_name"`
 	// AgentGRPCHost/Port is where remote agents connect to the master.
@@ -109,13 +107,8 @@ type AgentConfig struct {
 	JoinToken string `json:"join_token"`
 	// Name is the display name for this device (default: hostname).
 	Name string `json:"name"`
-	// AdvertiseURL is the URL the master should use to reach this agent.
-	// If empty, the master derives it from the connection and the listen port.
-	AdvertiseURL string `json:"advertise_url"`
 	// HeartbeatInterval is how often to report to the master (seconds).
 	HeartbeatInterval int `json:"heartbeat_interval"`
-	// StateFile stores the device credentials (default: <data_dir>/agent.json).
-	StateFile string `json:"state_file"`
 	// DeployID links this agent to the master deployment that started it.
 	DeployID string `json:"deploy_id"`
 	// Master marks the agent running on the control tower itself.
@@ -164,7 +157,6 @@ func DefaultConfig() *Config {
 			HeartbeatInterval: 10,
 			DeployTimeout:     120,
 			LocalAgent:        true,
-			LocalAgentPort:    18081,
 			AgentGRPCHost:     "0.0.0.0",
 			AgentGRPCPort:     9090,
 		},
@@ -178,14 +170,6 @@ func DefaultConfig() *Config {
 // MasterDBPath returns the path to the master's SQLite database.
 func (c *Config) MasterDBPath() string {
 	return filepath.Join(c.DataDir, "master.db")
-}
-
-// AgentStatePath returns the path to the agent credential file.
-func (c *Config) AgentStatePath() string {
-	if c.Agent.StateFile != "" {
-		return c.Agent.StateFile
-	}
-	return filepath.Join(c.DataDir, "agent.json")
 }
 
 // DatabasePath returns the path to the SQLite database
@@ -210,7 +194,7 @@ func Load(path string) (*Config, error) {
 			}
 			// File doesn't exist, use defaults
 		} else if err := json.Unmarshal(data, cfg); err != nil {
-			return nil, fmt.Errorf("Failed to parse config file: %w\n", err)
+			return nil, fmt.Errorf("failed to parse config file: %w", err)
 		}
 	}
 
@@ -315,16 +299,10 @@ func (c *Config) loadFromEnv() {
 	if v := os.Getenv("GLOSKI_AGENT_NAME"); v != "" {
 		c.Agent.Name = v
 	}
-	if v := os.Getenv("GLOSKI_AGENT_ADVERTISE_URL"); v != "" {
-		c.Agent.AdvertiseURL = v
-	}
 	if v := os.Getenv("GLOSKI_AGENT_HEARTBEAT_INTERVAL"); v != "" {
 		if _, err := fmt.Sscanf(v, "%d", &c.Agent.HeartbeatInterval); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_AGENT_HEARTBEAT_INTERVAL value %q: %v\n", v, err)
 		}
-	}
-	if v := os.Getenv("GLOSKI_AGENT_STATE_FILE"); v != "" {
-		c.Agent.StateFile = v
 	}
 	if v := os.Getenv("GLOSKI_AGENT_DEPLOY_ID"); v != "" {
 		c.Agent.DeployID = v
@@ -345,11 +323,6 @@ func (c *Config) loadFromEnv() {
 	}
 	if v := os.Getenv("GLOSKI_MASTER_LOCAL_AGENT"); v != "" {
 		c.Master.LocalAgent = v == "true" || v == "1"
-	}
-	if v := os.Getenv("GLOSKI_MASTER_LOCAL_AGENT_PORT"); v != "" {
-		if _, err := fmt.Sscanf(v, "%d", &c.Master.LocalAgentPort); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_MASTER_LOCAL_AGENT_PORT value %q: %v\n", v, err)
-		}
 	}
 	if v := os.Getenv("GLOSKI_MASTER_LOCAL_AGENT_NAME"); v != "" {
 		c.Master.LocalAgentName = v
@@ -409,7 +382,7 @@ func (c *Config) validate() error {
 	if c.JWTPublicKeyFile != "" && c.JWTPublicKey == "" {
 		data, err := os.ReadFile(c.JWTPublicKeyFile)
 		if err != nil {
-			return fmt.Errorf("Failed to read JWT public key file: %w", err)
+			return fmt.Errorf("failed to read JWT public key file: %w", err)
 		}
 		c.JWTPublicKey = string(data)
 	}

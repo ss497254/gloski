@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -24,7 +23,6 @@ type deployRequest struct {
 	User      string `json:"user"`
 	SSHPort   int    `json:"ssh_port"`
 	AgentPort int    `json:"agent_port"`
-	MasterURL string `json:"master_url"`
 }
 
 func (s *Server) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
@@ -236,22 +234,4 @@ func (s *Server) deviceTarget(deviceID string) (deploy.Target, error) {
 		DeployID:   deployment.ID,
 		RemoteBase: deploy.DefaultRemoteBase(),
 	}, nil
-}
-
-func (s *Server) requestURL(r *http.Request) string {
-	if s.cfg.BaseURL != "" {
-		return strings.TrimRight(s.cfg.BaseURL, "/")
-	}
-
-	scheme := "http"
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwarded != "" {
-		scheme = strings.ToLower(strings.Split(forwarded, ",")[0])
-	} else if r.TLS != nil {
-		scheme = "https"
-	}
-	host := r.Host
-	if host == "" {
-		host = net.JoinHostPort("127.0.0.1", fmt.Sprint(s.cfg.Port))
-	}
-	return scheme + "://" + host
 }

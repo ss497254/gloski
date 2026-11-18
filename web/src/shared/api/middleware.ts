@@ -15,14 +15,14 @@ export interface RetryOptions {
 
 const DEFAULT_RETRY_ON = [429, 500, 502, 503, 504]
 const SAFE_TO_RETRY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
-// These status codes indicate the server didn't process the request, so mutations are safe to retry
+// These status codes indicate the device didn't process the request, so mutations are safe to retry
 const SAFE_TO_RETRY_STATUSES = new Set([429, 503])
 
 /**
  * Creates a retry middleware with exponential backoff.
  *
  * - GET/HEAD/OPTIONS requests are retried for all configured status codes.
- * - POST/PUT/DELETE are only retried for 429 and 503 (server didn't process the request).
+ * - POST/PUT/DELETE are only retried for 429 and 503 (device didn't process the request).
  * - Network errors (fetch throws) are retried for all methods.
  * - Respects the `Retry-After` header when present.
  *
@@ -48,7 +48,7 @@ export function withRetry(options?: RetryOptions): Middleware {
         const response = await next(request)
 
         if (retryOn.has(response.status) && attempt < maxRetries) {
-          // For unsafe methods, only retry server-level rejections
+          // For unsafe methods, only retry device-level rejections
           if (!isSafeMethod && !SAFE_TO_RETRY_STATUSES.has(response.status)) {
             return response
           }

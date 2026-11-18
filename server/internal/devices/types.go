@@ -39,7 +39,6 @@ type RegisterRequest struct {
 	JoinToken string        `json:"join_token"`
 	Name      string        `json:"name"`
 	URL       string        `json:"url"`
-	Port      int           `json:"port"`
 	Hostname  string        `json:"hostname"`
 	Platform  string        `json:"platform"`
 	Version   string        `json:"version"`
@@ -58,9 +57,7 @@ type RegisterResponse struct {
 
 // HeartbeatRequest is sent periodically by an agent.
 type HeartbeatRequest struct {
-	URL     string        `json:"url,omitempty"`
-	Version string        `json:"version,omitempty"`
-	Stats   *system.Stats `json:"stats,omitempty"`
+	Stats *system.Stats `json:"stats,omitempty"`
 }
 
 // Event is broadcast to fleet WebSocket subscribers.

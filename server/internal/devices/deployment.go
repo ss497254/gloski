@@ -13,7 +13,6 @@ import (
 const (
 	DeployPending   = "pending"
 	DeployUploading = "uploading"
-	DeployStarting  = "starting"
 	DeployRunning   = "running"
 	DeployStopped   = "stopped"
 	DeployFailed    = "failed"

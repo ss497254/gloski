@@ -158,46 +158,19 @@ func (s *JobStore) AbortDevice(deviceID, reason string) error {
 	return err
 }
 
-// List returns jobs for a device, newest first.
-func (s *JobStore) List(deviceID string) ([]Job, error) {
-	rows, err := s.db.Query(`
-		SELECT id, device_id, command, COALESCE(cwd, ''), status, exit_code,
-		       COALESCE(error, ''), created_at, COALESCE(started_at, created_at),
-		       COALESCE(finished_at, created_at)
-		FROM agent_jobs WHERE device_id = ? ORDER BY created_at DESC LIMIT 200`, deviceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+const jobColumns = `id, device_id, command, COALESCE(cwd, ''), status, exit_code,
+	COALESCE(error, ''), created_at, COALESCE(started_at, created_at),
+	COALESCE(finished_at, created_at)`
 
-	jobs := []Job{}
-	for rows.Next() {
-		var job Job
-		var created, started, finished interface{}
-		if err := rows.Scan(&job.ID, &job.DeviceID, &job.Command, &job.CWD, &job.Status,
-			&job.ExitCode, &job.Error, &created, &started, &finished); err != nil {
-			return nil, err
-		}
-		job.CreatedAt = scanJobTime(created)
-		job.StartedAt = scanJobTime(started)
-		job.FinishedAt = scanJobTime(finished)
-		jobs = append(jobs, job)
-	}
-	return jobs, rows.Err()
+type jobScanner interface {
+	Scan(dest ...interface{}) error
 }
 
-// Get returns one job.
-func (s *JobStore) Get(id string) (*Job, error) {
-	row := s.db.QueryRow(`
-		SELECT id, device_id, command, COALESCE(cwd, ''), status, exit_code,
-		       COALESCE(error, ''), created_at, COALESCE(started_at, created_at),
-		       COALESCE(finished_at, created_at)
-		FROM agent_jobs WHERE id = ?`, id)
+func scanJob(row jobScanner) (*Job, error) {
 	var job Job
 	var created, started, finished interface{}
-	err := row.Scan(&job.ID, &job.DeviceID, &job.Command, &job.CWD, &job.Status,
-		&job.ExitCode, &job.Error, &created, &started, &finished)
-	if err != nil {
+	if err := row.Scan(&job.ID, &job.DeviceID, &job.Command, &job.CWD, &job.Status,
+		&job.ExitCode, &job.Error, &created, &started, &finished); err != nil {
 		return nil, err
 	}
 	job.CreatedAt = scanJobTime(created)
@@ -206,15 +179,42 @@ func (s *JobStore) Get(id string) (*Job, error) {
 	return &job, nil
 }
 
+// List returns jobs for a device, newest first.
+func (s *JobStore) List(deviceID string) ([]Job, error) {
+	rows, err := s.db.Query(`
+		SELECT `+jobColumns+`
+		FROM agent_jobs WHERE device_id = ? ORDER BY created_at DESC LIMIT 200`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	jobs := []Job{}
+	for rows.Next() {
+		job, err := scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, *job)
+	}
+	return jobs, rows.Err()
+}
+
+// Get returns one job.
+func (s *JobStore) Get(id string) (*Job, error) {
+	row := s.db.QueryRow(`
+		SELECT `+jobColumns+`
+		FROM agent_jobs WHERE id = ?`, id)
+	return scanJob(row)
+}
+
 // Recent returns the newest jobs across all devices.
 func (s *JobStore) Recent(limit int) ([]Job, error) {
 	if limit <= 0 {
 		limit = 10
 	}
 	rows, err := s.db.Query(`
-		SELECT id, device_id, command, COALESCE(cwd, ''), status, exit_code,
-		       COALESCE(error, ''), created_at, COALESCE(started_at, created_at),
-		       COALESCE(finished_at, created_at)
+		SELECT `+jobColumns+`
 		FROM agent_jobs ORDER BY created_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
@@ -223,16 +223,11 @@ func (s *JobStore) Recent(limit int) ([]Job, error) {
 
 	jobs := []Job{}
 	for rows.Next() {
-		var job Job
-		var created, started, finished interface{}
-		if err := rows.Scan(&job.ID, &job.DeviceID, &job.Command, &job.CWD, &job.Status,
-			&job.ExitCode, &job.Error, &created, &started, &finished); err != nil {
+		job, err := scanJob(rows)
+		if err != nil {
 			return nil, err
 		}
-		job.CreatedAt = scanJobTime(created)
-		job.StartedAt = scanJobTime(started)
-		job.FinishedAt = scanJobTime(finished)
-		jobs = append(jobs, job)
+		jobs = append(jobs, *job)
 	}
 	return jobs, rows.Err()
 }
@@ -243,9 +238,7 @@ func (s *JobStore) ProblemJobs(limit int) ([]Job, error) {
 		limit = 10
 	}
 	rows, err := s.db.Query(`
-		SELECT id, device_id, command, COALESCE(cwd, ''), status, exit_code,
-		       COALESCE(error, ''), created_at, COALESCE(started_at, created_at),
-		       COALESCE(finished_at, created_at)
+		SELECT `+jobColumns+`
 		FROM agent_jobs WHERE status IN (?, ?) ORDER BY created_at DESC LIMIT ?`,
 		JobFailed, JobAbandoned, limit)
 	if err != nil {
@@ -255,16 +248,11 @@ func (s *JobStore) ProblemJobs(limit int) ([]Job, error) {
 
 	jobs := []Job{}
 	for rows.Next() {
-		var job Job
-		var created, started, finished interface{}
-		if err := rows.Scan(&job.ID, &job.DeviceID, &job.Command, &job.CWD, &job.Status,
-			&job.ExitCode, &job.Error, &created, &started, &finished); err != nil {
+		job, err := scanJob(rows)
+		if err != nil {
 			return nil, err
 		}
-		job.CreatedAt = scanJobTime(created)
-		job.StartedAt = scanJobTime(started)
-		job.FinishedAt = scanJobTime(finished)
-		jobs = append(jobs, job)
+		jobs = append(jobs, *job)
 	}
 	return jobs, rows.Err()
 }

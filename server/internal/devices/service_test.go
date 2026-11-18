@@ -33,17 +33,16 @@ func newTestService(t *testing.T) (*Service, *database.Database) {
 func TestRegisterHeartbeatAndDelete(t *testing.T) {
 	svc, _ := newTestService(t)
 
-	if _, err := svc.Register(RegisterRequest{JoinToken: "wrong", Name: "alpha"}, "100.64.0.5"); !errors.Is(err, ErrInvalidJoinToken) {
+	if _, err := svc.Register(RegisterRequest{JoinToken: "wrong", Name: "alpha"}); !errors.Is(err, ErrInvalidJoinToken) {
 		t.Fatalf("expected invalid join token, got %v", err)
 	}
 
 	resp, err := svc.Register(RegisterRequest{
 		JoinToken: "test-join",
 		Name:      "alpha",
-		Port:      9000,
 		Hostname:  "alpha-host",
 		Platform:  "linux/amd64",
-	}, "100.64.0.5")
+	})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -61,7 +60,7 @@ func TestRegisterHeartbeatAndDelete(t *testing.T) {
 	if len(list) != 1 {
 		t.Fatalf("device count = %d, want 1", len(list))
 	}
-	if list[0].URL != "http://100.64.0.5:9000" {
+	if list[0].URL != "grpc://agent" {
 		t.Fatalf("device URL = %q", list[0].URL)
 	}
 	if list[0].Status != StatusOnline {
@@ -87,7 +86,7 @@ func TestRegisterHeartbeatAndDelete(t *testing.T) {
 		JoinToken: "test-join",
 		Name:      "alpha",
 		URL:       "http://alpha.example:9100",
-	}, "100.64.0.5")
+	})
 	if err != nil {
 		t.Fatalf("re-register: %v", err)
 	}

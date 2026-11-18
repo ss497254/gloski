@@ -1,4 +1,4 @@
-import { useServer } from '@/shared/context'
+import { useDevice } from '@/shared/context'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import { AlertTriangle, Download, FileText, Loader2, Maximize2, Minimize2, Pencil, Save, X } from 'lucide-react'
@@ -9,7 +9,7 @@ import { formatDate, formatSize } from '../lib/file-utils'
 import { AudioPreview, BinaryPreview, ImagePreview, PdfPreview, TextPreview, VideoPreview } from './previews'
 
 export function FilePreview() {
-  const { server } = useServer()
+  const { device } = useDevice()
   const {
     selectedFile,
     fileContent,
@@ -46,7 +46,7 @@ export function FilePreview() {
   // Don't render if no file is selected
   if (!selectedFile) return null
 
-  const downloadUrl = server.getClient().files.getDownloadUrl(selectedFile.path)
+  const downloadUrl = device.getClient().files.getDownloadUrl(selectedFile.path)
   const fileType = getFileType(selectedFile.name)
   const showLargeFileWarning =
     shouldWarnLargeFile(selectedFile.size) && !dismissedWarning && fileContent === null && isTextFile(selectedFile.name)

@@ -1,5 +1,5 @@
 import { EmptyState, FilesListSkeleton } from '@/shared/components'
-import { useServer } from '@/shared/context'
+import { useDevice } from '@/shared/context'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import { AlertCircle, Folder, Search } from 'lucide-react'
@@ -24,7 +24,7 @@ import { useFilesKeyboard } from '../hooks/useFilesKeyboard'
  * Handles the layout and rendering of the files feature.
  */
 function FilesPageContent() {
-  const { server } = useServer()
+  const { device } = useDevice()
 
   const {
     // Navigation
@@ -149,7 +149,7 @@ function FilesPageContent() {
                     isFocused={index === focusedIndex}
                     showCheckbox={selectedPaths.size > 0}
                     isPinned={entry.type === 'directory' ? isPinned(entry.path) : undefined}
-                    vsCodeUrl={server.url + '/vscode'}
+                    vsCodeUrl={device.url + '/vscode'}
                     onSelect={handleEntrySelect}
                     onNavigate={navigateTo}
                     onDownload={handleDownload}

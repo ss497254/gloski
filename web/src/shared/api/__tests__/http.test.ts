@@ -142,7 +142,7 @@ describe('HttpClient', () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
 
-  test('throws GloskiError with server error message on non-ok response', async () => {
+  test('throws GloskiError with device error message on non-ok response', async () => {
     globalThis.fetch = mock(() => Promise.resolve(mockResponse({ error: 'File not found' }, 404)))
 
     const client = new HttpClient({ url: 'http://localhost:3000', apiKey: 'key' })
@@ -175,7 +175,7 @@ describe('HttpClient', () => {
     expect(onOffline).toHaveBeenCalledTimes(1)
   })
 
-  test('calls onOnline when server recovers', async () => {
+  test('calls onOnline when device recovers', async () => {
     const onOffline = mock(() => {})
     const onOnline = mock(() => {})
     const client = new HttpClient({ url: 'http://localhost:3000', apiKey: 'key' }, { onOffline, onOnline })
@@ -238,7 +238,7 @@ describe('HttpClient', () => {
   })
 
   test('buildWebSocketUrl converts https to wss', () => {
-    const client = new HttpClient({ url: 'https://server.example.com', apiKey: 'key' })
+    const client = new HttpClient({ url: 'https://device.example.com', apiKey: 'key' })
     const url = client.buildWebSocketUrl('/ws/stats')
 
     expect(url).toMatch(/^wss:/)

@@ -130,7 +130,7 @@ function DeviceRow({ device }: { device: FleetDevice }) {
   )
 }
 
-export function FleetPage() {
+export function DevicesPage() {
   const { mode, info, devices, connected, error, refresh } = useTower()
   const [deployOpen, setDeployOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -210,7 +210,7 @@ export function FleetPage() {
           <EmptyState
             icon={Wifi}
             title="No devices yet"
-            description="Deploy gloski-agent to a machine on your tailnet. The tower copies the binary over SSH to /tmp and starts it as a slave service."
+            description="Deploy gloski-agent to a machine on your tailnet. The master copies the binary over SSH to /tmp and starts it as an agent service."
             action={
               <Button onClick={() => setDeployOpen(true)} disabled={deployDisabled}>
                 <Plus className="mr-2 h-4 w-4" />

@@ -11,7 +11,7 @@ export function AboutSettings() {
       <Card>
         <CardHeader>
           <CardTitle>Gloski Control Center</CardTitle>
-          <CardDescription>A modern control center for managing Linux servers</CardDescription>
+          <CardDescription>A control tower for Linux devices on your Tailnet</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">

@@ -103,15 +103,11 @@ func (s *Store) List() ([]Device, error) {
 }
 
 // UpdateHeartbeat refreshes liveness and cached stats for a device.
-func (s *Store) UpdateHeartbeat(id, url, version string, stats *system.Stats, at time.Time) error {
+func (s *Store) UpdateHeartbeat(id string, stats *system.Stats, at time.Time) error {
 	_, err := s.db.Exec(`
 		UPDATE devices
-		SET last_seen = ?, updated_at = ?,
-		    url = CASE WHEN ? <> '' THEN ? ELSE url END,
-		    version = CASE WHEN ? <> '' THEN ? ELSE version END,
-		    stats_json = ?
-		WHERE id = ?`,
-		at, at, url, url, version, version, marshalStats(stats), id,
+		SET last_seen = ?, updated_at = ?, stats_json = ?
+		WHERE id = ?`, at, at, marshalStats(stats), id,
 	)
 	return err
 }

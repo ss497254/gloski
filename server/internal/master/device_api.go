@@ -2,6 +2,7 @@ package master
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -9,7 +10,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/ss497254/gloski/internal/agentgrpc"
 	"github.com/ss497254/gloski/internal/api/handlers"
+	"github.com/ss497254/gloski/internal/devices"
 	"github.com/ss497254/gloski/internal/logger"
 	"github.com/ss497254/gloski/proto/agentv1"
 )
@@ -145,7 +148,7 @@ func (s *Server) handleDeleteJob(w http.ResponseWriter, r *http.Request) {
 	handlers.SuccessWithMessage(w, nil)
 }
 
-func (s *Server) fileRequest(path, operation string) *agentv1.FileRequest {
+func fileRequest(path, operation string) *agentv1.FileRequest {
 	switch operation {
 	case "list":
 		return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_LIST, Path: path}
@@ -182,7 +185,7 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	if path == "" {
 		path = "~"
 	}
-	result := s.performFile(w, r.PathValue("id"), s.fileRequest(path, "list"))
+	result := s.performFile(w, r.PathValue("id"), fileRequest(path, "list"))
 	if result == nil {
 		return
 	}
@@ -192,7 +195,7 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
-	result := s.performFile(w, r.PathValue("id"), s.fileRequest(path, "read"))
+	result := s.performFile(w, r.PathValue("id"), fileRequest(path, "read"))
 	if result == nil {
 		return
 	}
@@ -201,7 +204,7 @@ func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
-	result := s.performFile(w, r.PathValue("id"), s.fileRequest(path, "read"))
+	result := s.performFile(w, r.PathValue("id"), fileRequest(path, "read"))
 	if result == nil {
 		return
 	}
@@ -211,7 +214,7 @@ func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
-	if s.performFile(w, r.PathValue("id"), s.fileRequest(path, "delete")) != nil {
+	if s.performFile(w, r.PathValue("id"), fileRequest(path, "delete")) != nil {
 		handlers.SuccessWithMessage(w, nil)
 	}
 }
@@ -225,7 +228,7 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 		handlers.BadRequest(w, "invalid write request")
 		return
 	}
-	grpcRequest := s.fileRequest(request.Path, "write")
+	grpcRequest := fileRequest(request.Path, "write")
 	grpcRequest.Content = []byte(request.Content)
 	if s.performFile(w, r.PathValue("id"), grpcRequest) != nil {
 		handlers.SuccessWithMessage(w, nil)
@@ -240,7 +243,7 @@ func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request) {
 		handlers.BadRequest(w, "invalid mkdir request")
 		return
 	}
-	if s.performFile(w, r.PathValue("id"), s.fileRequest(request.Path, "mkdir")) != nil {
+	if s.performFile(w, r.PathValue("id"), fileRequest(request.Path, "mkdir")) != nil {
 		handlers.SuccessWithMessage(w, nil)
 	}
 }
@@ -254,7 +257,7 @@ func (s *Server) handleRename(w http.ResponseWriter, r *http.Request) {
 		handlers.BadRequest(w, "invalid rename request")
 		return
 	}
-	grpcRequest := s.fileRequest(request.OldPath, "rename")
+	grpcRequest := fileRequest(request.OldPath, "rename")
 	grpcRequest.NewPath = request.NewPath
 	if s.performFile(w, r.PathValue("id"), grpcRequest) != nil {
 		handlers.SuccessWithMessage(w, nil)
@@ -282,7 +285,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := strings.TrimRight(destination, "/") + "/" + header.Filename
-	grpcRequest := s.fileRequest(path, "write")
+	grpcRequest := fileRequest(path, "write")
 	grpcRequest.Content = content
 	if s.performFile(w, r.PathValue("id"), grpcRequest) != nil {
 		handlers.Success(w, map[string]interface{}{"filename": header.Filename})
@@ -329,13 +332,12 @@ func (s *Server) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeAgentError(w http.ResponseWriter, err error) {
-	message := err.Error()
 	switch {
-	case strings.Contains(message, "not connected"):
-		handlers.Error(w, http.StatusBadGateway, message)
-	case strings.Contains(message, "not found"):
-		handlers.NotFound(w, message)
+	case errors.Is(err, agentgrpc.ErrNoAgent):
+		handlers.Error(w, http.StatusBadGateway, err.Error())
+	case errors.Is(err, devices.ErrDeviceNotFound):
+		handlers.NotFound(w, "device not found")
 	default:
-		handlers.InternalError(w, "agent request failed", message)
+		handlers.InternalError(w, "agent request failed", err.Error())
 	}
 }

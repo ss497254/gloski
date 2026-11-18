@@ -8,7 +8,8 @@ The Gloski server is a Go application that provides APIs for system management, 
 |------------|---------|
 | Go 1.24+ | Language (uses new router patterns) |
 | net/http | HTTP server |
-| gorilla/websocket | WebSocket for terminal |
+| gorilla/websocket | Browser terminal WebSocket |
+| gRPC / protobuf | Master ↔ agent communication |
 | golang-jwt/jwt | JWT token verification |
 | creack/pty | PTY for terminal |
 
@@ -18,7 +19,7 @@ The Gloski server is a Go application that provides APIs for system management, 
 server/
 ├── cmd/
 │   ├── gloski/
-│   │   └── main.go           # Standalone / master entry point
+│   │   └── main.go           # Master entry point
 │   └── gloski-agent/
 │       └── main.go           # Device agent entry point
 │
@@ -62,20 +63,31 @@ server/
     │
     ├── devices/
     │   ├── service.go        # Enrollment, heartbeats, online status
+    │   ├── deployment.go     # SSH deployment records
     │   ├── store.go          # Device registry (SQLite)
     │   ├── hub.go            # Fleet WebSocket fan-out
     │   └── types.go          # Device and protocol types
     │
+    ├── agentgrpc/
+    │   ├── server.go         # Bidirectional gRPC stream per agent
+    │   └── jobs.go           # Master-owned jobs and logs
+    │
     ├── master/
-    │   ├── server.go         # Control tower routes + SPA serving
-    │   ├── handlers.go       # Enrollment, heartbeat, fleet API
-    │   ├── proxy.go          # Device API reverse proxy
+    │   ├── server.go         # Browser routes + SPA serving
+    │   ├── device_api.go     # Browser API translated into gRPC calls
+    │   ├── agent_transport.go# Local agent process and gRPC listeners
+    │   ├── deploy.go         # SSH deployment and lifecycle
+    │   ├── dashboard.go      # Summary and issues
     │   └── run.go            # Master HTTP server lifecycle
     │
     ├── agent/
-    │   ├── run.go            # Agent lifecycle, enrollment, heartbeat
-    │   ├── client.go         # Master registration/heartbeat client
-    │   └── state.go          # Persisted device credentials
+    │   └── run.go            # Stateless agent: connect, execute, report
+    │
+    ├── deploy/
+    │   └── deploy.go         # In-process SSH file copy and start/stop
+    │
+    ├── tailscale/
+    │   └── tailscale.go      # LocalAPI peer discovery over Unix socket
     │
     ├── files/
     │   └── service.go        # File operations
@@ -245,8 +257,8 @@ Configuration is loaded from environment variables and/or config file.
 | `GLOSKI_SHELL` | `$SHELL` | Shell for terminal |
 | `GLOSKI_ALLOWED_ORIGINS` | `*` | CORS origins (comma-separated) |
 | `GLOSKI_ALLOWED_PATHS` | `/` | Allowed filesystem paths |
-| `GLOSKI_MODE` | `standalone` | `standalone`, `master`, or `agent` |
-| `GLOSKI_DATA_DIR` | `~/.gloski/data` | Database, job, download, and agent state |
+| `GLOSKI_MODE` | `master` | `master` or `agent` |
+| `GLOSKI_DATA_DIR` | `~/.gloski/data` | Database, tokens, socket, and logs |
 | `GLOSKI_MASTER_WEB_DIR` | `web/dist` | SPA directory served by the master |
 | `GLOSKI_MASTER_JOIN_TOKEN` | generated | Agent enrollment token |
 | `GLOSKI_MASTER_DEVICE_TIMEOUT` | `45` | Seconds before a device is offline |
@@ -254,9 +266,8 @@ Configuration is loaded from environment variables and/or config file.
 | `GLOSKI_AGENT_MASTER_URL` | (required) | Master URL for `gloski-agent` |
 | `GLOSKI_AGENT_JOIN_TOKEN` | (none) | Enrollment token for first registration |
 | `GLOSKI_AGENT_NAME` | hostname | Device display name / registry key |
-| `GLOSKI_AGENT_ADVERTISE_URL` | derived | URL the master uses to reach the agent |
 | `GLOSKI_AGENT_HEARTBEAT_INTERVAL` | `10` | Agent heartbeat interval |
-| `GLOSKI_AGENT_STATE_FILE` | `<data_dir>/agent.json` | Device credential file |
+| `GLOSKI_AGENT_DEPLOY_ID` | (none) | Links the agent to its master deployment |
 
 See [Control Tower](tower.md) for topology, Tailscale, and enrollment details.
 

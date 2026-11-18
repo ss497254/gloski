@@ -92,14 +92,3 @@ func TestPrimaryIP(t *testing.T) {
 		t.Fatalf("PrimaryIP() = %q", got)
 	}
 }
-
-func TestEndpointURL(t *testing.T) {
-	node := Node{DNSName: "worker.tailnet.ts.net.", IPs: []string{"100.64.0.2"}}
-	if got := EndpointURL(node, "http", 18081); got != "http://worker.tailnet.ts.net:18081" {
-		t.Fatalf("EndpointURL() = %q", got)
-	}
-	node.DNSName = ""
-	if got := EndpointURL(node, "http", 18081); got != "http://100.64.0.2:18081" {
-		t.Fatalf("EndpointURL() = %q", got)
-	}
-}

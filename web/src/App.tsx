@@ -5,9 +5,9 @@ import { Toaster } from '@/ui/sonner'
 import { createBrowserRouter, Navigate, RouterProvider, useLocation, useParams } from 'react-router-dom'
 
 function LegacyRedirect({ prefix }: { prefix: '/fleet' | '/servers' }) {
-  const params = useParams<{ deviceId?: string; serverId?: string }>()
+  const params = useParams<{ deviceId?: string }>()
   const location = useLocation()
-  const id = (params.deviceId ?? params.serverId ?? '').replace(/^tower-/, '')
+  const id = params.deviceId ?? ''
   const remainder = location.pathname.replace(new RegExp(`^${prefix}/[^/]+`), '')
   if (!id) return <Navigate to="/devices" replace />
   return <Navigate to={`/devices/${id}${remainder}`} replace />
@@ -27,7 +27,7 @@ const router = createBrowserRouter([
       {
         path: '/devices',
         lazy: {
-          Component: async () => (await import('@/features/fleet')).FleetPage,
+          Component: async () => (await import('@/features/devices')).DevicesPage,
         },
       },
       {
@@ -38,7 +38,7 @@ const router = createBrowserRouter([
           {
             index: true,
             lazy: {
-              Component: async () => (await import('@/features/fleet')).DevicePage,
+              Component: async () => (await import('@/features/devices')).DevicePage,
             },
           },
           {
@@ -70,7 +70,7 @@ const router = createBrowserRouter([
         element: <LegacyRedirect prefix="/fleet" />,
       },
       {
-        path: '/servers/:serverId/*',
+        path: '/servers/:deviceId/*',
         element: <LegacyRedirect prefix="/servers" />,
       },
       {

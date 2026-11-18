@@ -1,1 +1,1 @@
-export { ServerProvider, useServer, useServerOptional } from './ServerContext'
+export { DeviceProvider, useDevice } from './DeviceContext'

@@ -7,11 +7,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -65,7 +62,7 @@ func (s *Service) changed() {
 }
 
 // Register enrolls an agent. Re-registering an existing name rotates its token.
-func (s *Service) Register(req RegisterRequest, remoteIP string) (*RegisterResponse, error) {
+func (s *Service) Register(req RegisterRequest) (*RegisterResponse, error) {
 	if !s.validJoinToken(req.JoinToken) {
 		return nil, ErrInvalidJoinToken
 	}
@@ -82,7 +79,7 @@ func (s *Service) Register(req RegisterRequest, remoteIP string) (*RegisterRespo
 	dev := &Device{
 		ID:        uuid.NewString(),
 		Name:      name,
-		URL:       deriveURL(req, remoteIP),
+		URL:       deriveURL(req.URL),
 		Token:     randomToken(),
 		Hostname:  strings.TrimSpace(req.Hostname),
 		Platform:  strings.TrimSpace(req.Platform),
@@ -132,7 +129,7 @@ func (s *Service) Heartbeat(token string, req HeartbeatRequest) (*Device, error)
 	}
 
 	now := time.Now().UTC()
-	if err := s.store.UpdateHeartbeat(dev.ID, strings.TrimSpace(req.URL), req.Version, req.Stats, now); err != nil {
+	if err := s.store.UpdateHeartbeat(dev.ID, req.Stats, now); err != nil {
 		return nil, err
 	}
 
@@ -258,35 +255,13 @@ func (s *Service) validJoinToken(token string) bool {
 	return subtle.ConstantTimeCompare([]byte(token), []byte(s.join)) == 1
 }
 
-func deriveURL(req RegisterRequest, remoteIP string) string {
-	raw := strings.TrimSpace(req.URL)
-	port := req.Port
-	if port <= 0 {
-		port = 8080
+// deriveURL keeps the agent's advertised label. Agents no longer expose HTTP.
+func deriveURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "grpc://agent"
 	}
-
-	if raw != "" {
-		if u, err := url.Parse(raw); err == nil {
-			if p := u.Port(); p != "" {
-				if n, err := strconv.Atoi(p); err == nil {
-					port = n
-				}
-			}
-			host := u.Hostname()
-			if host != "" && host != "0.0.0.0" && host != "::" {
-				return strings.TrimRight(raw, "/")
-			}
-		}
-	}
-
-	host := remoteIP
-	if host == "" {
-		host = strings.TrimSpace(req.Hostname)
-	}
-	if host == "" {
-		host = "127.0.0.1"
-	}
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(port))
+	return strings.TrimRight(raw, "/")
 }
 
 func randomToken() string {

@@ -7,6 +7,11 @@ import { Loader2, Rocket, Server } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 
+const DEFAULT_SSH_PORT = '22'
+const POLL_INITIAL_DELAY_MS = 700
+const POLL_INTERVAL_MS = 1000
+const POLL_MAX_ATTEMPTS = 150
+
 interface DeployDeviceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -19,7 +24,6 @@ interface FormState {
   name: string
   user: string
   sshPort: string
-  agentPort: string
 }
 
 function peerKey(peer: TailnetNode): string {
@@ -54,8 +58,7 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
     host: '',
     name: '',
     user: '',
-    sshPort: '22',
-    agentPort: '18081',
+    sshPort: DEFAULT_SSH_PORT,
   })
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'deploying' | 'failed'>('idle')
@@ -91,8 +94,7 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
         host: firstPeer ? peerHost(firstPeer) : '',
         name: firstPeer?.hostname ?? '',
         user: localStorage.getItem('gloski-ssh-user') ?? '',
-        sshPort: '22',
-        agentPort: '18081',
+        sshPort: DEFAULT_SSH_PORT,
       })
       setLoadingPeers(false)
     }
@@ -127,12 +129,12 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
           return
         }
         attempts += 1
-        if (attempts > 150) {
+        if (attempts > POLL_MAX_ATTEMPTS) {
           setError('Deployment timed out waiting for the agent. Check the master logs.')
           setStatus('failed')
           return
         }
-        timer = setTimeout(poll, 1000)
+        timer = setTimeout(poll, POLL_INTERVAL_MS)
       } catch (err) {
         if (cancelled) return
         setError(err instanceof Error ? err.message : 'Failed to read deployment status')
@@ -140,7 +142,7 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
       }
     }
 
-    timer = setTimeout(poll, 700)
+    timer = setTimeout(poll, POLL_INITIAL_DELAY_MS)
     return () => {
       cancelled = true
       if (timer) clearTimeout(timer)
@@ -176,8 +178,6 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
         host: form.host.trim(),
         user: form.user.trim(),
         ssh_port: Number(form.sshPort) || 22,
-        agent_port: Number(form.agentPort) || 18081,
-        master_url: '',
       })
       setDeployment(created)
     } catch (err) {
@@ -197,7 +197,7 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
             Deploy an agent
           </DialogTitle>
           <DialogDescription>
-            The tower copies <code className="font-mono text-xs">gloski-agent</code> to{' '}
+            The master copies <code className="font-mono text-xs">gloski-agent</code> to{' '}
             <code className="font-mono text-xs">/tmp</code> on the device and starts it over SSH.
           </DialogDescription>
         </DialogHeader>
@@ -286,23 +286,11 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
                 disabled={busy}
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-agent-port">
-                Agent port
-              </label>
-              <Input
-                id="deploy-agent-port"
-                inputMode="numeric"
-                value={form.agentPort}
-                onChange={(event) => update('agentPort', event.target.value)}
-                disabled={busy}
-              />
-            </div>
           </div>
 
           <p className="text-[11px] text-muted-foreground">
             The master chooses the agent's gRPC endpoint automatically. SSH keys or an agent are read from the machine
-            running the tower.
+            running the master.
           </p>
 
           {deployment && status === 'deploying' && (

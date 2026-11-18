@@ -1,28 +1,19 @@
 {
-  "mode": "standalone",
+  "mode": "master",
   "host": "127.0.0.1",
   "port": 8080,
-
+  "data_dir": "/home/you/.gloski/master",
   "allowed_origins": ["*"],
-
   "allowed_paths": [],
   "shell": "/bin/bash",
-
   "log_level": "info",
-
   "master": {
-    "web_dir": "web/dist",
+    "web_dir": "/opt/gloski/web/dist",
     "join_token": "",
     "device_timeout": 45,
-    "heartbeat_interval": 10
-  },
-
-  "agent": {
-    "master_url": "",
-    "join_token": "",
-    "name": "",
-    "advertise_url": "",
     "heartbeat_interval": 10,
-    "state_file": ""
+    "local_agent": true,
+    "agent_grpc_host": "0.0.0.0",
+    "agent_grpc_port": 9090
   }
 }

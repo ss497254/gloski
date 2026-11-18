@@ -16,12 +16,12 @@ import type { GloskiClientConfig, HealthResponse, Middleware, Result } from './t
 /**
  * Gloski SDK Client
  *
- * Main entry point for interacting with a Gloski server.
+ * Main entry point for interacting with a Gloski device.
  *
  * @example
  * ```typescript
  * const client = new GloskiClient({
- *   url: 'https://server.example.com',
+ *   url: 'https://device.example.com',
  *   apiKey: 'your-api-key',
  * })
  *
@@ -107,7 +107,7 @@ export class GloskiClient {
   }
 
   /**
-   * Ping the server: checks health (unauthenticated) then auth status.
+   * Ping the device: checks health (unauthenticated) then auth status.
    * Useful for verifying both connectivity and credentials in one call.
    */
   async ping(): Promise<Result<{ authenticated: boolean }>> {
@@ -125,11 +125,11 @@ export class GloskiClient {
   }
 
   /**
-   * Check server health (static method, no authentication required)
+   * Check device health (static method, no authentication required)
    *
    * @example
    * ```typescript
-   * const health = await GloskiClient.checkHealth('https://server.example.com')
+   * const health = await GloskiClient.checkHealth('https://device.example.com')
    * console.log(health.status) // "ok"
    * ```
    *

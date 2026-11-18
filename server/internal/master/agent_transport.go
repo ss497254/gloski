@@ -18,6 +18,15 @@ import (
 	"github.com/ss497254/gloski/internal/tailscale"
 )
 
+const (
+	agentHealthInterval = 5 * time.Second
+	agentUnhealthyLimit = 20 * time.Second
+	agentMaxBackoff     = 30 * time.Second
+	agentShutdownWait   = 3 * time.Second
+	agentKillWait       = 2 * time.Second
+	agentFinalWait      = 5 * time.Second
+)
+
 func (s *Server) startAgentTransport(cfg *config.Config) {
 	s.agentSock = filepath.Join(cfg.DataDir, "agent.sock")
 	if err := os.MkdirAll(filepath.Dir(s.agentSock), 0700); err == nil {
@@ -161,7 +170,7 @@ func (l *localAgent) run() {
 		exited := make(chan error, 1)
 		go func() { exited <- command.Wait() }()
 
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(agentHealthInterval)
 		unhealthySince := time.Time{}
 		healthy := false
 
@@ -196,7 +205,7 @@ func (l *localAgent) run() {
 					logger.Warn("local agent: no gRPC session for pid=%d, waiting before restart", pid)
 					continue
 				}
-				if time.Since(unhealthySince) >= 20*time.Second {
+				if time.Since(unhealthySince) >= agentUnhealthyLimit {
 					logger.Warn("local agent: no gRPC session for 20s, restarting pid=%d", pid)
 					l.terminate(command, exited)
 					ticker.Stop()
@@ -214,7 +223,7 @@ func (l *localAgent) run() {
 		}
 		logger.Info("local agent: restart in %s", backoff)
 		l.wait(backoff)
-		if backoff < 30*time.Second {
+		if backoff < agentMaxBackoff {
 			backoff *= 2
 		}
 	}
@@ -240,11 +249,11 @@ func (l *localAgent) terminate(command *exec.Cmd, exited <-chan error) {
 	_ = command.Process.Signal(syscall.SIGTERM)
 	select {
 	case <-exited:
-	case <-time.After(3 * time.Second):
+	case <-time.After(agentShutdownWait):
 		_ = command.Process.Kill()
 		select {
 		case <-exited:
-		case <-time.After(2 * time.Second):
+		case <-time.After(agentKillWait):
 		}
 	}
 }
@@ -260,7 +269,7 @@ func (l *localAgent) stop() {
 	}
 	select {
 	case <-l.done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(agentFinalWait):
 	}
 }
 

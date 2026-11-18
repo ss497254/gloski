@@ -1,4 +1,4 @@
-import { useServer } from '@/shared/context'
+import { useDevice } from '@/shared/context'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import type { TerminalConnection } from '@/shared/api'
@@ -88,7 +88,7 @@ function getTerminalConfig(): ITerminalOptions & ITerminalInitOnlyOptions {
 }
 
 export function TerminalPage() {
-  const { server } = useServer()
+  const { device } = useDevice()
   const [searchParams] = useSearchParams()
   const initialCwd = searchParams.get('cwd') || ''
 
@@ -111,7 +111,7 @@ export function TerminalPage() {
       fitAddon.fit()
 
       // Connect using SDK's TerminalConnection with auto-reconnect
-      const connection = server.getClient().terminal.connect({
+      const connection = device.getClient().terminal.connect({
         cwd,
         autoReconnect: true,
         maxReconnectAttempts: 5,
@@ -153,7 +153,7 @@ export function TerminalPage() {
 
       instancesRef.current.set(tabId, { terminal: term, fitAddon, connection })
     },
-    [server]
+    [device]
   )
 
   const destroyTerminalInstance = useCallback((tabId: string) => {

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useServer } from '@/shared/context'
+import { useDevice } from '@/shared/context'
 import { pinnedFolderId as toPinnedFolderId, unwrap, type FileEntry, type ListResponse } from '@/shared/api'
 import {
   createContext,
@@ -132,7 +132,7 @@ interface FilesProviderProps {
 }
 
 export function FilesProvider({ children }: FilesProviderProps) {
-  const { server } = useServer()
+  const { device } = useDevice()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryPath = searchParams.get('path') || '~'
 
@@ -170,7 +170,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
   const [error, setError] = useState('')
   const [homeDir, setHomeDir] = useState<string | undefined>()
 
-  // Use the actual path from server response for file operations
+  // Use the actual path from device response for file operations
   // This is the resolved absolute path, not the URL query param
   const currentPath = data?.path || queryPath
 
@@ -263,9 +263,9 @@ export function FilesProvider({ children }: FilesProviderProps) {
     setFocusedIndex(0)
   }, [queryPath, clearSelection])
 
-  // Load pinned folders and home directory from server
+  // Load pinned folders and home directory from device
   useEffect(() => {
-    server
+    device
       .getClient()
       .files.pinned.list()
       .then((result) => {
@@ -276,7 +276,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
       .catch((err) => {
         console.error('Failed to load pinned folders:', err)
       })
-  }, [server, setPinnedFolders])
+  }, [device, setPinnedFolders])
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Data Loading
@@ -287,7 +287,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
       setLoading(true)
       setError('')
       try {
-        const result = await server.getClient().files.list(path)
+        const result = await device.getClient().files.list(path)
         setData(unwrap(result))
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load directory')
@@ -295,7 +295,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
         setLoading(false)
       }
     },
-    [server]
+    [device]
   )
 
   useEffect(() => {
@@ -332,7 +332,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
     async (entry: FileEntry) => {
       setFileLoading(true)
       try {
-        const result = unwrap(await server.getClient().files.read(entry.path))
+        const result = unwrap(await device.getClient().files.read(entry.path))
         setFileContent(result.content)
         setEditedContent(result.content)
       } catch (err) {
@@ -341,7 +341,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
         setFileLoading(false)
       }
     },
-    [server]
+    [device]
   )
 
   const handleEntrySelect = useCallback(
@@ -376,7 +376,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
     if (!selectedFile) return
     setSaving(true)
     try {
-      await server.getClient().files.write(selectedFile.path, editedContent)
+      await device.getClient().files.write(selectedFile.path, editedContent)
       setFileContent(editedContent)
       setIsEditing(false)
       toast.success('File saved successfully')
@@ -385,12 +385,12 @@ export function FilesProvider({ children }: FilesProviderProps) {
     } finally {
       setSaving(false)
     }
-  }, [server, selectedFile, editedContent])
+  }, [device, selectedFile, editedContent])
 
   const handleCreateFolder = useCallback(async () => {
     if (!newName.trim()) return
     try {
-      await server.getClient().files.mkdir(joinPath(currentPath, newName))
+      await device.getClient().files.mkdir(joinPath(currentPath, newName))
       toast.success('Folder created')
       setNewFolderDialog(false)
       setNewName('')
@@ -398,12 +398,12 @@ export function FilesProvider({ children }: FilesProviderProps) {
     } catch {
       toast.error('Failed to create folder')
     }
-  }, [server, newName, currentPath, loadDirectory])
+  }, [device, newName, currentPath, loadDirectory])
 
   const handleCreateFile = useCallback(async () => {
     if (!newName.trim()) return
     try {
-      await server.getClient().files.write(joinPath(currentPath, newName), '')
+      await device.getClient().files.write(joinPath(currentPath, newName), '')
       toast.success('File created')
       setNewFileDialog(false)
       setNewName('')
@@ -411,12 +411,12 @@ export function FilesProvider({ children }: FilesProviderProps) {
     } catch {
       toast.error('Failed to create file')
     }
-  }, [server, newName, currentPath, loadDirectory])
+  }, [device, newName, currentPath, loadDirectory])
 
   const handleDelete = useCallback(async () => {
     if (!deleteDialog) return
     try {
-      await server.getClient().files.delete(deleteDialog.path)
+      await device.getClient().files.delete(deleteDialog.path)
       toast.success(`${deleteDialog.type === 'directory' ? 'Folder' : 'File'} deleted`)
       setDeleteDialog(null)
       if (selectedFile?.path === deleteDialog.path) {
@@ -427,13 +427,13 @@ export function FilesProvider({ children }: FilesProviderProps) {
     } catch {
       toast.error('Failed to delete')
     }
-  }, [server, deleteDialog, selectedFile?.path, currentPath, loadDirectory])
+  }, [device, deleteDialog, selectedFile?.path, currentPath, loadDirectory])
 
   const handleRename = useCallback(async () => {
     if (!renameDialog || !newName.trim()) return
     const newPath = joinPath(getParentPath(renameDialog.path), newName)
     try {
-      await server.getClient().files.rename(renameDialog.path, newPath)
+      await device.getClient().files.rename(renameDialog.path, newPath)
       toast.success('Renamed successfully')
       setRenameDialog(null)
       setNewName('')
@@ -445,13 +445,13 @@ export function FilesProvider({ children }: FilesProviderProps) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to rename')
     }
-  }, [server, renameDialog, newName, selectedFile?.path, currentPath, loadDirectory])
+  }, [device, renameDialog, newName, selectedFile?.path, currentPath, loadDirectory])
 
   const handleBulkDelete = useCallback(async () => {
     if (selectedPaths.size === 0) return
 
     const results = await Promise.allSettled(
-      Array.from(selectedPaths).map((path) => server.getClient().files.delete(path))
+      Array.from(selectedPaths).map((path) => device.getClient().files.delete(path))
     )
 
     const successCount = results.filter((r) => r.status === 'fulfilled').length
@@ -467,7 +467,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
     if (failCount > 0) {
       toast.error(`Failed to delete ${failCount} item(s)`)
     }
-  }, [server, selectedPaths, currentPath, loadDirectory, clearSelection])
+  }, [device, selectedPaths, currentPath, loadDirectory, clearSelection])
 
   const handleDropUpload = useCallback(
     async (files: File[]) => {
@@ -479,7 +479,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
 
       for (const file of files) {
         try {
-          await server.getClient().files.upload(currentPath, file)
+          await device.getClient().files.upload(currentPath, file)
           successCount++
         } catch (err) {
           failCount++
@@ -497,7 +497,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
         toast.error(`Failed to upload ${failCount} file(s)`)
       }
     },
-    [server, currentPath, loadDirectory]
+    [device, currentPath, loadDirectory]
   )
 
   const handleUpload = useCallback(
@@ -514,7 +514,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
 
   const handleDownload = useCallback(
     (entry: FileEntry) => {
-      const url = server.getClient().files.getDownloadUrl(entry.path)
+      const url = device.getClient().files.getDownloadUrl(entry.path)
       const link = document.createElement('a')
       link.href = url
       link.download = entry.name
@@ -522,7 +522,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
       link.click()
       document.body.removeChild(link)
     },
-    [server]
+    [device]
   )
 
   const handleDownloadSelected = useCallback(() => {
@@ -568,7 +568,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
         const folder = getPinnedFolderByPath(entry.path)
         if (folder) {
           try {
-            await server.getClient().files.pinned.unpin(folder.id)
+            await device.getClient().files.pinned.unpin(folder.id)
             removePinnedFolder(folder.id)
             toast.success('Folder unpinned')
           } catch {
@@ -577,7 +577,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
         }
       } else {
         try {
-          const folder = unwrap(await server.getClient().files.pinned.pin(entry.path, entry.name))
+          const folder = unwrap(await device.getClient().files.pinned.pin(entry.path, entry.name))
           addPinnedFolder(folder)
           toast.success('Folder pinned')
         } catch {
@@ -585,20 +585,20 @@ export function FilesProvider({ children }: FilesProviderProps) {
         }
       }
     },
-    [server, isPinned, getPinnedFolderByPath, removePinnedFolder, addPinnedFolder]
+    [device, isPinned, getPinnedFolderByPath, removePinnedFolder, addPinnedFolder]
   )
 
   const handleSidebarUnpin = useCallback(
     async (id: string) => {
       try {
-        await server.getClient().files.pinned.unpin(toPinnedFolderId(id))
+        await device.getClient().files.pinned.unpin(toPinnedFolderId(id))
         removePinnedFolder(id)
         toast.success('Folder unpinned')
       } catch {
         toast.error('Failed to unpin folder')
       }
     },
-    [server, removePinnedFolder]
+    [device, removePinnedFolder]
   )
 
   // ─────────────────────────────────────────────────────────────────────────────

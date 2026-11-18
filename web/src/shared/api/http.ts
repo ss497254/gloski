@@ -425,14 +425,14 @@ export class HttpClient {
             }
           }
 
-          // Only use generic messages as fallback if server didn't provide one
+          // Only use generic messages as fallback if device didn't provide one
           if (errorMessage === `HTTP ${response.status}`) {
             if (response.status === 404) {
-              errorMessage = `Endpoint not found (404). Make sure you're connecting to a Gloski server.`
+              errorMessage = `Endpoint not found (404). Make sure you're connecting to a Gloski device.`
             } else if (response.status === 403) {
               errorMessage = 'Access denied'
             } else if (response.status >= 500) {
-              errorMessage = `Server error (${response.status}). The server may be experiencing issues.`
+              errorMessage = `Server error (${response.status}). The device may be experiencing issues.`
             }
           }
 
@@ -463,7 +463,7 @@ export class HttpClient {
   }
 
   /**
-   * Handle server coming back online
+   * Handle device coming back online
    */
   private handleOnline(): void {
     if (this.isDisconnected) {
@@ -473,7 +473,7 @@ export class HttpClient {
   }
 
   /**
-   * Handle server going offline
+   * Handle device going offline
    */
   private handleOffline(): void {
     if (!this.isDisconnected) {

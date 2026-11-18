@@ -8,6 +8,9 @@
     "web_dir": "/opt/gloski/web/dist",
     "join_token": "",
     "device_timeout": 45,
-    "heartbeat_interval": 10
+    "heartbeat_interval": 10,
+    "local_agent": true,
+    "agent_grpc_host": "0.0.0.0",
+    "agent_grpc_port": 9090
   }
 }

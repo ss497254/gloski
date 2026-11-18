@@ -1,5 +1,5 @@
 import { cn } from '@/shared/lib/utils'
-import { useServer } from '@/shared/context'
+import { useDevice } from '@/shared/context'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -78,8 +78,7 @@ export function FileEntryItem({
   onDuplicate,
   onShowProperties,
 }: FileEntryItemProps) {
-  const { serverId } = useServer()
-  const deviceId = serverId.replace(/^tower-/, '')
+  const { deviceId } = useDevice()
   const Icon = getFileIcon(entry.name, entry.type)
   const color = getFileColor(entry.name, entry.type)
 

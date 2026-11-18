@@ -21,6 +21,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	defaultHeartbeatInterval = 10
+	agentURLLabel            = "grpc://agent"
+	fileRequestTimeout       = 20 * time.Second
+	processRequestTimeout    = 10 * time.Second
+)
+
 var ErrNoAgent = errors.New("agent is not connected")
 
 // Server implements the Agent service and keeps master-owned state.
@@ -55,7 +62,7 @@ func New(db *database.Database, devicesSvc *devices.Service, version string, int
 		return nil, err
 	}
 	if interval <= 0 {
-		interval = 10
+		interval = defaultHeartbeatInterval
 	}
 	return &Server{
 		devices:  devicesSvc,
@@ -81,14 +88,14 @@ func (s *Server) Connect(stream agentv1.Agent_ConnectServer) error {
 	registered, err := s.devices.Register(devices.RegisterRequest{
 		JoinToken: registration.GetJoinToken(),
 		Name:      registration.GetName(),
-		URL:       "grpc://agent",
+		URL:       agentURLLabel,
 		Hostname:  registration.GetHostname(),
 		Platform:  registration.GetPlatform(),
 		Version:   registration.GetVersion(),
 		DeployID:  registration.GetDeployId(),
 		Master:    registration.GetMaster(),
 		Stats:     stats,
-	}, "")
+	})
 	if err != nil {
 		return status.Error(codes.Unauthenticated, "invalid join token")
 	}
@@ -268,7 +275,7 @@ func (s *Server) DeleteJob(id string) error { return s.jobs.Delete(id) }
 func (s *Server) File(deviceID string, request *agentv1.FileRequest) (*agentv1.FileResult, error) {
 	reply, err := s.request(deviceID, &agentv1.MasterMessage{
 		Payload: &agentv1.MasterMessage_FileRequest{FileRequest: request},
-	}, 20*time.Second)
+	}, fileRequestTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +288,7 @@ func (s *Server) Processes(deviceID string, limit int, sortBy string) ([]byte, e
 		Payload: &agentv1.MasterMessage_ProcessRequest{
 			ProcessRequest: &agentv1.ProcessRequest{Limit: int32(limit), Sort: sortBy},
 		},
-	}, 10*time.Second)
+	}, processRequestTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -324,15 +331,6 @@ func (s *Server) TerminalInput(deviceID, id string, data []byte) error {
 	sess, err := s.session(deviceID)
 	if err != nil {
 		return err
-	}
-	// The resize protocol from the browser uses a leading 0x01 byte.
-	if len(data) > 0 && data[0] == 0x01 {
-		return sess.send(&agentv1.MasterMessage{
-			RequestId: id,
-			Payload: &agentv1.MasterMessage_TerminalInput{
-				TerminalInput: &agentv1.TerminalInput{Data: data},
-			},
-		})
 	}
 	return sess.send(&agentv1.MasterMessage{
 		RequestId: id,

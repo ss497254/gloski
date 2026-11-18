@@ -5,7 +5,7 @@ import type { Job, JobId, JobLogsResponse, JobStatus, JobsResponse, Result } fro
 /**
  * Job management resource
  *
- * Jobs are ad-hoc command executions that run on the server.
+ * Jobs are ad-hoc command executions that run on the device.
  * Output is logged to files and persisted in the database.
  */
 export class JobsResource {

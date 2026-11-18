@@ -35,7 +35,6 @@ type Server struct {
 	auth      *auth.Service
 	deployer  *deploy.Manager
 	tailscale *tailscale.Client
-	transport *http.Transport
 	router    http.Handler
 	version   string
 	name      string
@@ -85,10 +84,6 @@ func New(cfg *config.Config, version string) (*Server, error) {
 	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(32<<20), grpc.MaxSendMsgSize(32<<20))
 	agentv1.RegisterAgentServer(grpcServer, agentService)
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.ResponseHeaderTimeout = 30 * time.Second
-	transport.MaxIdleConnsPerHost = 8
-
 	s := &Server{
 		cfg:       cfg,
 		db:        db,
@@ -97,7 +92,6 @@ func New(cfg *config.Config, version string) (*Server, error) {
 		auth:      authSvc,
 		deployer:  deploy.New(resolveAgentBinary(cfg.Master.AgentBinary), cfg.Master.SSHKeyFile, tailscale.KnownHostsPath(cfg.DataDir)),
 		tailscale: tailscale.New(cfg.Tailscale.Socket),
-		transport: transport,
 		version:   version,
 		name:      hostname,
 		startedAt: time.Now().UTC(),
@@ -190,16 +184,13 @@ func (s *Server) fleetLoop() {
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	// Public control-plane endpoints. Agents authenticate with a join token or
-	// their device token; the dashboard is protected by tailnet access and,
-	// optionally, the configured API key / JWT.
+	// Public endpoints. Agents enroll over the gRPC stream; the dashboard is
+	// protected by tailnet access and, optionally, by an API key / JWT.
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		handlers.Success(w, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /api/tower/info", s.handleTowerInfo)
 	mux.Handle("GET /api/dashboard", s.userAuth(http.HandlerFunc(s.handleDashboard)))
-	mux.HandleFunc("POST /api/agents/register", s.handleRegister)
-	mux.HandleFunc("POST /api/agents/heartbeat", s.handleHeartbeat)
 	mux.HandleFunc("GET /api/fleet/ws", s.handleFleetWS)
 
 	// Fleet API. If the operator configured an API key or JWT, require it.

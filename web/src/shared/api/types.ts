@@ -30,7 +30,7 @@ export type Result<T> = { data: T; error: null } | { data: null; error: import('
 // =============================================================================
 
 export interface GloskiClientConfig {
-  /** Server URL (e.g., "https://server.example.com") */
+  /** Server URL (e.g., "https://device.example.com") */
   url: string
   /** API key for authentication */
   apiKey?: string
@@ -40,11 +40,11 @@ export interface GloskiClientConfig {
   timeout?: number
   /** API path prefix (default: "/api") */
   apiPrefix?: string
-  /** Called when server returns 401 Unauthorized */
+  /** Called when device returns 401 Unauthorized */
   onUnauthorized?: () => void
-  /** Called when server is unreachable (network error) */
+  /** Called when device is unreachable (network error) */
   onOffline?: () => void
-  /** Called when server comes back online */
+  /** Called when device comes back online */
   onOnline?: () => void
   /** Custom fetch implementation (default: globalThis.fetch) */
   fetch?: typeof globalThis.fetch

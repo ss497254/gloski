@@ -134,7 +134,7 @@ describe('ErrorCode', () => {
 describe('getErrorMessage', () => {
   test('handles TypeError with "Failed to fetch"', () => {
     const error = new TypeError('Failed to fetch')
-    expect(getErrorMessage(error)).toContain('Cannot connect to server')
+    expect(getErrorMessage(error)).toContain('Cannot connect to device')
   })
 
   test('handles TypeError with "NetworkError"', () => {
