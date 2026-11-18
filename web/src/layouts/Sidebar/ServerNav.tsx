@@ -2,7 +2,6 @@ import { serverNavItems } from '@/app/navigation'
 import { useServersStore } from '@/shared/store/servers'
 import { useParams } from 'react-router-dom'
 import { NavItem } from './NavItem'
-import { NavSection } from './NavSection'
 
 interface ServerNavProps {
   collapsed?: boolean
@@ -20,7 +19,7 @@ export function ServerNav({ collapsed, serverId: serverIdProp }: ServerNavProps)
   const deviceId = serverId.replace(/^tower-/, '')
 
   return (
-    <NavSection title={server.name} collapsed={collapsed}>
+    <div className="space-y-1">
       {serverNavItems.map((item) => (
         <NavItem
           key={item.id}
@@ -31,6 +30,6 @@ export function ServerNav({ collapsed, serverId: serverIdProp }: ServerNavProps)
           collapsed={collapsed}
         />
       ))}
-    </NavSection>
+    </div>
   )
 }

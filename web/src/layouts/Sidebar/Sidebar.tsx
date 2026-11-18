@@ -26,16 +26,6 @@ function getStatusColor(status: string) {
   }
 }
 
-function CurrentServerBadge({ server }: { server: Server }) {
-  const snap = useSnapshot(server)
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className={cn('h-1.5 w-1.5 rounded-full', getStatusColor(snap.getStatus()))} />
-      <span className="text-[11px] text-muted-foreground truncate max-w-20">{snap.name}</span>
-    </div>
-  )
-}
-
 function SidebarServerLink({ server, collapsed }: { server: Server; collapsed: boolean }) {
   const snap = useSnapshot(server)
   const status = snap.getStatus()
@@ -113,11 +103,8 @@ function SidebarContent({ collapsed }: SidebarContentProps) {
         {currentServer && (
           <div className="mt-6">
             {!collapsed && (
-              <div className="px-3 mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                  {currentServer.managedBy === 'tower' ? 'Device' : 'Server'}
-                </span>
-                <CurrentServerBadge server={currentServer} />
+              <div className="mb-2 truncate px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                {currentServer.name}
               </div>
             )}
             {collapsed && <div className="border-t my-3" />}
