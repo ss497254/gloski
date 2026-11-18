@@ -66,6 +66,22 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	masterConnected := false
+	for i := range list {
+		if list[i].Master && s.agents.Connected(list[i].ID) {
+			masterConnected = true
+			break
+		}
+	}
+	if !masterConnected {
+		issues = append(issues, dashboardIssue{
+			ID:       "master-agent",
+			Severity: "error",
+			Title:    "Master agent not connected",
+			Detail:   "The agent on the master device has no live gRPC session",
+		})
+	}
+
 	deployments, err := s.devices.ListDeployments()
 	if err == nil {
 		for _, deployment := range deployments {

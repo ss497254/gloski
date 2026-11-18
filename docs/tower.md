@@ -98,6 +98,17 @@ the SSH user. SSH keys come from `SSH_AUTH_SOCK` or `~/.ssh/id_*`.
 | `GET` | `/api/devices/{id}/api/files/read` | Read a file |
 | `GET` | `/api/devices/{id}/api/terminal` | Terminal WebSocket |
 
+## Logs and health
+
+- Master log: wherever stdout of `gloski` is redirected. It records local agent
+  start/stop, gRPC session state, health checks, and forced restarts.
+- Local agent log: `<data_dir>/local-agent.log`.
+- Remote agent log: `/tmp/gloski-agent.log` on the device.
+
+The master checks the local agent's gRPC session every 5 seconds. If it is not
+connected for 20 seconds, the master kills the child process and starts a new
+one with backoff. Remote agents reconnect to the master on their own.
+
 ## Security
 
 Keep the dashboard on the tailnet and use `tailscale serve` for HTTPS. The

@@ -40,6 +40,7 @@ type session struct {
 	deviceID string
 	token    string
 	stream   agentv1.Agent_ConnectServer
+	replaced bool
 
 	sendMu  sync.Mutex
 	mu      sync.Mutex
@@ -104,6 +105,9 @@ func (s *Server) Connect(stream agentv1.Agent_ConnectServer) error {
 		terms:    make(map[string]chan []byte),
 	}
 	s.mu.Lock()
+	if previous := s.sessions[device.ID]; previous != nil {
+		previous.replaced = true
+	}
 	s.sessions[device.ID] = sess
 	s.mu.Unlock()
 	defer s.disconnect(sess)
@@ -179,6 +183,10 @@ func (s *Server) disconnect(sess *session) {
 	}
 	sess.mu.Unlock()
 
+	if sess.replaced {
+		logger.Info("Agent session replaced: %s", sess.deviceID)
+		return
+	}
 	if err := s.devices.MarkOffline(sess.deviceID); err != nil {
 		logger.Warn("Failed to mark device %s offline: %v", sess.deviceID, err)
 	}

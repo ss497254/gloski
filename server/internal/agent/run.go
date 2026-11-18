@@ -71,6 +71,7 @@ func Run(cfg *config.Config, version string) error {
 			logger.Warn("Agent session ended: %v", err)
 		}
 
+		logger.Info("Agent will reconnect in %s", backoff)
 		select {
 		case <-quit:
 			logger.Info("Agent stopped")
@@ -84,6 +85,7 @@ func Run(cfg *config.Config, version string) error {
 }
 
 func runSession(cfg *config.Config, version, name string, statsService *system.Service, quit <-chan os.Signal) error {
+	logger.Info("Agent connecting to master at %s", cfg.Agent.MasterURL)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	conn, err := dialMaster(ctx, cfg.Agent.MasterURL)
 	cancel()

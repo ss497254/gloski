@@ -76,6 +76,20 @@ func (s *Server) startLocalAgent(cfg *config.Config, version string) {
 		dataDir:   filepath.Join(cfg.DataDir, "local-agent"),
 		logPath:   filepath.Join(cfg.DataDir, "local-agent.log"),
 		done:      make(chan struct{}),
+		stopCh:    make(chan struct{}),
+		health: func() bool {
+			list, err := s.devices.List()
+			if err != nil {
+				logger.Warn("local agent health check failed: %v", err)
+				return false
+			}
+			for i := range list {
+				if list[i].Master && list[i].Name == name {
+					return s.agents.Connected(list[i].ID)
+				}
+			}
+			return false
+		},
 	}
 	s.local = agent
 	go agent.run()
@@ -90,11 +104,14 @@ type localAgent struct {
 	shell     string
 	dataDir   string
 	logPath   string
+	health    func() bool
 
 	mu       sync.Mutex
 	stopping bool
 	cmd      *exec.Cmd
 	done     chan struct{}
+	stopCh   chan struct{}
+	stopOnce sync.Once
 }
 
 func (l *localAgent) run() {
@@ -102,17 +119,15 @@ func (l *localAgent) run() {
 	backoff := time.Second
 
 	for {
-		l.mu.Lock()
-		if l.stopping {
-			l.mu.Unlock()
+		if l.isStopping() {
 			return
 		}
-		l.mu.Unlock()
 
 		logFile, err := os.OpenFile(l.logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
-			logger.Error("Failed to open local agent log: %v", err)
-			return
+			logger.Error("local agent: failed to open log %s: %v", l.logPath, err)
+			l.wait(backoff)
+			continue
 		}
 
 		command := exec.Command(l.binary)
@@ -129,30 +144,113 @@ func (l *localAgent) run() {
 		command.Stderr = logFile
 		command.Stdin = nil
 
+		logger.Info("local agent: starting %s (binary=%s)", l.name, l.binary)
+		if err := command.Start(); err != nil {
+			logger.Error("local agent: failed to start: %v", err)
+			_ = logFile.Close()
+			l.wait(backoff)
+			continue
+		}
+		pid := command.Process.Pid
+		logger.Info("local agent: started pid=%d", pid)
+
 		l.mu.Lock()
 		l.cmd = command
 		l.mu.Unlock()
 
-		logger.Info("Starting local agent %s (%s)", l.name, l.binary)
-		err = command.Run()
-		_ = logFile.Close()
+		exited := make(chan error, 1)
+		go func() { exited <- command.Wait() }()
 
+		ticker := time.NewTicker(5 * time.Second)
+		unhealthySince := time.Time{}
+		healthy := false
+
+	healthLoop:
+		for {
+			select {
+			case <-l.stopCh:
+				logger.Info("local agent: stop requested for pid=%d", pid)
+				ticker.Stop()
+				l.terminate(command, exited)
+				break healthLoop
+			case err := <-exited:
+				ticker.Stop()
+				logger.Warn("local agent: process pid=%d exited: %v", pid, err)
+				break healthLoop
+			case <-ticker.C:
+				connected := l.health != nil && l.health()
+				if connected {
+					if !healthy {
+						logger.Info("local agent: gRPC session is live (pid=%d)", pid)
+					}
+					healthy = true
+					unhealthySince = time.Time{}
+					continue
+				}
+				if healthy {
+					logger.Warn("local agent: gRPC session lost (pid=%d)", pid)
+				}
+				healthy = false
+				if unhealthySince.IsZero() {
+					unhealthySince = time.Now()
+					logger.Warn("local agent: no gRPC session for pid=%d, waiting before restart", pid)
+					continue
+				}
+				if time.Since(unhealthySince) >= 20*time.Second {
+					logger.Warn("local agent: no gRPC session for 20s, restarting pid=%d", pid)
+					l.terminate(command, exited)
+					ticker.Stop()
+					break healthLoop
+				}
+			}
+		}
+
+		_ = logFile.Close()
 		l.mu.Lock()
 		l.cmd = nil
-		stopping := l.stopping
 		l.mu.Unlock()
-		if stopping {
+		if l.isStopping() {
 			return
 		}
-		logger.Warn("Local agent exited (%v); restarting in %s", err, backoff)
-		time.Sleep(backoff)
+		logger.Info("local agent: restart in %s", backoff)
+		l.wait(backoff)
 		if backoff < 30*time.Second {
 			backoff *= 2
 		}
 	}
 }
 
+func (l *localAgent) isStopping() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.stopping
+}
+
+func (l *localAgent) wait(duration time.Duration) {
+	select {
+	case <-l.stopCh:
+	case <-time.After(duration):
+	}
+}
+
+func (l *localAgent) terminate(command *exec.Cmd, exited <-chan error) {
+	if command.Process == nil {
+		return
+	}
+	_ = command.Process.Signal(syscall.SIGTERM)
+	select {
+	case <-exited:
+	case <-time.After(3 * time.Second):
+		_ = command.Process.Kill()
+		select {
+		case <-exited:
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+
 func (l *localAgent) stop() {
+	l.stopOnce.Do(func() { close(l.stopCh) })
 	l.mu.Lock()
 	l.stopping = true
 	command := l.cmd
