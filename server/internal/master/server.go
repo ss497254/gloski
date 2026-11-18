@@ -225,14 +225,23 @@ func (s *Server) serveSPA(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) writeIndex(w http.ResponseWriter) {
-	if len(s.indexHTML) == 0 {
+	// The dashboard can be rebuilt while the master is running. Always read
+	// index.html from disk so asset hashes stay in sync with web/dist; the
+	// startup copy is only a fallback.
+	index := s.indexHTML
+	if s.webDir != "" {
+		if data, err := os.ReadFile(filepath.Join(s.webDir, "index.html")); err == nil && len(data) > 0 {
+			index = data
+		}
+	}
+	if len(index) == 0 {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, placeholderHTML)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Write(s.indexHTML)
+	w.Write(index)
 }
 
 func securityHeaders(next http.Handler) http.Handler {
