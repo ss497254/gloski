@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/ss497254/gloski/internal/auth"
@@ -15,6 +16,7 @@ import (
 	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/database"
 	"github.com/ss497254/gloski/internal/fleet"
+	"github.com/ss497254/gloski/internal/httpapi"
 	"github.com/ss497254/gloski/internal/logger"
 	"github.com/ss497254/gloski/internal/provisioning"
 	"github.com/ss497254/gloski/internal/tailnet"
@@ -43,6 +45,7 @@ type Tower struct {
 	agentService      *agents.Service
 	agentGRPCServer   *grpc.Server
 	agentSocketPath   string
+	listenersMu       sync.Mutex
 	listeners         []net.Listener
 	localAgentProcess *localAgent
 }
@@ -65,6 +68,8 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize auth service: %w", err)
 	}
+
+	httpapi.SetDetailedErrors(cfg.DetailedErrors)
 
 	hostname, _ := os.Hostname()
 	if hostname == "" {
@@ -140,9 +145,11 @@ func (t *Tower) Close() error {
 	if t.agentGRPCServer != nil {
 		t.agentGRPCServer.GracefulStop()
 	}
+	t.listenersMu.Lock()
 	for _, listener := range t.listeners {
 		_ = listener.Close()
 	}
+	t.listenersMu.Unlock()
 	if t.agentSocketPath != "" {
 		_ = os.Remove(t.agentSocketPath)
 	}

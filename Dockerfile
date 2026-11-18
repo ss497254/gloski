@@ -31,6 +31,8 @@ COPY --from=frontend-builder /build/dist /app/web
 
 # Environment variables
 ENV GLOSKI_HOST=0.0.0.0
+# No tailscaled inside the container, so bind the agent port explicitly.
+ENV GLOSKI_MASTER_AGENT_GRPC_HOST=0.0.0.0
 ENV GLOSKI_PORT=8080
 ENV GLOSKI_LOG_LEVEL=info
 ENV GLOSKI_MASTER_WEB_DIR=/app/web

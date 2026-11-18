@@ -20,7 +20,9 @@ dashboard action goes to the master, which forwards it to the right agent.
 
 - **Master ↔ agent:** gRPC only, one bidirectional `Agent.Connect` stream.
   - Local agent: gRPC over `unix://<data_dir>/agent.sock`.
-  - Remote agents: gRPC h2c over Tailnet on `0.0.0.0:9090` by default.
+  - Remote agents: gRPC h2c on port `9090`, bound to this machine's Tailscale
+    addresses only. If Tailscale is not up yet the master retries every 15
+    seconds.
   - The agent sends registration, heartbeats/stats, job output, and file/process
     results; the master sends jobs, file requests, terminal I/O, and shutdown.
 - **Browser → master:** plain HTTP/WS. The master translates those calls into
@@ -90,11 +92,12 @@ the SSH user. SSH keys come from `SSH_AUTH_SOCK` or `~/.ssh/id_*`.
 | `GLOSKI_MASTER_JOIN_TOKEN` | generated | Agent enrollment token |
 | `GLOSKI_MASTER_AGENT_BINARY` | next to master | Agent binary for deployments |
 | `GLOSKI_MASTER_SSH_KEY_FILE` | (none) | Explicit SSH key |
-| `GLOSKI_MASTER_AGENT_GRPC_HOST` | `0.0.0.0` | Remote agent gRPC bind |
+| `GLOSKI_MASTER_AGENT_GRPC_HOST` | Tailscale IPs | Remote agent gRPC bind; set to override |
 | `GLOSKI_MASTER_AGENT_GRPC_PORT` | `9090` | Remote agent gRPC port |
 | `GLOSKI_MASTER_AGENT_GRPC_URL` | auto | Override the agent-facing gRPC URL |
 | `GLOSKI_TAILSCALE_SOCKET` | auto | tailscaled LocalAPI socket |
 | `GLOSKI_API_KEY` | (none) | Optional dashboard user auth |
+| `GLOSKI_ALLOWED_ORIGINS` | (none) | Comma-separated extra origins allowed to call the API; `*` disables the check |
 
 ## Control-plane API (browser → master)
 
@@ -124,6 +127,14 @@ one with backoff. Remote agents reconnect to the master on their own.
 
 ## Security
 
-Keep the dashboard on the tailnet and use `tailscale serve` for HTTPS. The
-agent gRPC port is h2c and should not be exposed off-tailnet. Host keys are
+Keep the dashboard on the tailnet and use `tailscale serve` for HTTPS, or put it
+behind a reverse proxy that enforces a login. The agent gRPC port is h2c and is
+only bound to Tailscale addresses unless you override the host. Host keys are
 trusted on first use and stored in `<data_dir>/known_hosts`.
+
+The master rejects writes and WebSocket handshakes whose `Origin` does not match
+the request, so another website cannot drive the dashboard through your
+browser. Behind a reverse proxy, either forward the original `Host` header (or
+set `X-Forwarded-Host`), or list the public origin in `GLOSKI_ALLOWED_ORIGINS`.
+nginx does not forward `Host` by default: add `proxy_set_header Host $host;`.
+JSON endpoints require `Content-Type: application/json`.

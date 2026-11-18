@@ -30,6 +30,7 @@ func (c *Config) loadCommonEnv() {
 }
 
 func (c *Config) loadFeatureEnv() {
+	envList("GLOSKI_ALLOWED_ORIGINS", &c.AllowedOrigins)
 	envString("GLOSKI_API_KEY", &c.APIKey)
 	envString("GLOSKI_JWT_PUBLIC_KEY", &c.JWTPublicKey)
 	envString("GLOSKI_JWT_PUBLIC_KEY_FILE", &c.JWTPublicKeyFile)
@@ -106,4 +107,19 @@ func envBool(key string, target *bool) {
 
 func warnInvalidEnv(key, value string, err error) {
 	fmt.Fprintf(os.Stderr, "warning: invalid %s value %q: %v\n", key, strings.TrimSpace(value), err)
+}
+
+// envList reads a comma-separated list.
+func envList(key string, target *[]string) {
+	value := os.Getenv(key)
+	if value == "" {
+		return
+	}
+	list := []string{}
+	for _, item := range strings.Split(value, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			list = append(list, item)
+		}
+	}
+	*target = list
 }

@@ -127,7 +127,8 @@ Configuration comes from an optional JSON file, then environment overrides
 | `GLOSKI_MODE` | `master` | `master` or `agent` |
 | `GLOSKI_HOST` / `GLOSKI_PORT` | `127.0.0.1:8080` | Dashboard listener |
 | `GLOSKI_MASTER_WEB_DIR` | `web/dist` | SPA directory |
-| `GLOSKI_MASTER_AGENT_GRPC_HOST` / `_PORT` | `0.0.0.0:9090` | Remote agent listener |
+| `GLOSKI_MASTER_AGENT_GRPC_HOST` / `_PORT` | Tailscale IPs, `9090` | Remote agent listener |
+| `GLOSKI_ALLOWED_ORIGINS` | none | Extra browser origins allowed to call the API |
 | `GLOSKI_MASTER_AGENT_BINARY` | next to master | Binary used for deployments |
 | `GLOSKI_MASTER_LOCAL_AGENT` | `true` | Run the master's own agent |
 | `GLOSKI_TAILSCALE_SOCKET` | auto | tailscaled LocalAPI socket |

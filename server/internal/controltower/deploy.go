@@ -2,7 +2,6 @@ package controltower
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -62,9 +61,8 @@ func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request deployRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&request); err != nil {
-		httpapi.BadRequest(w, "invalid deployment request")
+	request, ok := decodeJSON[deployRequest](w, r, 1<<20)
+	if !ok {
 		return
 	}
 

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -95,8 +96,11 @@ func (rl *RateLimiter) Allow(ip string) bool {
 }
 
 func getClientIP(r *http.Request) string {
-	// Only use RemoteAddr as the trusted source to prevent spoofing.
-	// X-Forwarded-For and X-Real-IP can be trivially forged by clients
-	// and should only be trusted when behind a known reverse proxy.
+	// Only RemoteAddr is trusted: X-Forwarded-For and X-Real-IP can be forged
+	// by clients. The port is dropped so every connection from one address
+	// shares a bucket.
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
 	return r.RemoteAddr
 }

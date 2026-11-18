@@ -59,7 +59,8 @@ func (h *EventHub) ServeWS(w http.ResponseWriter, r *http.Request, snapshot func
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 4096,
-		CheckOrigin:     func(*http.Request) bool { return true },
+		// Origin is enforced by the master's httpapi.SameOrigin middleware.
+		CheckOrigin: func(*http.Request) bool { return true },
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

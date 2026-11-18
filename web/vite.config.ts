@@ -18,19 +18,11 @@ export default defineConfig({
     allowedHosts: true,
     port: 3000,
     proxy: {
-      '/api/terminal': {
-        target: 'ws://localhost:8080',
-        rewriteWsOrigin: true,
-        ws: true,
-      },
-      '/api/system/stats/ws': {
-        target: 'ws://localhost:8080',
-        rewriteWsOrigin: true,
-        ws: true,
-      },
+      // Host is left as localhost:3000 so it matches the browser's Origin,
+      // which the master checks on writes and WebSocket handshakes.
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
+        ws: true,
       },
     },
   },

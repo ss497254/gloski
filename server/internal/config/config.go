@@ -35,6 +35,8 @@ type Config struct {
 	JWTPublicKeyFile string `json:"jwt_public_key_file"` // Path to PEM file (alternative to inline key)
 
 	// Security
+	// AllowedOrigins lists extra browser origins that may call the API. Empty
+	// means same-origin only; "*" disables the check.
 	AllowedOrigins []string `json:"allowed_origins"`
 	AllowedPaths   []string `json:"allowed_paths"` // empty = allow all
 
@@ -91,7 +93,8 @@ type MasterConfig struct {
 	LocalAgent bool `json:"local_agent"`
 	// LocalAgentName overrides the display name of the master device.
 	LocalAgentName string `json:"local_agent_name"`
-	// AgentGRPCHost/Port is where remote agents connect to the master.
+	// AgentGRPCHost/Port is where remote agents connect to the master. An empty
+	// host binds only to this machine's Tailscale addresses.
 	AgentGRPCHost string `json:"agent_grpc_host"`
 	AgentGRPCPort int    `json:"agent_grpc_port"`
 	// AgentGRPCURL overrides the address given to deployed agents.
@@ -137,7 +140,7 @@ func DefaultConfig() *Config {
 		Port:            8080,
 		ShutdownTimeout: 5,
 		DataDir:         dataDir,
-		AllowedOrigins:  []string{"*"},
+		AllowedOrigins:  []string{},
 		AllowedPaths:    []string{},
 		Shell:           getDefaultShell(),
 		LogLevel:        "info",
@@ -156,7 +159,7 @@ func DefaultConfig() *Config {
 			HeartbeatInterval: 10,
 			DeployTimeout:     120,
 			LocalAgent:        true,
-			AgentGRPCHost:     "0.0.0.0",
+			AgentGRPCHost:     "",
 			AgentGRPCPort:     9090,
 		},
 		Agent: AgentConfig{

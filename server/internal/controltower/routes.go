@@ -16,7 +16,7 @@ func (t *Tower) routes() http.Handler {
 	})
 	mux.HandleFunc("GET /api/tower/info", t.handleTowerInfo)
 	mux.Handle("GET /api/dashboard", t.userAuth(http.HandlerFunc(t.handleDashboard)))
-	mux.HandleFunc("GET /api/fleet/ws", t.handleFleetWS)
+	mux.Handle("GET /api/fleet/ws", t.userAuth(http.HandlerFunc(t.handleFleetWS)))
 
 	// Fleet API. If the operator configured an API key or JWT, require it.
 	mux.Handle("GET /api/devices", t.userAuth(http.HandlerFunc(t.handleListDevices)))
@@ -55,7 +55,7 @@ func (t *Tower) routes() http.Handler {
 	// Dashboard static assets and SPA fallback.
 	mux.HandleFunc("/", t.serveSPA)
 
-	return httpapi.Logging(securityHeaders(mux))
+	return httpapi.Logging(securityHeaders(httpapi.SameOrigin(t.cfg.AllowedOrigins)(mux)))
 }
 
 func (t *Tower) userAuth(next http.Handler) http.Handler {

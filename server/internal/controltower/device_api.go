@@ -3,6 +3,7 @@ package controltower
 import (
 	"encoding/json"
 	"errors"
+	"mime"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,12 +18,18 @@ var deviceWSUpgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
 	CheckOrigin: func(r *http.Request) bool {
-		return true // tailnet access is controlled by tailscale serve / ACLs
+		return true // origin is enforced for every route by httpapi.SameOrigin
 	},
 }
 
+// decodeJSON reads a JSON request body. It insists on a JSON content type so a
+// plain HTML form on another site cannot be used to submit commands.
 func decodeJSON[T any](w http.ResponseWriter, r *http.Request, maxBytes int64) (T, bool) {
 	var value T
+	if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
+		httpapi.Error(w, http.StatusUnsupportedMediaType, "content type must be application/json")
+		return value, false
+	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBytes))
 	if err := decoder.Decode(&value); err != nil {
 		httpapi.BadRequest(w, "invalid request body")
