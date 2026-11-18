@@ -25,16 +25,16 @@ export function ProgressBar({
 
   const getVariantClass = () => {
     if (variant === 'auto') {
-      if (percentage >= 90) return 'bg-red-500'
-      if (percentage >= 70) return 'bg-yellow-500'
-      return 'bg-green-500'
+      if (percentage >= 90) return 'bg-destructive'
+      if (percentage >= 70) return 'bg-warning'
+      return 'bg-success'
     }
 
     const variants = {
       default: 'bg-primary',
-      success: 'bg-green-500',
-      warning: 'bg-yellow-500',
-      danger: 'bg-red-500',
+      success: 'bg-success',
+      warning: 'bg-warning',
+      danger: 'bg-destructive',
     }
 
     return variants[variant]

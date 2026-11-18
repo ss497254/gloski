@@ -1,21 +1,139 @@
 import { PageLayout } from '@/layouts'
+import { cn, formatBytes, formatRelativeTime, formatUptime } from '@/shared/lib/utils'
 import { useTower } from '@/shared/tower'
+import type { FleetDevice } from '@/shared/tower/types'
 import { Button } from '@/ui/button'
-import { Card, CardContent } from '@/ui/card'
+import { EmptyState } from '@/shared/components'
 import { Skeleton } from '@/ui/skeleton'
-import { Activity, Layers, RefreshCw, Server, Terminal, Wifi } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { MiniBtop } from '../components/MiniBtop'
+import { Activity, ArrowUpRight, Circle, Play, Plus, Radar, RefreshCw, Square, Trash2, Wifi } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+import { DeployDeviceDialog } from '../components/DeployDeviceDialog'
+
+function Usage({ label, value }: { label: string; value: number }) {
+  const tone = value > 85 ? 'bg-destructive' : value > 65 ? 'bg-warning' : 'bg-success'
+  return (
+    <div className="flex min-w-24 items-center gap-2">
+      <span className="w-7 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+        <div className={cn('h-full rounded-full', tone)} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+      </div>
+      <span className="w-9 text-right font-mono text-xs tabular-nums text-foreground">{value.toFixed(0)}%</span>
+    </div>
+  )
+}
+
+function DeviceRow({ device }: { device: FleetDevice }) {
+  const { startDevice, stopDevice, removeDevice } = useTower()
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  const online = device.status === 'online'
+  const stats = device.stats
+
+  const run = async (action: 'start' | 'stop' | 'remove') => {
+    if (action === 'stop' && !window.confirm(`Stop the agent on "${device.name}"?`)) return
+    if (action === 'remove' && !window.confirm(`Remove "${device.name}" from the fleet?`)) return
+    setBusy(true)
+    try {
+      if (action === 'start') await startDevice(device.id)
+      if (action === 'stop') await stopDevice(device.id)
+      if (action === 'remove') await removeDevice(device.id)
+      toast.success(
+        action === 'start' ? 'Agent start requested' : action === 'stop' ? 'Agent stopped' : 'Device removed'
+      )
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to ${action} device`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <tr
+      className="cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40"
+      onClick={() => navigate(`/fleet/${device.id}`)}
+    >
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <span className={cn('h-2 w-2 shrink-0 rounded-full', online ? 'bg-success' : 'bg-muted-foreground/40')} />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">{device.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{device.hostname || device.url}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 text-xs font-medium',
+            online ? 'text-success' : 'text-muted-foreground'
+          )}
+        >
+          <Circle className="h-2 w-2 fill-current" />
+          {online ? 'Online' : 'Offline'}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        <div className="space-y-1.5">
+          <Usage label="cpu" value={stats?.cpu.usage_percent ?? 0} />
+          <Usage label="mem" value={stats?.memory.used_percent ?? 0} />
+        </div>
+      </td>
+      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+        <div className="text-success">↓ {formatBytes(stats?.network.rx_rate ?? 0)}/s</div>
+        <div className="text-info">↑ {formatBytes(stats?.network.tx_rate ?? 0)}/s</div>
+      </td>
+      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{stats ? formatUptime(stats.uptime) : '—'}</td>
+      <td className="px-4 py-3 text-xs text-muted-foreground">{formatRelativeTime(device.last_seen)}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
+          {device.managed && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title={online ? 'Stop agent' : 'Start agent'}
+              disabled={busy}
+              onClick={() => void run(online ? 'stop' : 'start')}
+            >
+              {busy ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : online ? (
+                <Square className="h-3.5 w-3.5" />
+              ) : (
+                <Play className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Remove device"
+            disabled={busy}
+            onClick={() => void run('remove')}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Open device" onClick={() => navigate(`/fleet/${device.id}`)}>
+            <ArrowUpRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  )
+}
 
 export function FleetPage() {
   const { mode, info, devices, connected, error, refresh } = useTower()
+  const [deployOpen, setDeployOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   if (mode === 'loading') {
     return (
       <PageLayout title="Fleet" description="Connecting to the control tower…">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-2 rounded-lg border border-border bg-card p-4">
           {[0, 1, 2].map((index) => (
-            <Skeleton key={index} className="h-64 w-full" />
+            <Skeleton key={index} className="h-12 w-full" />
           ))}
         </div>
       </PageLayout>
@@ -24,107 +142,116 @@ export function FleetPage() {
 
   if (mode === 'standalone') {
     return (
-      <PageLayout title="Fleet" description="This Gloski instance is not running as a control tower">
-        <Card>
-          <CardContent className="flex flex-col items-start gap-4 p-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <Layers className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="font-medium">Standalone mode</h2>
-                <p className="text-sm text-muted-foreground">
-                  Run the master binary with <code className="rounded bg-muted px-1">--mode master</code> to manage a
-                  fleet. The existing server list remains available.
-                </p>
-              </div>
-            </div>
-            <Button asChild variant="outline">
-              <Link to="/servers">Open servers</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <PageLayout title="Fleet" description="This instance is not running as a control tower">
+        <EmptyState
+          icon={Radar}
+          title="No control tower here"
+          description="Start Gloski with --mode master on the device that should control your tailnet, then open its dashboard to manage agents."
+        />
       </PageLayout>
     )
   }
 
   const online = devices.filter((device) => device.status === 'online').length
+  const deployDisabled = !info?.deploy_available
 
   return (
     <PageLayout
-      title={info?.name ? `${info.name} fleet` : 'Fleet'}
-      description="One screen for every device on the tailnet"
+      title="Fleet"
+      description={`${online} of ${devices.length} devices online${info?.name ? ` · tower ${info.name}` : ''}`}
       actions={
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={connected ? 'h-2 w-2 rounded-full bg-emerald-500' : 'h-2 w-2 rounded-full bg-red-500'} />
+            <span className={cn('h-2 w-2 rounded-full', connected ? 'bg-success' : 'bg-destructive')} />
             {connected ? 'live' : 'reconnecting'}
           </span>
-          <Button variant="outline" size="sm" onClick={() => refresh()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              setRefreshing(true)
+              try {
+                await refresh()
+              } finally {
+                setRefreshing(false)
+              }
+            }}
+          >
+            <RefreshCw className={cn('mr-2 h-4 w-4', refreshing && 'animate-spin')} />
             Refresh
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setDeployOpen(true)}
+            disabled={deployDisabled}
+            title={deployDisabled ? 'Agent binary not found next to the master' : undefined}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Deploy agent
           </Button>
         </div>
       }
     >
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[
-          { label: 'Devices', value: devices.length, icon: Server, tone: 'text-foreground' },
-          { label: 'Online', value: online, icon: Wifi, tone: 'text-emerald-500' },
-          { label: 'Offline', value: devices.length - online, icon: Activity, tone: 'text-red-500' },
-          {
-            label: 'Heartbeat',
-            value: info ? `${info.heartbeat_interval}s` : '—',
-            icon: Terminal,
-            tone: 'text-muted-foreground',
-          },
-        ].map((stat) => (
-          <Card key={stat.label}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <stat.icon className={`h-4 w-4 ${stat.tone}`} />
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{stat.label}</p>
-                <p className="text-lg font-semibold leading-none">{stat.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </div>
       )}
 
       {devices.length === 0 ? (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col items-center py-10 text-center">
-              <Layers className="mb-4 h-10 w-10 text-muted-foreground" />
-              <h2 className="mb-1 text-lg font-semibold">No devices enrolled</h2>
-              <p className="mb-6 max-w-md text-sm text-muted-foreground">
-                Install <code className="rounded bg-muted px-1">gloski-agent</code> on a device on your tailnet and
-                point it at this tower. The agent appears here as soon as it registers.
-              </p>
-              <pre className="max-w-full overflow-x-auto rounded-md border bg-muted/40 p-3 text-left text-xs">
-                {`GLOSKI_MODE=agent \\
-GLOSKI_AGENT_MASTER_URL=${window.location.origin} \\
-GLOSKI_AGENT_JOIN_TOKEN=$(cat ~/.gloski/data/master-join-token) \\
-GLOSKI_AGENT_NAME=my-device \\
-GLOSKI_HOST=0.0.0.0 \\
-gloski-agent`}
-              </pre>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-lg border border-border bg-card">
+          <EmptyState
+            icon={Wifi}
+            title="No devices yet"
+            description="Deploy gloski-agent to a machine on your tailnet. The tower copies the binary over SSH to /tmp and starts it as a slave service."
+            action={
+              <Button onClick={() => setDeployOpen(true)} disabled={deployDisabled}>
+                <Plus className="mr-2 h-4 w-4" />
+                Deploy your first agent
+              </Button>
+            }
+          />
+        </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {devices.map((device) => (
-            <MiniBtop key={device.id} device={device} />
-          ))}
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <table className="w-full min-w-[900px] text-left">
+            <thead className="border-b border-border bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2 font-medium">Device</th>
+                <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium">Usage</th>
+                <th className="px-4 py-2 font-medium">Network</th>
+                <th className="px-4 py-2 font-medium">Uptime</th>
+                <th className="px-4 py-2 font-medium">Seen</th>
+                <th className="px-4 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {devices.map((device) => (
+                <DeviceRow key={device.id} device={device} />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <Activity className="h-3.5 w-3.5" />
+          Heartbeat every {info?.heartbeat_interval ?? 10}s
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Radar className="h-3.5 w-3.5" />
+          {info?.tailscale_available ? 'Tailnet connected' : 'Tailscale API unavailable'}
+        </span>
+      </div>
+
+      <DeployDeviceDialog
+        open={deployOpen}
+        onOpenChange={setDeployOpen}
+        onDeployed={() => void refresh()}
+        info={info}
+      />
     </PageLayout>
   )
 }

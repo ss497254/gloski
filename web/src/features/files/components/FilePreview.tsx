@@ -84,7 +84,7 @@ export function FilePreview() {
     if (showLargeFileWarning) {
       return (
         <div className="h-full flex flex-col items-center justify-center gap-4 p-8 text-center">
-          <AlertTriangle className="h-12 w-12 text-yellow-500" />
+          <AlertTriangle className="h-12 w-12 text-warning" />
           <div className="space-y-1">
             <h3 className="font-medium">Large File Warning</h3>
             <p className="text-sm text-muted-foreground">
@@ -155,7 +155,7 @@ export function FilePreview() {
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">
             {selectedFile.name}
-            {hasUnsavedChanges && <span className="text-yellow-500 ml-1">*</span>}
+            {hasUnsavedChanges && <span className="text-warning ml-1">*</span>}
           </p>
           <p className="text-xs text-muted-foreground">
             {formatSize(selectedFile.size)} &bull; {formatDate(selectedFile.modified)}

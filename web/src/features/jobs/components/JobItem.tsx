@@ -11,15 +11,15 @@ interface JobItemProps {
 function getStatusIcon(status: string) {
   switch (status) {
     case 'running':
-      return <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
+      return <Clock className="h-4 w-4 text-info animate-pulse" />
     case 'finished':
-      return <CheckCircle className="h-4 w-4 text-green-500" />
+      return <CheckCircle className="h-4 w-4 text-success" />
     case 'failed':
-      return <XCircle className="h-4 w-4 text-red-500" />
+      return <XCircle className="h-4 w-4 text-destructive" />
     case 'stopped':
-      return <AlertCircle className="h-4 w-4 text-yellow-500" />
+      return <AlertCircle className="h-4 w-4 text-warning" />
     case 'pending':
-      return <Clock className="h-4 w-4 text-gray-400" />
+      return <Clock className="h-4 w-4 text-muted-foreground" />
     default:
       return null
   }

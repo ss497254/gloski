@@ -60,6 +60,15 @@ type Config struct {
 
 	// Device agent settings
 	Agent AgentConfig `json:"agent"`
+
+	// Tailscale LocalAPI settings
+	Tailscale TailscaleConfig `json:"tailscale"`
+}
+
+// TailscaleConfig controls access to the local tailscaled API.
+type TailscaleConfig struct {
+	// Socket is the tailscaled Unix socket path. Auto-discovered when empty.
+	Socket string `json:"socket"`
 }
 
 // MasterConfig holds settings for the control tower.
@@ -72,6 +81,13 @@ type MasterConfig struct {
 	DeviceTimeout int `json:"device_timeout"`
 	// HeartbeatInterval is the interval advertised to agents (seconds).
 	HeartbeatInterval int `json:"heartbeat_interval"`
+	// AgentBinary is the path to gloski-agent used for SSH deployments.
+	// If empty, the master looks next to its own binary.
+	AgentBinary string `json:"agent_binary"`
+	// SSHKeyFile is an optional private key passed to ssh for deployments.
+	SSHKeyFile string `json:"ssh_key_file"`
+	// DeployTimeout is the maximum time for an SSH deployment (seconds).
+	DeployTimeout int `json:"deploy_timeout"`
 }
 
 // AgentConfig holds settings for a device agent.
@@ -89,6 +105,8 @@ type AgentConfig struct {
 	HeartbeatInterval int `json:"heartbeat_interval"`
 	// StateFile stores the device credentials (default: <data_dir>/agent.json).
 	StateFile string `json:"state_file"`
+	// DeployID links this agent to the master deployment that started it.
+	DeployID string `json:"deploy_id"`
 }
 
 // DownloadsConfig holds configuration for the download manager
@@ -131,10 +149,12 @@ func DefaultConfig() *Config {
 			WebDir:            "web/dist",
 			DeviceTimeout:     45,
 			HeartbeatInterval: 10,
+			DeployTimeout:     120,
 		},
 		Agent: AgentConfig{
 			HeartbeatInterval: 10,
 		},
+		Tailscale: TailscaleConfig{},
 	}
 }
 
@@ -289,6 +309,23 @@ func (c *Config) loadFromEnv() {
 	if v := os.Getenv("GLOSKI_AGENT_STATE_FILE"); v != "" {
 		c.Agent.StateFile = v
 	}
+	if v := os.Getenv("GLOSKI_AGENT_DEPLOY_ID"); v != "" {
+		c.Agent.DeployID = v
+	}
+	if v := os.Getenv("GLOSKI_TAILSCALE_SOCKET"); v != "" {
+		c.Tailscale.Socket = v
+	}
+	if v := os.Getenv("GLOSKI_MASTER_AGENT_BINARY"); v != "" {
+		c.Master.AgentBinary = v
+	}
+	if v := os.Getenv("GLOSKI_MASTER_SSH_KEY_FILE"); v != "" {
+		c.Master.SSHKeyFile = v
+	}
+	if v := os.Getenv("GLOSKI_MASTER_DEPLOY_TIMEOUT"); v != "" {
+		if _, err := fmt.Sscanf(v, "%d", &c.Master.DeployTimeout); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_MASTER_DEPLOY_TIMEOUT value %q: %v\n", v, err)
+		}
+	}
 }
 
 func (c *Config) validate() error {
@@ -304,6 +341,9 @@ func (c *Config) validate() error {
 		}
 		if c.Master.HeartbeatInterval <= 0 {
 			c.Master.HeartbeatInterval = 10
+		}
+		if c.Master.DeployTimeout <= 0 {
+			c.Master.DeployTimeout = 120
 		}
 	case ModeAgent:
 		// The device token is assigned during enrollment, so API auth is not

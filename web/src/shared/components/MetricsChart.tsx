@@ -96,9 +96,9 @@ function isValidNumber(value: unknown): value is number {
 function getColorClass(value: number | null, max: number): string {
   if (value === null) return 'text-muted-foreground'
   const percent = (value / max) * 100
-  if (percent >= 90) return 'text-red-500 dark:text-red-400'
-  if (percent >= 70) return 'text-yellow-500 dark:text-yellow-400'
-  return 'text-emerald-600 dark:text-emerald-400'
+  if (percent >= 90) return 'text-destructive dark:text-destructive'
+  if (percent >= 70) return 'text-warning dark:text-warning'
+  return 'text-success dark:text-success'
 }
 
 // Cache theme color to avoid reading DOM on every chart tick

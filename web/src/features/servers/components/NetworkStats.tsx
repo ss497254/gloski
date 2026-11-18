@@ -16,15 +16,15 @@ export function NetworkStatsWidget({ network }: NetworkStatsWidgetProps) {
 
       {/* Total traffic */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10">
-          <ArrowDownToLine className="h-5 w-5 text-green-500" />
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-success">
+          <ArrowDownToLine className="h-5 w-5 text-success" />
           <div>
             <p className="text-xs text-muted-foreground">Download</p>
             <p className="text-lg font-semibold">{formatBytes(network.total_rx)}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-500/10">
-          <ArrowUpFromLine className="h-5 w-5 text-blue-500" />
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-info">
+          <ArrowUpFromLine className="h-5 w-5 text-info" />
           <div>
             <p className="text-xs text-muted-foreground">Upload</p>
             <p className="text-lg font-semibold">{formatBytes(network.total_tx)}</p>
@@ -39,18 +39,18 @@ export function NetworkStatsWidget({ network }: NetworkStatsWidgetProps) {
           <div key={iface.name} className="flex items-center justify-between py-2 border-b last:border-0">
             <div className="flex items-center gap-2">
               {iface.up ? (
-                <Wifi className="h-4 w-4 text-green-500" />
+                <Wifi className="h-4 w-4 text-success" />
               ) : (
                 <WifiOff className="h-4 w-4 text-muted-foreground" />
               )}
               <span className={cn('text-sm', !iface.up && 'text-muted-foreground')}>{iface.name}</span>
             </div>
             <div className="flex items-center gap-4 text-xs">
-              <span className="text-green-600">
+              <span className="text-success">
                 <ArrowDownToLine className="inline h-3 w-3 mr-1" />
                 {formatBytes(iface.rx_bytes)}
               </span>
-              <span className="text-blue-600">
+              <span className="text-info">
                 <ArrowUpFromLine className="inline h-3 w-3 mr-1" />
                 {formatBytes(iface.tx_bytes)}
               </span>

@@ -28,8 +28,8 @@ export function EmptyState({
       icon: 'text-destructive',
     },
     warning: {
-      container: 'bg-yellow-500/10',
-      icon: 'text-yellow-600',
+      container: 'bg-warning',
+      icon: 'text-warning',
     },
   }
 

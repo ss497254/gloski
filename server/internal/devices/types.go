@@ -26,6 +26,11 @@ type Device struct {
 	CreatedAt time.Time     `json:"created_at"`
 	LastSeen  time.Time     `json:"last_seen"`
 	Token     string        `json:"-"`
+
+	// DeployID links the device to a master-managed SSH deployment.
+	DeployID string      `json:"deploy_id,omitempty"`
+	Managed  bool        `json:"managed"`
+	Deploy   *Deployment `json:"deployment,omitempty"`
 }
 
 // RegisterRequest is sent by an agent the first time it starts.
@@ -37,6 +42,7 @@ type RegisterRequest struct {
 	Hostname  string        `json:"hostname"`
 	Platform  string        `json:"platform"`
 	Version   string        `json:"version"`
+	DeployID  string        `json:"deploy_id,omitempty"`
 	Stats     *system.Stats `json:"stats,omitempty"`
 }
 

@@ -138,8 +138,8 @@ export function MetricsHistory({ enabled = true }: MetricsHistoryProps) {
 
   if (error) {
     return (
-      <div className="col-span-full p-6 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg">
-        <p className="text-sm text-red-600 dark:text-red-400">Failed to load metrics history: {error}</p>
+      <div className="col-span-full p-6 bg-destructive dark:bg-destructive border border-destructive dark:border-destructive rounded-lg">
+        <p className="text-sm text-destructive dark:text-destructive">Failed to load metrics history: {error}</p>
       </div>
     )
   }

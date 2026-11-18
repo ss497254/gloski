@@ -27,23 +27,23 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 const statusConfig: Record<ServerStatus, { color: string; pulseColor?: string; label: string; icon: typeof Wifi }> = {
   online: {
-    color: 'bg-emerald-500',
+    color: 'bg-success',
     label: 'Online',
     icon: Wifi,
   },
   connecting: {
-    color: 'bg-yellow-500',
-    pulseColor: 'bg-yellow-400',
+    color: 'bg-warning',
+    pulseColor: 'bg-warning',
     label: 'Connecting...',
     icon: Wifi,
   },
   unauthorized: {
-    color: 'bg-orange-500',
+    color: 'bg-warning',
     label: 'Authentication failed',
     icon: ShieldAlert,
   },
   offline: {
-    color: 'bg-red-500',
+    color: 'bg-destructive',
     label: 'Offline',
     icon: WifiOff,
   },

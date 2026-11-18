@@ -43,7 +43,7 @@ export function StatCard({
 
       {trend && (
         <div className="mt-3 flex items-center gap-1.5 text-sm">
-          <span className={cn('font-medium', trend.positive ? 'text-green-600' : 'text-red-600')}>
+          <span className={cn('font-medium', trend.positive ? 'text-success' : 'text-destructive')}>
             {trend.positive ? '+' : ''}
             {trend.value}%
           </span>

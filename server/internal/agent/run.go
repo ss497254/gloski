@@ -18,6 +18,7 @@ import (
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/devices"
 	"github.com/ss497254/gloski/internal/logger"
+	"github.com/ss497254/gloski/internal/tailscale"
 )
 
 // Run starts the device agent and blocks until it receives SIGINT/SIGTERM.
@@ -133,6 +134,7 @@ func enroll(cfg *config.Config, name, version string) (*Credentials, error) {
 		Hostname:  hostname,
 		Platform:  runtime.GOOS + "/" + runtime.GOARCH,
 		Version:   version,
+		DeployID:  strings.TrimSpace(cfg.Agent.DeployID),
 	}
 
 	client := NewClient(cfg.Agent.MasterURL)
@@ -204,7 +206,7 @@ func advertiseURL(cfg *config.Config) string {
 		// A wildcard bind can be reached on any interface, but the master
 		// may see the connection through a local proxy (tailscale serve).
 		// Advertise the tailnet address explicitly when we can find it.
-		host = preferredAdvertiseIP()
+		host = preferredAdvertiseIP(cfg)
 		if host == "" {
 			return ""
 		}
@@ -213,9 +215,20 @@ func advertiseURL(cfg *config.Config) string {
 }
 
 // preferredAdvertiseIP picks a stable address for the master to call back on.
-// Tailscale addresses win over other interfaces because the control tower is
-// expected to operate over the tailnet.
-func preferredAdvertiseIP() string {
+// It asks tailscaled directly first, then falls back to interface scan.
+func preferredAdvertiseIP(cfg *config.Config) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	ips := tailscale.New(cfg.Tailscale.Socket).SelfIPs(ctx)
+	if ip := tailscale.PrimaryIP(ips); ip != "" {
+		return ip
+	}
+	return interfaceAdvertiseIP()
+}
+
+// interfaceAdvertiseIP is the fallback when the tailscaled API is unavailable.
+func interfaceAdvertiseIP() string {
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		return ""

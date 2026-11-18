@@ -29,7 +29,7 @@ export function DownloadProgress({ progress, total, speed, status }: DownloadPro
         className="h-2 bg-muted rounded-full overflow-hidden"
       >
         <div
-          className={`h-full transition-all duration-300 ${isPaused ? 'bg-orange-500' : 'bg-primary'}`}
+          className={`h-full transition-all duration-300 ${isPaused ? 'bg-warning' : 'bg-primary'}`}
           style={{ width: hasTotal ? `${percentage}%` : '100%' }}
         />
       </div>
@@ -53,7 +53,7 @@ export function DownloadProgress({ progress, total, speed, status }: DownloadPro
           {!isPaused && etaFormatted && hasTotal && (
             <span className="text-muted-foreground/60">{etaFormatted} left</span>
           )}
-          {isPaused && <span className="text-orange-500">Paused</span>}
+          {isPaused && <span className="text-warning">Paused</span>}
         </div>
       </div>
     </div>

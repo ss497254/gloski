@@ -15,18 +15,30 @@ export function ServerNav({ collapsed }: ServerNavProps) {
 
   if (!serverId || !server) return null
 
+  const isDevice = server.managedBy === 'tower'
+  const deviceId = serverId.replace(/^tower-/, '')
+  const items = isDevice ? serverNavItems.filter((item) => item.id !== 'metrics') : serverNavItems
+
   return (
     <NavSection title={server.name} collapsed={collapsed}>
-      {serverNavItems.map((item) => (
-        <NavItem
-          key={item.id}
-          to={item.path.replace(':serverId', serverId)}
-          icon={item.icon}
-          label={item.name}
-          end={item.id === 'server-overview'}
-          collapsed={collapsed}
-        />
-      ))}
+      {items.map((item) => {
+        const to =
+          item.id === 'server-overview'
+            ? isDevice
+              ? `/fleet/${deviceId}`
+              : `/servers/${serverId}`
+            : item.path.replace(':serverId', serverId)
+        return (
+          <NavItem
+            key={item.id}
+            to={to}
+            icon={item.icon}
+            label={item.name}
+            end={item.id === 'server-overview'}
+            collapsed={collapsed}
+          />
+        )
+      })}
     </NavSection>
   )
 }

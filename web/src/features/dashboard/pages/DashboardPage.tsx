@@ -66,12 +66,12 @@ function DashboardContent() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                    <Wifi className="h-6 w-6 text-emerald-600" />
+                  <div className="h-12 w-12 rounded-lg bg-success flex items-center justify-center">
+                    <Wifi className="h-6 w-6 text-success" />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Online</p>
-                    <p className="text-2xl font-semibold text-emerald-600">{onlineCount}</p>
+                    <p className="text-2xl font-semibold text-success">{onlineCount}</p>
                   </div>
                 </div>
               </CardContent>
@@ -80,12 +80,12 @@ function DashboardContent() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-lg bg-red-500/10 flex items-center justify-center">
-                    <Activity className="h-6 w-6 text-red-600" />
+                  <div className="h-12 w-12 rounded-lg bg-destructive flex items-center justify-center">
+                    <Activity className="h-6 w-6 text-destructive" />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Offline</p>
-                    <p className="text-2xl font-semibold text-red-600">{offlineCount}</p>
+                    <p className="text-2xl font-semibold text-destructive">{offlineCount}</p>
                   </div>
                 </div>
               </CardContent>

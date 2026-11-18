@@ -38,25 +38,25 @@ const SERVER_STATUS_CONFIG = {
     icon: Wifi,
     label: 'Online',
     variant: 'default' as const,
-    className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+    className: 'bg-success text-success border-success',
   },
   connecting: {
     icon: Wifi,
     label: 'Connecting',
     variant: 'secondary' as const,
-    className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20 animate-pulse',
+    className: 'bg-warning text-warning border-warning animate-pulse',
   },
   unauthorized: {
     icon: ShieldAlert,
     label: 'Auth Error',
     variant: 'destructive' as const,
-    className: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    className: 'bg-warning text-warning border-warning',
   },
   offline: {
     icon: WifiOff,
     label: 'Offline',
     variant: 'destructive' as const,
-    className: 'bg-red-500/10 text-red-600 border-red-500/20',
+    className: 'bg-destructive text-destructive border-destructive',
   },
 } as const
 

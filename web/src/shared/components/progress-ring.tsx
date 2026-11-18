@@ -32,9 +32,9 @@ export function ProgressRing({
 
   // Color based on value
   const getColor = () => {
-    if (normalizedValue >= 90) return 'text-red-500'
-    if (normalizedValue >= 70) return 'text-yellow-500'
-    return 'text-green-500'
+    if (normalizedValue >= 90) return 'text-destructive'
+    if (normalizedValue >= 70) return 'text-warning'
+    return 'text-success'
   }
 
   return (

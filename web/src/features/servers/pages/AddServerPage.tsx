@@ -155,13 +155,13 @@ export function AddServerPage() {
       </Badge>
     ),
     success: (
-      <Badge className="gap-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+      <Badge className="gap-1.5 bg-success text-success border-success">
         <CheckCircle2 className="h-3 w-3" />
         Connected
       </Badge>
     ),
     warning: (
-      <Badge className="gap-1.5 bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+      <Badge className="gap-1.5 bg-warning text-warning border-warning">
         <AlertTriangle className="h-3 w-3" />
         Auth Required
       </Badge>
@@ -226,8 +226,8 @@ export function AddServerPage() {
                   <div
                     className={cn(
                       'text-sm flex items-start gap-1.5',
-                      connectionStatus === 'success' && 'text-emerald-600',
-                      connectionStatus === 'warning' && 'text-yellow-600',
+                      connectionStatus === 'success' && 'text-success',
+                      connectionStatus === 'warning' && 'text-warning',
                       connectionStatus === 'error' && 'text-destructive'
                     )}
                   >
@@ -283,7 +283,7 @@ export function AddServerPage() {
                   disabled={loading}
                 />
                 {connectionStatus === 'warning' && !form.apiKey && (
-                  <p className="text-xs text-yellow-600 flex items-center gap-1.5">
+                  <p className="text-xs text-warning flex items-center gap-1.5">
                     <AlertTriangle className="h-3 w-3 shrink-0" />
                     This server requires authentication. Enter your API key above.
                   </p>

@@ -54,15 +54,15 @@ const fileIcons: Record<string, typeof File> = {
  * File extension to color mapping
  */
 const fileColors: Record<string, string> = {
-  ts: 'text-blue-400',
-  tsx: 'text-blue-400',
-  js: 'text-yellow-400',
-  jsx: 'text-yellow-400',
-  py: 'text-green-400',
-  go: 'text-cyan-400',
-  json: 'text-yellow-500',
-  md: 'text-gray-400',
-  txt: 'text-gray-400',
+  ts: 'text-info',
+  tsx: 'text-info',
+  js: 'text-warning',
+  jsx: 'text-warning',
+  py: 'text-success',
+  go: 'text-info',
+  json: 'text-warning',
+  md: 'text-muted-foreground',
+  txt: 'text-muted-foreground',
   png: 'text-pink-400',
   jpg: 'text-pink-400',
   jpeg: 'text-pink-400',
@@ -83,7 +83,7 @@ export function getFileIcon(name: string, type: string) {
  * Get the appropriate color class for a file
  */
 export function getFileColor(name: string, type: string): string {
-  if (type === 'directory') return 'text-blue-500'
+  if (type === 'directory') return 'text-info'
   const ext = name.split('.').pop()?.toLowerCase() || ''
   return fileColors[ext] || 'text-muted-foreground'
 }

@@ -159,4 +159,31 @@ var migrations = []migration{
 			CREATE INDEX idx_devices_token ON devices(token);
 		`,
 	},
+	{
+		version: 5,
+		name:    "add_device_deployments",
+		sql: `
+			ALTER TABLE devices ADD COLUMN deploy_id TEXT;
+			CREATE INDEX idx_devices_deploy_id ON devices(deploy_id);
+
+			CREATE TABLE deployments (
+				id TEXT PRIMARY KEY,
+				name TEXT NOT NULL,
+				host TEXT NOT NULL,
+				ssh_user TEXT,
+				ssh_port INTEGER NOT NULL,
+				agent_port INTEGER NOT NULL,
+				master_url TEXT NOT NULL,
+				status TEXT NOT NULL,
+				remote_pid TEXT,
+				device_id TEXT,
+				error TEXT,
+				created_at DATETIME NOT NULL,
+				updated_at DATETIME NOT NULL
+			);
+
+			CREATE INDEX idx_deployments_status ON deployments(status);
+			CREATE INDEX idx_deployments_device_id ON deployments(device_id);
+		`,
+	},
 }

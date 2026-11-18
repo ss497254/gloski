@@ -46,39 +46,39 @@ const statusConfig: Record<
   pending: {
     icon: Clock,
     label: 'Pending',
-    color: 'text-yellow-500',
-    bgColor: 'bg-yellow-500/10',
+    color: 'text-warning',
+    bgColor: 'bg-warning',
   },
   downloading: {
     icon: Loader2,
     label: 'Downloading',
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
+    color: 'text-info',
+    bgColor: 'bg-info',
     animate: true,
   },
   paused: {
     icon: Pause,
     label: 'Paused',
-    color: 'text-orange-500',
-    bgColor: 'bg-orange-500/10',
+    color: 'text-warning',
+    bgColor: 'bg-warning',
   },
   completed: {
     icon: CheckCircle2,
     label: 'Completed',
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
+    color: 'text-success',
+    bgColor: 'bg-success',
   },
   failed: {
     icon: XCircle,
     label: 'Failed',
-    color: 'text-red-500',
-    bgColor: 'bg-red-500/10',
+    color: 'text-destructive',
+    bgColor: 'bg-destructive',
   },
   cancelled: {
     icon: X,
     label: 'Cancelled',
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-500/10',
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted',
   },
 }
 
@@ -150,7 +150,7 @@ export const DownloadItem = memo(function DownloadItem({ download }: DownloadIte
 
           {/* Error message */}
           {download.error && (
-            <div className="flex items-center gap-2 mt-2 text-sm text-red-500">
+            <div className="flex items-center gap-2 mt-2 text-sm text-destructive">
               <AlertCircle className="h-4 w-4" />
               <span>{download.error}</span>
             </div>

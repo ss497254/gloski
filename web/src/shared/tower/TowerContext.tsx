@@ -1,7 +1,15 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useServersStore } from '@/shared/store/servers'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { connectFleetSocket, deleteDevice, detectTower, listDevices, type FleetSocket } from './client'
+import {
+  connectFleetSocket,
+  deleteDevice,
+  detectTower,
+  listDevices,
+  startDevice as startDeviceRequest,
+  stopDevice as stopDeviceRequest,
+  type FleetSocket,
+} from './client'
 import type { FleetDevice, TowerInfo, TowerMode } from './types'
 
 interface TowerContextValue {
@@ -12,6 +20,8 @@ interface TowerContextValue {
   error: string | null
   refresh: () => Promise<void>
   removeDevice: (id: string) => Promise<void>
+  startDevice: (id: string) => Promise<void>
+  stopDevice: (id: string) => Promise<void>
 }
 
 const TowerContext = createContext<TowerContextValue | null>(null)
@@ -107,9 +117,25 @@ export function TowerProvider({ children }: { children: ReactNode }) {
     setDevices((current) => current.filter((device) => device.id !== id))
   }, [])
 
+  const startDevice = useCallback(
+    async (id: string) => {
+      await startDeviceRequest(id)
+      await refresh()
+    },
+    [refresh]
+  )
+
+  const stopDevice = useCallback(
+    async (id: string) => {
+      await stopDeviceRequest(id)
+      await refresh()
+    },
+    [refresh]
+  )
+
   const value = useMemo<TowerContextValue>(
-    () => ({ mode, info, devices, connected, error, refresh, removeDevice }),
-    [mode, info, devices, connected, error, refresh, removeDevice]
+    () => ({ mode, info, devices, connected, error, refresh, removeDevice, startDevice, stopDevice }),
+    [mode, info, devices, connected, error, refresh, removeDevice, startDevice, stopDevice]
   )
 
   return <TowerContext.Provider value={value}>{children}</TowerContext.Provider>

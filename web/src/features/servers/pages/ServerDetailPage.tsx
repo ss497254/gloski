@@ -169,11 +169,11 @@ export function ServerDetailPage() {
   const getHealthCheckIcon = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        return <CheckCircle2 className="h-4 w-4 text-success" />
       case 'unhealthy':
-        return <AlertCircle className="h-4 w-4 text-red-500" />
+        return <AlertCircle className="h-4 w-4 text-destructive" />
       case 'warning':
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />
+        return <AlertTriangle className="h-4 w-4 text-warning" />
       default:
         return <CircleDashed className="h-4 w-4 text-muted-foreground" />
     }
@@ -191,8 +191,8 @@ export function ServerDetailPage() {
                 variant="outline"
                 className={cn(
                   serverStatus?.status === 'healthy'
-                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                    : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                    ? 'bg-success text-success border-success'
+                    : 'bg-warning text-warning border-warning'
                 )}
               >
                 {serverStatus?.status === 'healthy'
@@ -265,10 +265,10 @@ export function ServerDetailPage() {
                           variant="outline"
                           className={cn(
                             'text-xs capitalize',
-                            check.status === 'healthy' && 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-                            check.status === 'unhealthy' && 'bg-red-500/10 text-red-600 border-red-500/20',
-                            check.status === 'warning' && 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-                            check.status === 'unavailable' && 'bg-gray-500/10 text-gray-600 border-gray-500/20'
+                            check.status === 'healthy' && 'bg-success text-success border-success',
+                            check.status === 'unhealthy' && 'bg-destructive text-destructive border-destructive',
+                            check.status === 'warning' && 'bg-warning text-warning border-warning',
+                            check.status === 'unavailable' && 'bg-muted text-muted-foreground border-gray-500/20'
                           )}
                         >
                           {check.status}

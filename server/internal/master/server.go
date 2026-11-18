@@ -16,8 +16,10 @@ import (
 	"github.com/ss497254/gloski/internal/auth"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/database"
+	"github.com/ss497254/gloski/internal/deploy"
 	"github.com/ss497254/gloski/internal/devices"
 	"github.com/ss497254/gloski/internal/logger"
+	"github.com/ss497254/gloski/internal/tailscale"
 )
 
 // Server is the master control tower.
@@ -27,6 +29,8 @@ type Server struct {
 	devices   *devices.Service
 	hub       *devices.Hub
 	auth      *auth.Service
+	deployer  *deploy.Manager
+	tailscale *tailscale.Client
 	transport *http.Transport
 	router    http.Handler
 	version   string
@@ -72,6 +76,8 @@ func New(cfg *config.Config, version string) (*Server, error) {
 		devices:   devicesSvc,
 		hub:       devices.NewHub(),
 		auth:      authSvc,
+		deployer:  deploy.New(resolveAgentBinary(cfg.Master.AgentBinary), cfg.Master.SSHKeyFile, tailscale.KnownHostsPath(cfg.DataDir)),
+		tailscale: tailscale.New(cfg.Tailscale.Socket),
 		transport: transport,
 		version:   version,
 		name:      hostname,
@@ -162,9 +168,17 @@ func (s *Server) routes() http.Handler {
 
 	// Fleet API. If the operator configured an API key or JWT, require it.
 	mux.Handle("GET /api/devices", s.userAuth(http.HandlerFunc(s.handleListDevices)))
+	mux.Handle("POST /api/devices/deploy", s.userAuth(http.HandlerFunc(s.handleDeployDevice)))
 	mux.Handle("GET /api/devices/{id}", s.userAuth(http.HandlerFunc(s.handleGetDevice)))
 	mux.Handle("DELETE /api/devices/{id}", s.userAuth(http.HandlerFunc(s.handleDeleteDevice)))
+	mux.Handle("POST /api/devices/{id}/start", s.userAuth(http.HandlerFunc(s.handleStartDevice)))
+	mux.Handle("POST /api/devices/{id}/stop", s.userAuth(http.HandlerFunc(s.handleStopDevice)))
 	mux.Handle("/api/devices/{id}/", s.userAuth(http.HandlerFunc(s.handleDeviceProxy)))
+
+	// SSH deployment and tailnet discovery.
+	mux.Handle("GET /api/deployments", s.userAuth(http.HandlerFunc(s.handleListDeployments)))
+	mux.Handle("GET /api/deployments/{id}", s.userAuth(http.HandlerFunc(s.handleGetDeployment)))
+	mux.Handle("GET /api/tailnet/peers", s.userAuth(http.HandlerFunc(s.handleTailnetPeers)))
 
 	// Dashboard static assets and SPA fallback.
 	mux.HandleFunc("/", s.serveSPA)
@@ -227,6 +241,28 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "same-origin")
 		next.ServeHTTP(w, r)
 	})
+}
+
+func resolveAgentBinary(configured string) string {
+	candidates := []string{configured}
+	if executable, err := os.Executable(); err == nil {
+		candidates = append(candidates, filepath.Join(filepath.Dir(executable), "gloski-agent"))
+	}
+	candidates = append(candidates,
+		filepath.Join("bin", "gloski-agent"),
+		filepath.Join("..", "bin", "gloski-agent"),
+		filepath.Join("..", "..", "bin", "gloski-agent"),
+	)
+
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate
+		}
+	}
+	return configured
 }
 
 func resolveWebDir(configured string) string {

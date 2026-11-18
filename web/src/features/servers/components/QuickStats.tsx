@@ -15,28 +15,28 @@ export function QuickStats({ stats }: QuickStatsProps) {
         value={stats.hostname}
         subtitle={stats.platform}
         icon={Server}
-        iconClassName="bg-blue-500/10"
+        iconClassName="bg-info"
       />
       <StatCard
         title="Uptime"
         value={formatUptime(stats.uptime)}
         subtitle={`Boot: ${formatDate(stats.boot_time)}`}
         icon={Clock}
-        iconClassName="bg-green-500/10"
+        iconClassName="bg-success"
       />
       <StatCard
         title="Processes"
         value={stats.processes}
         subtitle={`${stats.goroutines} goroutines`}
         icon={Activity}
-        iconClassName="bg-purple-500/10"
+        iconClassName="bg-primary"
       />
       <StatCard
         title="CPU Model"
         value={`${stats.cpu.cores} cores`}
         subtitle={truncate(stats.cpu.model_name, 35)}
         icon={Cpu}
-        iconClassName="bg-orange-500/10"
+        iconClassName="bg-warning"
       />
     </div>
   )

@@ -9,10 +9,10 @@ import { useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 const statusColors: Record<string, string> = {
-  online: 'fill-green-500',
-  offline: 'fill-gray-400',
-  connecting: 'fill-yellow-500',
-  unauthorized: 'fill-red-500',
+  online: 'fill-success',
+  offline: 'fill-muted-foreground',
+  connecting: 'fill-warning',
+  unauthorized: 'fill-destructive',
 }
 
 const statusLabels: Record<string, string> = {

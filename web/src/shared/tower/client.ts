@@ -1,4 +1,4 @@
-import type { FleetDevice, FleetEvent, TowerInfo } from './types'
+import type { Deployment, DeployRequest, FleetDevice, FleetEvent, TailnetResponse, TowerInfo } from './types'
 
 interface Envelope<T> {
   success: boolean
@@ -41,6 +41,40 @@ export async function listDevices(): Promise<FleetDevice[]> {
 
 export async function deleteDevice(id: string): Promise<void> {
   await request<{ removed: boolean }>(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export async function listTailnetPeers(): Promise<TailnetResponse> {
+  return request<TailnetResponse>('/api/tailnet/peers')
+}
+
+export async function tailnetAvailable(): Promise<boolean> {
+  try {
+    const result = await listTailnetPeers()
+    return result.available && result.peers.length > 0
+  } catch {
+    return false
+  }
+}
+
+export async function deployDevice(payload: DeployRequest): Promise<Deployment> {
+  return request<Deployment>('/api/devices/deploy', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function getDeployment(id: string): Promise<Deployment> {
+  return request<Deployment>(`/api/deployments/${encodeURIComponent(id)}`)
+}
+
+export async function startDevice(id: string): Promise<{ pid: string; status: string }> {
+  return request<{ pid: string; status: string }>(`/api/devices/${encodeURIComponent(id)}/start`, { method: 'POST' })
+}
+
+export async function stopDevice(id: string): Promise<{ stopped: boolean; status: string }> {
+  return request<{ stopped: boolean; status: string }>(`/api/devices/${encodeURIComponent(id)}/stop`, {
+    method: 'POST',
+  })
 }
 
 /** API prefix to give the SDK when talking to a device through the master. */

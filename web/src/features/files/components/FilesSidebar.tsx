@@ -29,7 +29,7 @@ export function FilesSidebar({
   return (
     <>
       {/* Mobile overlay */}
-      {open && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />}
+      {open && <div className="fixed inset-0 bg-muted/50 z-40 md:hidden" onClick={onClose} />}
 
       {/* Sidebar */}
       <aside

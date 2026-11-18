@@ -1,12 +1,14 @@
+import { cn } from '@/shared/lib/utils'
+
 interface SparklineProps {
   values: number[]
   max?: number
-  color?: string
   className?: string
   height?: number
 }
 
-export function Sparkline({ values, max, color = '#7ee787', className, height = 34 }: SparklineProps) {
+/** A compact sparkline that inherits its color from the current text color. */
+export function Sparkline({ values, max, className, height = 34 }: SparklineProps) {
   const width = 100
   if (values.length < 2) {
     return <div className={className} style={{ height }} />
@@ -26,13 +28,14 @@ export function Sparkline({ values, max, color = '#7ee787', className, height = 
 
   return (
     <svg
-      className={className}
+      className={cn('block w-full', className)}
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
-      style={{ height, width: '100%' }}
+      style={{ height }}
+      aria-hidden
     >
-      <polygon points={area} fill={color} opacity={0.12} />
-      <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+      <polygon points={area} fill="currentColor" opacity={0.12} />
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }

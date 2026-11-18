@@ -111,12 +111,12 @@ export function SearchPage() {
   }
 
   const getIconColor = (result: SearchResult) => {
-    if (result.type === 'directory') return 'text-blue-500'
+    if (result.type === 'directory') return 'text-info'
     const ext = result.name.split('.').pop()?.toLowerCase() || ''
-    if (['ts', 'tsx'].includes(ext)) return 'text-blue-400'
-    if (['js', 'jsx'].includes(ext)) return 'text-yellow-400'
-    if (['py'].includes(ext)) return 'text-green-400'
-    if (['go'].includes(ext)) return 'text-cyan-400'
+    if (['ts', 'tsx'].includes(ext)) return 'text-info'
+    if (['js', 'jsx'].includes(ext)) return 'text-warning'
+    if (['py'].includes(ext)) return 'text-success'
+    if (['go'].includes(ext)) return 'text-info'
     return 'text-muted-foreground'
   }
 
@@ -126,7 +126,7 @@ export function SearchPage() {
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
     return parts.map((part, i) =>
       part.toLowerCase() === q.toLowerCase() ? (
-        <mark key={i} className="bg-yellow-300/30 text-yellow-800 dark:text-yellow-200">
+        <mark key={i} className="bg-warning text-warning dark:text-warning">
           {part}
         </mark>
       ) : (

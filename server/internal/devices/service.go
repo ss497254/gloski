@@ -28,12 +28,13 @@ var (
 
 // Service implements registration, heartbeats, and fleet queries.
 type Service struct {
-	store    *Store
-	join     string
-	timeout  time.Duration
-	interval int
-	version  string
-	onChange func()
+	store       *Store
+	deployments *DeploymentStore
+	join        string
+	timeout     time.Duration
+	interval    int
+	version     string
+	onChange    func()
 }
 
 // NewService creates the fleet service.
@@ -43,11 +44,12 @@ func NewService(db *database.Database, cfg config.MasterConfig, version, dataDir
 		return nil, err
 	}
 	return &Service{
-		store:    NewStore(db),
-		join:     join,
-		timeout:  time.Duration(cfg.DeviceTimeout) * time.Second,
-		interval: cfg.HeartbeatInterval,
-		version:  version,
+		store:       NewStore(db),
+		deployments: NewDeploymentStore(db),
+		join:        join,
+		timeout:     time.Duration(cfg.DeviceTimeout) * time.Second,
+		interval:    cfg.HeartbeatInterval,
+		version:     version,
 	}, nil
 }
 
@@ -85,6 +87,7 @@ func (s *Service) Register(req RegisterRequest, remoteIP string) (*RegisterRespo
 		Hostname:  strings.TrimSpace(req.Hostname),
 		Platform:  strings.TrimSpace(req.Platform),
 		Version:   strings.TrimSpace(req.Version),
+		DeployID:  strings.TrimSpace(req.DeployID),
 		Stats:     req.Stats,
 		CreatedAt: now,
 		LastSeen:  now,
@@ -98,6 +101,12 @@ func (s *Service) Register(req RegisterRequest, remoteIP string) (*RegisterRespo
 	saved, err := s.store.Get(dev.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	if saved.DeployID != "" {
+		if err := s.deployments.LinkDevice(saved.DeployID, saved.ID); err != nil {
+			logger.Warn("Failed to link deployment %s to device %s: %v", saved.DeployID, saved.ID, err)
+		}
 	}
 
 	logger.Info("Device enrolled: %s (%s) at %s", saved.Name, saved.ID, saved.URL)
@@ -173,6 +182,50 @@ func (s *Service) Delete(id string) error {
 	return nil
 }
 
+// MarkOffline forces a device to show as offline until its next heartbeat.
+func (s *Service) MarkOffline(id string) error {
+	if err := s.store.MarkOffline(id, time.Now().UTC().Add(-time.Hour)); err != nil {
+		return err
+	}
+	s.changed()
+	return nil
+}
+
+// CreateDeployment records a new SSH deployment.
+func (s *Service) CreateDeployment(deployment *Deployment) error {
+	return s.deployments.Create(deployment)
+}
+
+// GetDeployment returns a deployment by ID.
+func (s *Service) GetDeployment(id string) (*Deployment, error) {
+	return s.deployments.Get(id)
+}
+
+// ListDeployments returns all deployments, newest first.
+func (s *Service) ListDeployments() ([]Deployment, error) {
+	return s.deployments.List()
+}
+
+// SetDeploymentStatus updates a deployment's status and optional error.
+func (s *Service) SetDeploymentStatus(id, status, errMsg string) error {
+	return s.deployments.SetStatus(id, status, errMsg)
+}
+
+// SetDeploymentRunning marks a deployment as running with its remote PID.
+func (s *Service) SetDeploymentRunning(id, pid string) error {
+	return s.deployments.SetRunning(id, pid)
+}
+
+// SetDeploymentStopped marks a deployment as stopped.
+func (s *Service) SetDeploymentStopped(id string) error {
+	return s.deployments.SetStopped(id)
+}
+
+// DeleteDeployment removes a deployment record.
+func (s *Service) DeleteDeployment(id string) error {
+	return s.deployments.Delete(id)
+}
+
 // HeartbeatInterval returns the advertised interval in seconds.
 func (s *Service) HeartbeatInterval() int {
 	return s.interval
@@ -188,6 +241,12 @@ func (s *Service) decorate(dev *Device) {
 		dev.Status = StatusOffline
 	} else {
 		dev.Status = StatusOnline
+	}
+	if dev.DeployID != "" {
+		if deployment, err := s.deployments.Get(dev.DeployID); err == nil {
+			dev.Managed = true
+			dev.Deploy = deployment
+		}
 	}
 }
 

@@ -1,0 +1,360 @@
+import { deployDevice, getDeployment, listTailnetPeers } from '@/shared/tower/client'
+import type { Deployment, TailnetNode, TowerInfo } from '@/shared/tower/types'
+import { Button } from '@/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
+import { Input } from '@/ui/input'
+import { Loader2, Rocket, Server } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { toast } from 'sonner'
+
+interface DeployDeviceDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onDeployed: () => void
+  info: TowerInfo | null
+}
+
+interface FormState {
+  peer: string
+  host: string
+  name: string
+  user: string
+  sshPort: string
+  agentPort: string
+  masterURL: string
+}
+
+function peerKey(peer: TailnetNode): string {
+  return peer.dns_name || peer.ips[0] || peer.hostname
+}
+
+function peerHost(peer: TailnetNode): string {
+  return peer.ips.find((ip) => ip.includes('.')) ?? peer.ips[0] ?? peer.dns_name
+}
+
+function suggestMasterURL(info: TowerInfo | null, self?: TailnetNode): string {
+  const origin = window.location.origin
+  const local = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+  if (!local) return origin
+  if (self?.dns_name) return `https://${self.dns_name}`
+  if (self?.ips?.length) {
+    const ip = self.ips.find((value) => value.includes('.')) ?? self.ips[0]
+    return `http://${ip}:${info?.port ?? 8080}`
+  }
+  return origin
+}
+
+function statusLabel(status: Deployment['status']): string {
+  switch (status) {
+    case 'pending':
+    case 'uploading':
+      return 'Copying the agent binary to /tmp…'
+    case 'starting':
+      return 'Starting the agent over SSH…'
+    case 'running':
+      return 'Agent started. Waiting for it to enroll…'
+    default:
+      return 'Working…'
+  }
+}
+
+export function DeployDeviceDialog({ open, onOpenChange, onDeployed, info }: DeployDeviceDialogProps) {
+  const [peers, setPeers] = useState<TailnetNode[]>([])
+  const [peersAvailable, setPeersAvailable] = useState(false)
+  const [peersError, setPeersError] = useState<string | null>(null)
+  const [loadingPeers, setLoadingPeers] = useState(false)
+  const [form, setForm] = useState<FormState>({
+    peer: '',
+    host: '',
+    name: '',
+    user: '',
+    sshPort: '22',
+    agentPort: '18081',
+    masterURL: window.location.origin,
+  })
+  const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<'idle' | 'deploying' | 'failed'>('idle')
+  const [deployment, setDeployment] = useState<Deployment | null>(null)
+  const deploymentId = deployment?.id
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+
+    const bootstrap = async () => {
+      setLoadingPeers(true)
+      setError(null)
+      setStatus('idle')
+      setDeployment(null)
+
+      let response: Awaited<ReturnType<typeof listTailnetPeers>> | null = null
+      try {
+        response = await listTailnetPeers()
+      } catch (err) {
+        if (!cancelled) setPeersError(err instanceof Error ? err.message : 'Could not reach the tailnet API')
+      }
+      if (cancelled) return
+
+      const availablePeers = response?.peers ?? []
+      setPeers(availablePeers)
+      setPeersAvailable(Boolean(response?.available))
+      setPeersError(response?.error ?? null)
+
+      const firstPeer = availablePeers.find((peer) => peer.online && !peer.self)
+      setForm({
+        peer: firstPeer ? peerKey(firstPeer) : '',
+        host: firstPeer ? peerHost(firstPeer) : '',
+        name: firstPeer?.hostname ?? '',
+        user: localStorage.getItem('gloski-ssh-user') ?? '',
+        sshPort: '22',
+        agentPort: '18081',
+        masterURL: suggestMasterURL(info, response?.self),
+      })
+      setLoadingPeers(false)
+    }
+
+    void bootstrap()
+    return () => {
+      cancelled = true
+    }
+  }, [open, info])
+
+  useEffect(() => {
+    if (!deploymentId || status !== 'deploying') return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let attempts = 0
+
+    const poll = async () => {
+      try {
+        const latest = await getDeployment(deploymentId)
+        if (cancelled) return
+        setDeployment(latest)
+        if (latest.status === 'running') {
+          localStorage.setItem('gloski-ssh-user', form.user)
+          toast.success(`Agent deployed to ${latest.name}`)
+          onDeployed()
+          onOpenChange(false)
+          return
+        }
+        if (latest.status === 'failed') {
+          setError(latest.error || 'Deployment failed')
+          setStatus('failed')
+          return
+        }
+        attempts += 1
+        if (attempts > 150) {
+          setError('Deployment timed out waiting for the agent. Check the master logs.')
+          setStatus('failed')
+          return
+        }
+        timer = setTimeout(poll, 1000)
+      } catch (err) {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : 'Failed to read deployment status')
+        setStatus('failed')
+      }
+    }
+
+    timer = setTimeout(poll, 700)
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [deploymentId, status, form.user, onDeployed, onOpenChange])
+
+  const update = (field: keyof FormState, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const choosePeer = (key: string) => {
+    const peer = peers.find((item) => peerKey(item) === key)
+    setForm((current) => ({
+      ...current,
+      peer: key,
+      host: peer ? peerHost(peer) : '',
+      name: peer?.hostname ?? '',
+    }))
+  }
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!form.host.trim() || !form.user.trim() || status === 'deploying') {
+      setError('Host and SSH user are required')
+      return
+    }
+
+    setError(null)
+    setStatus('deploying')
+    try {
+      const created = await deployDevice({
+        name: form.name.trim() || form.host.trim(),
+        host: form.host.trim(),
+        user: form.user.trim(),
+        ssh_port: Number(form.sshPort) || 22,
+        agent_port: Number(form.agentPort) || 18081,
+        master_url: form.masterURL.trim() || window.location.origin,
+      })
+      setDeployment(created)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start deployment')
+      setStatus('failed')
+    }
+  }
+
+  const busy = status === 'deploying' || loadingPeers
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Rocket className="h-4 w-4 text-success" />
+            Deploy an agent
+          </DialogTitle>
+          <DialogDescription>
+            The tower copies <code className="font-mono text-xs">gloski-agent</code> to{' '}
+            <code className="font-mono text-xs">/tmp</code> on the device and starts it over SSH.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!peersAvailable && peersError && (
+          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+            Tailnet discovery unavailable ({peersError}). Enter the device address manually.
+          </p>
+        )}
+
+        <form onSubmit={submit} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-peer">
+                Tailnet device
+              </label>
+              <select
+                id="deploy-peer"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                value={form.peer}
+                onChange={(event) => choosePeer(event.target.value)}
+                disabled={busy}
+              >
+                <option value="">Manual entry</option>
+                {peers.map((peer) => (
+                  <option key={peerKey(peer)} value={peerKey(peer)}>
+                    {peer.hostname} · {peer.os} · {peer.online ? 'online' : 'offline'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-host">
+                SSH host
+              </label>
+              <Input
+                id="deploy-host"
+                placeholder="100.x.y.z or device.ts.net"
+                value={form.host}
+                onChange={(event) => {
+                  update('host', event.target.value)
+                  if (form.peer) update('peer', '')
+                }}
+                disabled={busy}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-user">
+                SSH user
+              </label>
+              <Input
+                id="deploy-user"
+                placeholder="root"
+                value={form.user}
+                onChange={(event) => update('user', event.target.value)}
+                disabled={busy}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-name">
+                Display name
+              </label>
+              <Input
+                id="deploy-name"
+                placeholder="defaults to hostname"
+                value={form.name}
+                onChange={(event) => update('name', event.target.value)}
+                disabled={busy}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-ssh-port">
+                SSH port
+              </label>
+              <Input
+                id="deploy-ssh-port"
+                inputMode="numeric"
+                value={form.sshPort}
+                onChange={(event) => update('sshPort', event.target.value)}
+                disabled={busy}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-agent-port">
+                Agent port
+              </label>
+              <Input
+                id="deploy-agent-port"
+                inputMode="numeric"
+                value={form.agentPort}
+                onChange={(event) => update('agentPort', event.target.value)}
+                disabled={busy}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-master-url">
+              Tower URL the agent should call
+            </label>
+            <Input
+              id="deploy-master-url"
+              value={form.masterURL}
+              onChange={(event) => update('masterURL', event.target.value)}
+              disabled={busy}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Use the HTTPS URL from <code className="font-mono">tailscale serve</code> when available. SSH keys or an
+              agent are read from the machine running the tower.
+            </p>
+          </div>
+
+          {deployment && status === 'deploying' && (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-success" />
+              <span>{statusLabel(deployment.status)}</span>
+            </div>
+          )}
+          {error && <p className="font-mono text-xs text-destructive">{error}</p>}
+
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={status === 'deploying'}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy || !form.host.trim() || !form.user.trim()}>
+              {status === 'deploying' ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Server className="mr-2 h-4 w-4" />
+              )}
+              {status === 'deploying' ? 'Deploying…' : 'Deploy agent'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

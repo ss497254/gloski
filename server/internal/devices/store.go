@@ -34,10 +34,11 @@ func (s *Store) Upsert(dev *Device) error {
 	case err == sql.ErrNoRows:
 		_, err = tx.Exec(`
 			INSERT INTO devices
-				(id, name, url, token, hostname, platform, version, stats_json, created_at, last_seen, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				(id, name, url, token, hostname, platform, version, stats_json,
+				 deploy_id, created_at, last_seen, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			dev.ID, dev.Name, dev.URL, dev.Token, dev.Hostname, dev.Platform, dev.Version,
-			marshalStats(dev.Stats), dev.CreatedAt, dev.LastSeen, dev.LastSeen,
+			marshalStats(dev.Stats), nullable(dev.DeployID), dev.CreatedAt, dev.LastSeen, dev.LastSeen,
 		)
 	case err != nil:
 		return err
@@ -46,10 +47,11 @@ func (s *Store) Upsert(dev *Device) error {
 		_, err = tx.Exec(`
 			UPDATE devices
 			SET url = ?, token = ?, hostname = ?, platform = ?, version = ?,
-			    stats_json = ?, last_seen = ?, updated_at = ?
+			    stats_json = ?, deploy_id = COALESCE(NULLIF(?, ''), deploy_id),
+			    last_seen = ?, updated_at = ?
 			WHERE id = ?`,
 			dev.URL, dev.Token, dev.Hostname, dev.Platform, dev.Version,
-			marshalStats(dev.Stats), dev.LastSeen, dev.LastSeen, dev.ID,
+			marshalStats(dev.Stats), dev.DeployID, dev.LastSeen, dev.LastSeen, dev.ID,
 		)
 	}
 	if err != nil {
@@ -62,7 +64,7 @@ func (s *Store) Upsert(dev *Device) error {
 func (s *Store) Get(id string) (*Device, error) {
 	row := s.db.QueryRow(`
 		SELECT id, name, url, token, COALESCE(hostname, ''), COALESCE(platform, ''),
-		       COALESCE(version, ''), stats_json, created_at, last_seen
+		       COALESCE(version, ''), stats_json, COALESCE(deploy_id, ''), created_at, last_seen
 		FROM devices WHERE id = ?`, id)
 	return scanDevice(row)
 }
@@ -71,7 +73,7 @@ func (s *Store) Get(id string) (*Device, error) {
 func (s *Store) GetByToken(token string) (*Device, error) {
 	row := s.db.QueryRow(`
 		SELECT id, name, url, token, COALESCE(hostname, ''), COALESCE(platform, ''),
-		       COALESCE(version, ''), stats_json, created_at, last_seen
+		       COALESCE(version, ''), stats_json, COALESCE(deploy_id, ''), created_at, last_seen
 		FROM devices WHERE token = ?`, token)
 	return scanDevice(row)
 }
@@ -80,7 +82,7 @@ func (s *Store) GetByToken(token string) (*Device, error) {
 func (s *Store) List() ([]Device, error) {
 	rows, err := s.db.Query(`
 		SELECT id, name, url, token, COALESCE(hostname, ''), COALESCE(platform, ''),
-		       COALESCE(version, ''), stats_json, created_at, last_seen
+		       COALESCE(version, ''), stats_json, COALESCE(deploy_id, ''), created_at, last_seen
 		FROM devices ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, err
@@ -112,6 +114,19 @@ func (s *Store) UpdateHeartbeat(id, url, version string, stats *system.Stats, at
 	return err
 }
 
+// MarkOffline makes a device show as offline until its next heartbeat.
+func (s *Store) MarkOffline(id string, at time.Time) error {
+	res, err := s.db.Exec("UPDATE devices SET last_seen = ?, updated_at = ? WHERE id = ?", at, at, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 // Delete removes a device.
 func (s *Store) Delete(id string) error {
 	res, err := s.db.Exec("DELETE FROM devices WHERE id = ?", id)
@@ -135,7 +150,7 @@ func scanDevice(row scanner) (*Device, error) {
 	var lastSeen sql.NullTime
 	err := row.Scan(
 		&dev.ID, &dev.Name, &dev.URL, &dev.Token, &dev.Hostname, &dev.Platform,
-		&dev.Version, &statsJSON, &dev.CreatedAt, &lastSeen,
+		&dev.Version, &statsJSON, &dev.DeployID, &dev.CreatedAt, &lastSeen,
 	)
 	if err != nil {
 		return nil, err
