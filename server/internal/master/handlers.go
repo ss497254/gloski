@@ -1,5 +1,3 @@
-// Fleet-level browser endpoints: tower info, device list/get/delete, and the live fleet WebSocket.
-
 package master
 
 import (

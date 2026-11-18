@@ -1,5 +1,3 @@
-// Builds the dashboard summary from master-owned state: devices, deployments, and jobs.
-
 package master
 
 import (

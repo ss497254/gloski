@@ -1,5 +1,3 @@
-// Remote shell scripts used to install and control the agent binary under /tmp.
-
 package deploy
 
 import (
@@ -50,6 +48,8 @@ func startScript(target Target) string {
 	writeEnv("GLOSKI_AGENT_DEPLOY_ID", target.DeployID)
 	writeEnv("GLOSKI_DATA_DIR", paths.dataDir)
 
+	// The env file is sourced with "set -a" so its variables are exported to
+	// the agent process. Writing them as SSH arguments would expose the token.
 	return fmt.Sprintf(`set -eu
 mkdir -p %s
 umask 077

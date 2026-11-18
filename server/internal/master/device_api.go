@@ -1,5 +1,3 @@
-// Browser-facing device API. Every request is translated into a gRPC command on the target agent stream.
-
 package master
 
 import (
@@ -23,7 +21,6 @@ var deviceWSUpgrader = websocket.Upgrader{
 	},
 }
 
-// decodeJSON reads a bounded JSON body and writes a 400 on failure.
 func decodeJSON[T any](w http.ResponseWriter, r *http.Request, maxBytes int64) (T, bool) {
 	var value T
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBytes))

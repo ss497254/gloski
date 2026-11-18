@@ -1,5 +1,3 @@
-// Master-owned job records and streamed output chunks.
-
 package agentgrpc
 
 import (
@@ -268,6 +266,8 @@ func (s *JobStore) Delete(id string) error {
 	return err
 }
 
+// scanJobTime accepts the shapes SQLite returns: a time.Time for plain columns,
+// but strings or bytes once a SQL function such as COALESCE is involved.
 func scanJobTime(value interface{}) time.Time {
 	switch typed := value.(type) {
 	case time.Time:

@@ -1,5 +1,3 @@
-// Dials the master over a local Unix socket or h2c TCP.
-
 package agent
 
 import (

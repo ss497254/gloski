@@ -1,5 +1,3 @@
-// SQLite persistence for the device registry.
-
 package devices
 
 import (

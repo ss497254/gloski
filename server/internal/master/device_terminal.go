@@ -1,5 +1,3 @@
-// Bridges a browser terminal WebSocket to the agent PTY over gRPC.
-
 package master
 
 import (

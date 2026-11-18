@@ -1,5 +1,3 @@
-// Per-agent stream state. Sends are serialized because gRPC streams must not be written concurrently.
-
 package agentgrpc
 
 import (
@@ -12,15 +10,13 @@ type session struct {
 	deviceID string
 	token    string
 	stream   agentv1.Agent_ConnectServer
-	replaced bool
+	replaced bool // a newer session took over this device
 
-	sendMu  sync.Mutex
+	sendMu  sync.Mutex // gRPC streams do not allow concurrent SendMsg
 	mu      sync.Mutex
 	pending map[string]chan *agentv1.AgentMessage
 	terms   map[string]chan []byte
 }
-
-// New creates an agent gRPC service backed by the master database.
 
 func (sess *session) send(message *agentv1.MasterMessage) error {
 	sess.sendMu.Lock()

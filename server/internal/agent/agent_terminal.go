@@ -1,5 +1,3 @@
-// PTY sessions used by the device terminal feature.
-
 package agent
 
 import (
@@ -97,6 +95,8 @@ func (a *agentRuntime) terminalInput(id string, data []byte) {
 	if session == nil {
 		return
 	}
+	// Browser resize frames are [0x01, cols_hi, cols_lo, rows_hi, rows_lo];
+	// all other frames are keystrokes.
 	if len(data) >= 5 && data[0] == 0x01 {
 		cols := int(data[1])<<8 | int(data[2])
 		rows := int(data[3])<<8 | int(data[4])

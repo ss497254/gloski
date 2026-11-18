@@ -41,7 +41,6 @@ type Server struct {
 	sessions map[string]*session
 }
 
-// New creates the agent service backed by master-owned job storage.
 func New(db *database.Database, devicesSvc *devices.Service, version string, interval int) (*Server, error) {
 	jobs, err := NewJobStore(db)
 	if err != nil {
@@ -59,7 +58,9 @@ func New(db *database.Database, devicesSvc *devices.Service, version string, int
 	}, nil
 }
 
-// Connect handles one agent's bidirectional stream for its whole lifetime.
+// Connect handles one agent stream. A reconnecting agent registers again and
+// gets a new token; the old session is marked replaced so its teardown does not
+// mark the device offline or abort jobs started by the new session.
 func (s *Server) Connect(stream agentv1.Agent_ConnectServer) error {
 	first, err := stream.Recv()
 	if err != nil {
@@ -99,6 +100,7 @@ func (s *Server) Connect(stream agentv1.Agent_ConnectServer) error {
 	}
 	s.mu.Lock()
 	if previous := s.sessions[device.ID]; previous != nil {
+		// The old stream will unwind later; it must not undo the new session.
 		previous.replaced = true
 	}
 	s.sessions[device.ID] = sess

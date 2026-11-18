@@ -1,5 +1,5 @@
 // Package master implements the Gloski control tower: the fleet registry,
-// device proxy, embedded dashboard, and agent enrollment API.
+// embedded dashboard, browser API, and gRPC listeners for agents.
 package master
 
 import (

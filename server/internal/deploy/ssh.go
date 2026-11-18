@@ -1,5 +1,3 @@
-// SSH transport: key or agent authentication, host-key trust on first use, and remote command execution.
-
 package deploy
 
 import (
@@ -155,6 +153,8 @@ func (m *Manager) hostKeyCallback() (ssh.HostKeyCallback, error) {
 			return nil
 		}
 		var keyErr *knownhosts.KeyError
+		// Want is empty only for an unknown host. Trust it once; a real
+		// mismatch has entries in Want and must be rejected.
 		if errors.As(err, &keyErr) && len(keyErr.Want) == 0 {
 			return m.trustHost(knownHosts, hostname, key)
 		}

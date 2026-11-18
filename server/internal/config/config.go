@@ -1,5 +1,3 @@
-// Configuration types, defaults, and validation.
-
 package config
 
 import (
@@ -130,7 +128,6 @@ type JobsConfig struct {
 	MaxJobs int  `json:"max_jobs"` // Maximum number of jobs to keep (default: 100)
 }
 
-// DefaultConfig returns the defaults used when no config file or environment override is present.
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	dataDir := filepath.Join(homeDir, ".gloski", "data")
@@ -185,7 +182,6 @@ func (c *Config) LogsDir() string {
 	return filepath.Join(c.DataDir, "logs")
 }
 
-// Load reads an optional config file, applies environment overrides, and validates the result.
 func Load(path string) (*Config, error) {
 	cfg := DefaultConfig()
 
@@ -260,12 +256,10 @@ func (c *Config) validate() error {
 	return nil
 }
 
-// Addr returns the listener address in host:port form.
 func (c *Config) Addr() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
 
-// Save writes the config to disk with restrictive permissions.
 func (c *Config) Save(path string) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -280,7 +274,6 @@ func (c *Config) Save(path string) error {
 	return os.WriteFile(path, data, 0600)
 }
 
-// IsPathAllowed checks a path against the configured filesystem allowlist.
 func (c *Config) IsPathAllowed(path string) bool {
 	if len(c.AllowedPaths) == 0 {
 		return true

@@ -1,5 +1,3 @@
-// Job execution and file operations requested by the master.
-
 package agent
 
 import (
@@ -49,6 +47,8 @@ func (a *agentRuntime) runJob(id string, request *agentv1.RunJob) {
 		return
 	}
 
+	// Both pipes must be drained while the command runs. Waiting on the
+	// process first can deadlock if the child fills one pipe buffer.
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {

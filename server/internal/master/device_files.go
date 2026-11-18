@@ -1,5 +1,3 @@
-// File operations for a device, proxied to its agent over gRPC.
-
 package master
 
 import (

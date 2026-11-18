@@ -1,5 +1,3 @@
-// SSH deployment records owned by the master.
-
 package devices
 
 import (

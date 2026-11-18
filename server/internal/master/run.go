@@ -1,5 +1,3 @@
-// Run starts the master HTTP server and blocks until a termination signal. gRPC listeners and the local agent are owned by Server.
-
 package master
 
 import (

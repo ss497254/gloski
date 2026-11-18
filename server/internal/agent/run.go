@@ -1,5 +1,3 @@
-// Stateless agent lifecycle: connect, register, send heartbeats, and dispatch commands from the master.
-
 package agent
 
 import (
@@ -80,7 +78,6 @@ func Run(cfg *config.Config, version string) error {
 	}
 }
 
-// runSession owns one gRPC connection until it drops or the agent is asked to stop.
 func runSession(cfg *config.Config, version, name string, statsService *system.Service, quit <-chan os.Signal) error {
 	logger.Info("Agent connecting to master at %s", cfg.Agent.MasterURL)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
