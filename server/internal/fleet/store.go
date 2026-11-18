@@ -35,10 +35,10 @@ func (r *Store) Upsert(dev *Device) error {
 		_, err = tx.Exec(`
 			INSERT INTO devices
 				(id, name, url, token, hostname, platform, version, stats_json,
-				 deploy_id, master, created_at, last_seen, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 deploy_id, master, machine_id, created_at, last_seen, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			dev.ID, dev.Name, dev.URL, dev.Token, dev.Hostname, dev.Platform, dev.Version,
-			marshalStats(dev.Stats), nullable(dev.DeployID), dev.Master,
+			marshalStats(dev.Stats), nullable(dev.DeployID), dev.Master, nullable(dev.MachineID),
 			dev.CreatedAt, dev.LastSeen, dev.LastSeen,
 		)
 	case err != nil:
@@ -49,10 +49,11 @@ func (r *Store) Upsert(dev *Device) error {
 			UPDATE devices
 			SET url = ?, token = ?, hostname = ?, platform = ?, version = ?,
 			    stats_json = ?, deploy_id = COALESCE(NULLIF(?, ''), deploy_id),
-			    master = ?, last_seen = ?, updated_at = ?
+			    master = ?, machine_id = COALESCE(NULLIF(?, ''), machine_id),
+			    last_seen = ?, updated_at = ?
 			WHERE id = ?`,
 			dev.URL, dev.Token, dev.Hostname, dev.Platform, dev.Version,
-			marshalStats(dev.Stats), dev.DeployID, dev.Master,
+			marshalStats(dev.Stats), dev.DeployID, dev.Master, dev.MachineID,
 			dev.LastSeen, dev.LastSeen, dev.ID,
 		)
 	}
@@ -167,4 +168,11 @@ func marshalStats(stats *system.Stats) string {
 
 func (d *Device) String() string {
 	return fmt.Sprintf("%s (%s)", d.Name, d.ID)
+}
+
+// Identity returns the ID and machine ID of the device with this name.
+func (r *Store) Identity(name string) (id, machineID string, err error) {
+	var machine sql.NullString
+	err = r.db.QueryRow("SELECT id, machine_id FROM devices WHERE name = ?", name).Scan(&id, &machine)
+	return id, machine.String, err
 }

@@ -267,6 +267,7 @@ type MasterMessage struct {
 	//	*MasterMessage_TerminalClose
 	//	*MasterMessage_Shutdown
 	//	*MasterMessage_ProcessRequest
+	//	*MasterMessage_JobAck
 	Payload       isMasterMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -397,6 +398,15 @@ func (x *MasterMessage) GetProcessRequest() *ProcessRequest {
 	return nil
 }
 
+func (x *MasterMessage) GetJobAck() *JobAck {
+	if x != nil {
+		if x, ok := x.Payload.(*MasterMessage_JobAck); ok {
+			return x.JobAck
+		}
+	}
+	return nil
+}
+
 type isMasterMessage_Payload interface {
 	isMasterMessage_Payload()
 }
@@ -437,6 +447,10 @@ type MasterMessage_ProcessRequest struct {
 	ProcessRequest *ProcessRequest `protobuf:"bytes,10,opt,name=process_request,json=processRequest,proto3,oneof"`
 }
 
+type MasterMessage_JobAck struct {
+	JobAck *JobAck `protobuf:"bytes,11,opt,name=job_ack,json=jobAck,proto3,oneof"`
+}
+
 func (*MasterMessage_RegisterResponse) isMasterMessage_Payload() {}
 
 func (*MasterMessage_RunJob) isMasterMessage_Payload() {}
@@ -454,6 +468,8 @@ func (*MasterMessage_TerminalClose) isMasterMessage_Payload() {}
 func (*MasterMessage_Shutdown) isMasterMessage_Payload() {}
 
 func (*MasterMessage_ProcessRequest) isMasterMessage_Payload() {}
+
+func (*MasterMessage_JobAck) isMasterMessage_Payload() {}
 
 type ProcessRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -552,15 +568,21 @@ func (x *ProcessResult) GetJson() string {
 }
 
 type RegisterRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	JoinToken     string                 `protobuf:"bytes,1,opt,name=join_token,json=joinToken,proto3" json:"join_token,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Hostname      string                 `protobuf:"bytes,3,opt,name=hostname,proto3" json:"hostname,omitempty"`
-	Platform      string                 `protobuf:"bytes,4,opt,name=platform,proto3" json:"platform,omitempty"`
-	Version       string                 `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
-	DeployId      string                 `protobuf:"bytes,6,opt,name=deploy_id,json=deployId,proto3" json:"deploy_id,omitempty"`
-	Master        bool                   `protobuf:"varint,7,opt,name=master,proto3" json:"master,omitempty"`
-	StatsJson     string                 `protobuf:"bytes,8,opt,name=stats_json,json=statsJson,proto3" json:"stats_json,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	JoinToken string                 `protobuf:"bytes,1,opt,name=join_token,json=joinToken,proto3" json:"join_token,omitempty"`
+	Name      string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Hostname  string                 `protobuf:"bytes,3,opt,name=hostname,proto3" json:"hostname,omitempty"`
+	Platform  string                 `protobuf:"bytes,4,opt,name=platform,proto3" json:"platform,omitempty"`
+	Version   string                 `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
+	DeployId  string                 `protobuf:"bytes,6,opt,name=deploy_id,json=deployId,proto3" json:"deploy_id,omitempty"`
+	Master    bool                   `protobuf:"varint,7,opt,name=master,proto3" json:"master,omitempty"`
+	StatsJson string                 `protobuf:"bytes,8,opt,name=stats_json,json=statsJson,proto3" json:"stats_json,omitempty"`
+	// jobs lists every job this agent still holds: running ones, and finished
+	// ones whose result the master has not acknowledged.
+	Jobs []*JobState `protobuf:"bytes,9,rep,name=jobs,proto3" json:"jobs,omitempty"`
+	// machine_id identifies the machine (not the agent process) so the master
+	// can tell a reconnect from a second machine using the same name.
+	MachineId     string `protobuf:"bytes,10,opt,name=machine_id,json=machineId,proto3" json:"machine_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -651,14 +673,30 @@ func (x *RegisterRequest) GetStatsJson() string {
 	return ""
 }
 
+func (x *RegisterRequest) GetJobs() []*JobState {
+	if x != nil {
+		return x.Jobs
+	}
+	return nil
+}
+
+func (x *RegisterRequest) GetMachineId() string {
+	if x != nil {
+		return x.MachineId
+	}
+	return ""
+}
+
 type RegisterResponse struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	DeviceId          string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
 	DeviceToken       string                 `protobuf:"bytes,2,opt,name=device_token,json=deviceToken,proto3" json:"device_token,omitempty"`
 	HeartbeatInterval int32                  `protobuf:"varint,3,opt,name=heartbeat_interval,json=heartbeatInterval,proto3" json:"heartbeat_interval,omitempty"`
 	MasterVersion     string                 `protobuf:"bytes,4,opt,name=master_version,json=masterVersion,proto3" json:"master_version,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// jobs answers RegisterRequest.jobs, one entry per reported job.
+	Jobs          []*JobResume `protobuf:"bytes,5,rep,name=jobs,proto3" json:"jobs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterResponse) Reset() {
@@ -719,6 +757,155 @@ func (x *RegisterResponse) GetMasterVersion() string {
 	return ""
 }
 
+func (x *RegisterResponse) GetJobs() []*JobResume {
+	if x != nil {
+		return x.Jobs
+	}
+	return nil
+}
+
+// JobState is the agent's view of one job when it (re)connects.
+type JobState struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// last_seq is the sequence number of the newest output chunk produced.
+	LastSeq       uint64 `protobuf:"varint,2,opt,name=last_seq,json=lastSeq,proto3" json:"last_seq,omitempty"`
+	Finished      bool   `protobuf:"varint,3,opt,name=finished,proto3" json:"finished,omitempty"`
+	ExitCode      int32  `protobuf:"varint,4,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	Error         string `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobState) Reset() {
+	*x = JobState{}
+	mi := &file_proto_agentv1_agent_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobState) ProtoMessage() {}
+
+func (x *JobState) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_agentv1_agent_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobState.ProtoReflect.Descriptor instead.
+func (*JobState) Descriptor() ([]byte, []int) {
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *JobState) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *JobState) GetLastSeq() uint64 {
+	if x != nil {
+		return x.LastSeq
+	}
+	return 0
+}
+
+func (x *JobState) GetFinished() bool {
+	if x != nil {
+		return x.Finished
+	}
+	return false
+}
+
+func (x *JobState) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *JobState) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// JobResume tells the agent where to pick a job back up.
+type JobResume struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// acked_seq is the newest output chunk the master has stored; the agent
+	// resends everything after it.
+	AckedSeq uint64 `protobuf:"varint,2,opt,name=acked_seq,json=ackedSeq,proto3" json:"acked_seq,omitempty"`
+	// forget means the master no longer tracks this job: stop it and drop it.
+	Forget        bool `protobuf:"varint,3,opt,name=forget,proto3" json:"forget,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobResume) Reset() {
+	*x = JobResume{}
+	mi := &file_proto_agentv1_agent_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobResume) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobResume) ProtoMessage() {}
+
+func (x *JobResume) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_agentv1_agent_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobResume.ProtoReflect.Descriptor instead.
+func (*JobResume) Descriptor() ([]byte, []int) {
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *JobResume) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *JobResume) GetAckedSeq() uint64 {
+	if x != nil {
+		return x.AckedSeq
+	}
+	return 0
+}
+
+func (x *JobResume) GetForget() bool {
+	if x != nil {
+		return x.Forget
+	}
+	return false
+}
+
 type Heartbeat struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StatsJson     string                 `protobuf:"bytes,1,opt,name=stats_json,json=statsJson,proto3" json:"stats_json,omitempty"`
@@ -728,7 +915,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[6]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -740,7 +927,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[6]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -753,7 +940,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{6}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Heartbeat) GetStatsJson() string {
@@ -773,7 +960,7 @@ type RunJob struct {
 
 func (x *RunJob) Reset() {
 	*x = RunJob{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[7]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -785,7 +972,7 @@ func (x *RunJob) String() string {
 func (*RunJob) ProtoMessage() {}
 
 func (x *RunJob) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[7]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -798,7 +985,7 @@ func (x *RunJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunJob.ProtoReflect.Descriptor instead.
 func (*RunJob) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{7}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RunJob) GetCommand() string {
@@ -824,7 +1011,7 @@ type CancelRequest struct {
 
 func (x *CancelRequest) Reset() {
 	*x = CancelRequest{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[8]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -836,7 +1023,7 @@ func (x *CancelRequest) String() string {
 func (*CancelRequest) ProtoMessage() {}
 
 func (x *CancelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[8]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -849,7 +1036,7 @@ func (x *CancelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelRequest.ProtoReflect.Descriptor instead.
 func (*CancelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{8}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CancelRequest) GetReason() string {
@@ -860,16 +1047,20 @@ func (x *CancelRequest) GetReason() string {
 }
 
 type JobOutput struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Chunk         []byte                 `protobuf:"bytes,1,opt,name=chunk,proto3" json:"chunk,omitempty"`
-	Stderr        bool                   `protobuf:"varint,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Chunk  []byte                 `protobuf:"bytes,1,opt,name=chunk,proto3" json:"chunk,omitempty"`
+	Stderr bool                   `protobuf:"varint,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// seq numbers a job's chunks from 1 so the master can drop duplicates and
+	// notice gaps after a reconnect. 0 means unsequenced (agents before this
+	// field existed).
+	Seq           uint64 `protobuf:"varint,3,opt,name=seq,proto3" json:"seq,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *JobOutput) Reset() {
 	*x = JobOutput{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[9]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -881,7 +1072,7 @@ func (x *JobOutput) String() string {
 func (*JobOutput) ProtoMessage() {}
 
 func (x *JobOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[9]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -894,7 +1085,7 @@ func (x *JobOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobOutput.ProtoReflect.Descriptor instead.
 func (*JobOutput) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{9}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *JobOutput) GetChunk() []byte {
@@ -911,6 +1102,50 @@ func (x *JobOutput) GetStderr() bool {
 	return false
 }
 
+func (x *JobOutput) GetSeq() uint64 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+// JobAck confirms the master stored a job's result, so the agent can drop it.
+type JobAck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobAck) Reset() {
+	*x = JobAck{}
+	mi := &file_proto_agentv1_agent_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobAck) ProtoMessage() {}
+
+func (x *JobAck) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_agentv1_agent_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobAck.ProtoReflect.Descriptor instead.
+func (*JobAck) Descriptor() ([]byte, []int) {
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{12}
+}
+
 type JobResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ExitCode      int32                  `protobuf:"varint,1,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
@@ -921,7 +1156,7 @@ type JobResult struct {
 
 func (x *JobResult) Reset() {
 	*x = JobResult{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[10]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -933,7 +1168,7 @@ func (x *JobResult) String() string {
 func (*JobResult) ProtoMessage() {}
 
 func (x *JobResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[10]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -946,7 +1181,7 @@ func (x *JobResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobResult.ProtoReflect.Descriptor instead.
 func (*JobResult) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{10}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *JobResult) GetExitCode() int32 {
@@ -975,7 +1210,7 @@ type FileRequest struct {
 
 func (x *FileRequest) Reset() {
 	*x = FileRequest{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[11]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -987,7 +1222,7 @@ func (x *FileRequest) String() string {
 func (*FileRequest) ProtoMessage() {}
 
 func (x *FileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[11]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1000,7 +1235,7 @@ func (x *FileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileRequest.ProtoReflect.Descriptor instead.
 func (*FileRequest) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{11}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *FileRequest) GetOp() FileOp {
@@ -1043,7 +1278,7 @@ type FileResult struct {
 
 func (x *FileResult) Reset() {
 	*x = FileResult{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[12]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1055,7 +1290,7 @@ func (x *FileResult) String() string {
 func (*FileResult) ProtoMessage() {}
 
 func (x *FileResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[12]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1068,7 +1303,7 @@ func (x *FileResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileResult.ProtoReflect.Descriptor instead.
 func (*FileResult) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{12}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *FileResult) GetCode() int32 {
@@ -1110,7 +1345,7 @@ type TerminalOpen struct {
 
 func (x *TerminalOpen) Reset() {
 	*x = TerminalOpen{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[13]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1122,7 +1357,7 @@ func (x *TerminalOpen) String() string {
 func (*TerminalOpen) ProtoMessage() {}
 
 func (x *TerminalOpen) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[13]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1135,7 +1370,7 @@ func (x *TerminalOpen) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalOpen.ProtoReflect.Descriptor instead.
 func (*TerminalOpen) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{13}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *TerminalOpen) GetCwd() string {
@@ -1168,7 +1403,7 @@ type TerminalInput struct {
 
 func (x *TerminalInput) Reset() {
 	*x = TerminalInput{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[14]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1180,7 +1415,7 @@ func (x *TerminalInput) String() string {
 func (*TerminalInput) ProtoMessage() {}
 
 func (x *TerminalInput) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[14]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1193,7 +1428,7 @@ func (x *TerminalInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalInput.ProtoReflect.Descriptor instead.
 func (*TerminalInput) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{14}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *TerminalInput) GetData() []byte {
@@ -1211,7 +1446,7 @@ type TerminalClose struct {
 
 func (x *TerminalClose) Reset() {
 	*x = TerminalClose{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[15]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1223,7 +1458,7 @@ func (x *TerminalClose) String() string {
 func (*TerminalClose) ProtoMessage() {}
 
 func (x *TerminalClose) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[15]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1236,7 +1471,7 @@ func (x *TerminalClose) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalClose.ProtoReflect.Descriptor instead.
 func (*TerminalClose) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{15}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{18}
 }
 
 type TerminalOutput struct {
@@ -1249,7 +1484,7 @@ type TerminalOutput struct {
 
 func (x *TerminalOutput) Reset() {
 	*x = TerminalOutput{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[16]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1261,7 +1496,7 @@ func (x *TerminalOutput) String() string {
 func (*TerminalOutput) ProtoMessage() {}
 
 func (x *TerminalOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[16]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1274,7 +1509,7 @@ func (x *TerminalOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalOutput.ProtoReflect.Descriptor instead.
 func (*TerminalOutput) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{16}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *TerminalOutput) GetData() []byte {
@@ -1300,7 +1535,7 @@ type Shutdown struct {
 
 func (x *Shutdown) Reset() {
 	*x = Shutdown{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[17]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1312,7 +1547,7 @@ func (x *Shutdown) String() string {
 func (*Shutdown) ProtoMessage() {}
 
 func (x *Shutdown) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[17]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1325,7 +1560,7 @@ func (x *Shutdown) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Shutdown.ProtoReflect.Descriptor instead.
 func (*Shutdown) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{17}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Shutdown) GetRestart() bool {
@@ -1353,7 +1588,7 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"fileResult\x12J\n" +
 	"\x0fterminal_output\x18\a \x01(\v2\x1f.gloski.agent.v1.TerminalOutputH\x00R\x0eterminalOutput\x12G\n" +
 	"\x0eprocess_result\x18\b \x01(\v2\x1e.gloski.agent.v1.ProcessResultH\x00R\rprocessResultB\t\n" +
-	"\apayload\"\x99\x05\n" +
+	"\apayload\"\xcd\x05\n" +
 	"\rMasterMessage\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12P\n" +
@@ -1366,13 +1601,14 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\x0eterminal_close\x18\b \x01(\v2\x1e.gloski.agent.v1.TerminalCloseH\x00R\rterminalClose\x127\n" +
 	"\bshutdown\x18\t \x01(\v2\x19.gloski.agent.v1.ShutdownH\x00R\bshutdown\x12J\n" +
 	"\x0fprocess_request\x18\n" +
-	" \x01(\v2\x1f.gloski.agent.v1.ProcessRequestH\x00R\x0eprocessRequestB\t\n" +
+	" \x01(\v2\x1f.gloski.agent.v1.ProcessRequestH\x00R\x0eprocessRequest\x122\n" +
+	"\ajob_ack\x18\v \x01(\v2\x17.gloski.agent.v1.JobAckH\x00R\x06jobAckB\t\n" +
 	"\apayload\":\n" +
 	"\x0eProcessRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x12\n" +
 	"\x04sort\x18\x02 \x01(\tR\x04sort\"#\n" +
 	"\rProcessResult\x12\x12\n" +
-	"\x04json\x18\x01 \x01(\tR\x04json\"\xea\x01\n" +
+	"\x04json\x18\x01 \x01(\tR\x04json\"\xb8\x02\n" +
 	"\x0fRegisterRequest\x12\x1d\n" +
 	"\n" +
 	"join_token\x18\x01 \x01(\tR\tjoinToken\x12\x12\n" +
@@ -1383,12 +1619,27 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\tdeploy_id\x18\x06 \x01(\tR\bdeployId\x12\x16\n" +
 	"\x06master\x18\a \x01(\bR\x06master\x12\x1d\n" +
 	"\n" +
-	"stats_json\x18\b \x01(\tR\tstatsJson\"\xa8\x01\n" +
+	"stats_json\x18\b \x01(\tR\tstatsJson\x12-\n" +
+	"\x04jobs\x18\t \x03(\v2\x19.gloski.agent.v1.JobStateR\x04jobs\x12\x1d\n" +
+	"\n" +
+	"machine_id\x18\n" +
+	" \x01(\tR\tmachineId\"\xd8\x01\n" +
 	"\x10RegisterResponse\x12\x1b\n" +
 	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12!\n" +
 	"\fdevice_token\x18\x02 \x01(\tR\vdeviceToken\x12-\n" +
 	"\x12heartbeat_interval\x18\x03 \x01(\x05R\x11heartbeatInterval\x12%\n" +
-	"\x0emaster_version\x18\x04 \x01(\tR\rmasterVersion\"*\n" +
+	"\x0emaster_version\x18\x04 \x01(\tR\rmasterVersion\x12.\n" +
+	"\x04jobs\x18\x05 \x03(\v2\x1a.gloski.agent.v1.JobResumeR\x04jobs\"\x84\x01\n" +
+	"\bJobState\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
+	"\blast_seq\x18\x02 \x01(\x04R\alastSeq\x12\x1a\n" +
+	"\bfinished\x18\x03 \x01(\bR\bfinished\x12\x1b\n" +
+	"\texit_code\x18\x04 \x01(\x05R\bexitCode\x12\x14\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\"P\n" +
+	"\tJobResume\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tacked_seq\x18\x02 \x01(\x04R\backedSeq\x12\x16\n" +
+	"\x06forget\x18\x03 \x01(\bR\x06forget\"*\n" +
 	"\tHeartbeat\x12\x1d\n" +
 	"\n" +
 	"stats_json\x18\x01 \x01(\tR\tstatsJson\"4\n" +
@@ -1396,10 +1647,12 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\acommand\x18\x01 \x01(\tR\acommand\x12\x10\n" +
 	"\x03cwd\x18\x02 \x01(\tR\x03cwd\"'\n" +
 	"\rCancelRequest\x12\x16\n" +
-	"\x06reason\x18\x01 \x01(\tR\x06reason\"9\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\"K\n" +
 	"\tJobOutput\x12\x14\n" +
 	"\x05chunk\x18\x01 \x01(\fR\x05chunk\x12\x16\n" +
-	"\x06stderr\x18\x02 \x01(\bR\x06stderr\">\n" +
+	"\x06stderr\x18\x02 \x01(\bR\x06stderr\x12\x10\n" +
+	"\x03seq\x18\x03 \x01(\x04R\x03seq\"\b\n" +
+	"\x06JobAck\">\n" +
 	"\tJobResult\x12\x1b\n" +
 	"\texit_code\x18\x01 \x01(\x05R\bexitCode\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"\x7f\n" +
@@ -1450,7 +1703,7 @@ func file_proto_agentv1_agent_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_agentv1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_agentv1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_proto_agentv1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_proto_agentv1_agent_proto_goTypes = []any{
 	(FileOp)(0),              // 0: gloski.agent.v1.FileOp
 	(*AgentMessage)(nil),     // 1: gloski.agent.v1.AgentMessage
@@ -1459,44 +1712,50 @@ var file_proto_agentv1_agent_proto_goTypes = []any{
 	(*ProcessResult)(nil),    // 4: gloski.agent.v1.ProcessResult
 	(*RegisterRequest)(nil),  // 5: gloski.agent.v1.RegisterRequest
 	(*RegisterResponse)(nil), // 6: gloski.agent.v1.RegisterResponse
-	(*Heartbeat)(nil),        // 7: gloski.agent.v1.Heartbeat
-	(*RunJob)(nil),           // 8: gloski.agent.v1.RunJob
-	(*CancelRequest)(nil),    // 9: gloski.agent.v1.CancelRequest
-	(*JobOutput)(nil),        // 10: gloski.agent.v1.JobOutput
-	(*JobResult)(nil),        // 11: gloski.agent.v1.JobResult
-	(*FileRequest)(nil),      // 12: gloski.agent.v1.FileRequest
-	(*FileResult)(nil),       // 13: gloski.agent.v1.FileResult
-	(*TerminalOpen)(nil),     // 14: gloski.agent.v1.TerminalOpen
-	(*TerminalInput)(nil),    // 15: gloski.agent.v1.TerminalInput
-	(*TerminalClose)(nil),    // 16: gloski.agent.v1.TerminalClose
-	(*TerminalOutput)(nil),   // 17: gloski.agent.v1.TerminalOutput
-	(*Shutdown)(nil),         // 18: gloski.agent.v1.Shutdown
+	(*JobState)(nil),         // 7: gloski.agent.v1.JobState
+	(*JobResume)(nil),        // 8: gloski.agent.v1.JobResume
+	(*Heartbeat)(nil),        // 9: gloski.agent.v1.Heartbeat
+	(*RunJob)(nil),           // 10: gloski.agent.v1.RunJob
+	(*CancelRequest)(nil),    // 11: gloski.agent.v1.CancelRequest
+	(*JobOutput)(nil),        // 12: gloski.agent.v1.JobOutput
+	(*JobAck)(nil),           // 13: gloski.agent.v1.JobAck
+	(*JobResult)(nil),        // 14: gloski.agent.v1.JobResult
+	(*FileRequest)(nil),      // 15: gloski.agent.v1.FileRequest
+	(*FileResult)(nil),       // 16: gloski.agent.v1.FileResult
+	(*TerminalOpen)(nil),     // 17: gloski.agent.v1.TerminalOpen
+	(*TerminalInput)(nil),    // 18: gloski.agent.v1.TerminalInput
+	(*TerminalClose)(nil),    // 19: gloski.agent.v1.TerminalClose
+	(*TerminalOutput)(nil),   // 20: gloski.agent.v1.TerminalOutput
+	(*Shutdown)(nil),         // 21: gloski.agent.v1.Shutdown
 }
 var file_proto_agentv1_agent_proto_depIdxs = []int32{
 	5,  // 0: gloski.agent.v1.AgentMessage.register:type_name -> gloski.agent.v1.RegisterRequest
-	7,  // 1: gloski.agent.v1.AgentMessage.heartbeat:type_name -> gloski.agent.v1.Heartbeat
-	10, // 2: gloski.agent.v1.AgentMessage.job_output:type_name -> gloski.agent.v1.JobOutput
-	11, // 3: gloski.agent.v1.AgentMessage.job_result:type_name -> gloski.agent.v1.JobResult
-	13, // 4: gloski.agent.v1.AgentMessage.file_result:type_name -> gloski.agent.v1.FileResult
-	17, // 5: gloski.agent.v1.AgentMessage.terminal_output:type_name -> gloski.agent.v1.TerminalOutput
+	9,  // 1: gloski.agent.v1.AgentMessage.heartbeat:type_name -> gloski.agent.v1.Heartbeat
+	12, // 2: gloski.agent.v1.AgentMessage.job_output:type_name -> gloski.agent.v1.JobOutput
+	14, // 3: gloski.agent.v1.AgentMessage.job_result:type_name -> gloski.agent.v1.JobResult
+	16, // 4: gloski.agent.v1.AgentMessage.file_result:type_name -> gloski.agent.v1.FileResult
+	20, // 5: gloski.agent.v1.AgentMessage.terminal_output:type_name -> gloski.agent.v1.TerminalOutput
 	4,  // 6: gloski.agent.v1.AgentMessage.process_result:type_name -> gloski.agent.v1.ProcessResult
 	6,  // 7: gloski.agent.v1.MasterMessage.register_response:type_name -> gloski.agent.v1.RegisterResponse
-	8,  // 8: gloski.agent.v1.MasterMessage.run_job:type_name -> gloski.agent.v1.RunJob
-	9,  // 9: gloski.agent.v1.MasterMessage.cancel:type_name -> gloski.agent.v1.CancelRequest
-	12, // 10: gloski.agent.v1.MasterMessage.file_request:type_name -> gloski.agent.v1.FileRequest
-	14, // 11: gloski.agent.v1.MasterMessage.terminal_open:type_name -> gloski.agent.v1.TerminalOpen
-	15, // 12: gloski.agent.v1.MasterMessage.terminal_input:type_name -> gloski.agent.v1.TerminalInput
-	16, // 13: gloski.agent.v1.MasterMessage.terminal_close:type_name -> gloski.agent.v1.TerminalClose
-	18, // 14: gloski.agent.v1.MasterMessage.shutdown:type_name -> gloski.agent.v1.Shutdown
+	10, // 8: gloski.agent.v1.MasterMessage.run_job:type_name -> gloski.agent.v1.RunJob
+	11, // 9: gloski.agent.v1.MasterMessage.cancel:type_name -> gloski.agent.v1.CancelRequest
+	15, // 10: gloski.agent.v1.MasterMessage.file_request:type_name -> gloski.agent.v1.FileRequest
+	17, // 11: gloski.agent.v1.MasterMessage.terminal_open:type_name -> gloski.agent.v1.TerminalOpen
+	18, // 12: gloski.agent.v1.MasterMessage.terminal_input:type_name -> gloski.agent.v1.TerminalInput
+	19, // 13: gloski.agent.v1.MasterMessage.terminal_close:type_name -> gloski.agent.v1.TerminalClose
+	21, // 14: gloski.agent.v1.MasterMessage.shutdown:type_name -> gloski.agent.v1.Shutdown
 	3,  // 15: gloski.agent.v1.MasterMessage.process_request:type_name -> gloski.agent.v1.ProcessRequest
-	0,  // 16: gloski.agent.v1.FileRequest.op:type_name -> gloski.agent.v1.FileOp
-	1,  // 17: gloski.agent.v1.Agent.Connect:input_type -> gloski.agent.v1.AgentMessage
-	2,  // 18: gloski.agent.v1.Agent.Connect:output_type -> gloski.agent.v1.MasterMessage
-	18, // [18:19] is the sub-list for method output_type
-	17, // [17:18] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	13, // 16: gloski.agent.v1.MasterMessage.job_ack:type_name -> gloski.agent.v1.JobAck
+	7,  // 17: gloski.agent.v1.RegisterRequest.jobs:type_name -> gloski.agent.v1.JobState
+	8,  // 18: gloski.agent.v1.RegisterResponse.jobs:type_name -> gloski.agent.v1.JobResume
+	0,  // 19: gloski.agent.v1.FileRequest.op:type_name -> gloski.agent.v1.FileOp
+	1,  // 20: gloski.agent.v1.Agent.Connect:input_type -> gloski.agent.v1.AgentMessage
+	2,  // 21: gloski.agent.v1.Agent.Connect:output_type -> gloski.agent.v1.MasterMessage
+	21, // [21:22] is the sub-list for method output_type
+	20, // [20:21] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_proto_agentv1_agent_proto_init() }
@@ -1523,6 +1782,7 @@ func file_proto_agentv1_agent_proto_init() {
 		(*MasterMessage_TerminalClose)(nil),
 		(*MasterMessage_Shutdown)(nil),
 		(*MasterMessage_ProcessRequest)(nil),
+		(*MasterMessage_JobAck)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1530,7 +1790,7 @@ func file_proto_agentv1_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_agentv1_agent_proto_rawDesc), len(file_proto_agentv1_agent_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   18,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

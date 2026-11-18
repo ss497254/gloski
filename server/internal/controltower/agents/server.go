@@ -54,11 +54,6 @@ func New(db *database.Database, fleetSvc *fleet.Registry, version string, interv
 	if interval <= 0 {
 		interval = defaultHeartbeatInterval
 	}
-	// No agent is connected yet, so nothing can still report on jobs left
-	// running by a previous master process.
-	if err := jobs.AbortAll("master restarted"); err != nil {
-		return nil, err
-	}
 	return &Service{
 		fleetSvc:    fleetSvc,
 		jobs:        jobs,
@@ -70,8 +65,10 @@ func New(db *database.Database, fleetSvc *fleet.Registry, version string, interv
 }
 
 // Connect handles one agent stream. A reconnecting agent registers again and
-// gets a new token; the old connection is marked replaced so its teardown does not
-// mark the device offline or abort jobs started by the new connection.
+// gets a new token; the old connection is hung up and marked replaced so its
+// teardown does not mark the device offline. Jobs are not tied to a stream:
+// registration reconciles what the agent still holds with what the master
+// is waiting on.
 func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 	first, err := stream.Recv()
 	if err != nil {
@@ -80,6 +77,15 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 	registration := first.GetRegister()
 	if registration == nil {
 		return status.Error(codes.InvalidArgument, "first message must be a registration")
+	}
+
+	// Devices are keyed by name. A second machine using a name that is live
+	// right now would otherwise take over the first one's identity and jobs,
+	// and the two would then evict each other forever.
+	if id, machine, found := svc.fleetSvc.Identity(registration.GetName()); found && svc.Connected(id) &&
+		machine != "" && registration.GetMachineId() != "" && machine != registration.GetMachineId() {
+		logger.Warn("Rejected agent %q: a different machine is already connected under that name", registration.GetName())
+		return status.Error(codes.AlreadyExists, "another machine is already connected with this name")
 	}
 
 	stats := decodeStats(registration.GetStatsJson())
@@ -92,6 +98,7 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 		Version:   registration.GetVersion(),
 		DeployID:  registration.GetDeployId(),
 		Master:    registration.GetMaster(),
+		MachineID: registration.GetMachineId(),
 		Stats:     stats,
 	})
 	if err != nil {
@@ -120,6 +127,8 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 	svc.mu.Unlock()
 	defer svc.disconnect(conn)
 
+	resumes := svc.reconcileJobs(device.ID, registration.GetJobs())
+
 	response := &agentv1.MasterMessage{
 		RequestId: first.RequestId,
 		Payload: &agentv1.MasterMessage_RegisterResponse{
@@ -128,6 +137,7 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 				DeviceToken:       registered.DeviceToken,
 				HeartbeatInterval: int32(svc.interval),
 				MasterVersion:     svc.version,
+				Jobs:              resumes,
 			},
 		},
 	}
@@ -180,7 +190,7 @@ func (svc *Service) handle(conn *connection, message *agentv1.AgentMessage) {
 			logger.Warn("Heartbeat from %s rejected: %v", conn.deviceID, err)
 		}
 	case *agentv1.AgentMessage_JobOutput:
-		if err := svc.jobs.AppendLog(message.RequestId, payload.JobOutput.GetChunk(), payload.JobOutput.GetStderr()); err != nil {
+		if err := svc.jobs.AppendLog(message.RequestId, payload.JobOutput.GetSeq(), payload.JobOutput.GetChunk(), payload.JobOutput.GetStderr()); err != nil {
 			logger.Warn("Failed to store job output for %s: %v", message.RequestId, err)
 		}
 	case *agentv1.AgentMessage_JobResult:
@@ -191,7 +201,13 @@ func (svc *Service) handle(conn *connection, message *agentv1.AgentMessage) {
 		svc.stopMu.Unlock()
 		if err := svc.jobs.Finish(message.RequestId, int(result.GetExitCode()), result.GetError(), stopped); err != nil {
 			logger.Warn("Failed to finish job %s: %v", message.RequestId, err)
+			break // no ack: the agent keeps the result and offers it again
 		}
+		// Tell the agent the result is stored so it can drop the job.
+		_ = conn.send(&agentv1.MasterMessage{
+			RequestId: message.RequestId,
+			Payload:   &agentv1.MasterMessage_JobAck{JobAck: &agentv1.JobAck{}},
+		})
 	case *agentv1.AgentMessage_FileResult:
 		conn.respond(message.RequestId, message)
 	case *agentv1.AgentMessage_ProcessResult:
@@ -223,10 +239,9 @@ func (svc *Service) disconnect(conn *connection) {
 		logger.Info("Agent connection replaced: %s", conn.deviceID)
 		return
 	}
+	// Running jobs are left alone: the agent keeps them going and reports
+	// back when it reconnects.
 	svc.fleetSvc.Changed()
-	if err := svc.jobs.AbortDevice(conn.deviceID, "agent disconnected"); err != nil {
-		logger.Warn("Failed to abort jobs for %s: %v", conn.deviceID, err)
-	}
 	logger.Info("Agent disconnected: %s", conn.deviceID)
 }
 
@@ -250,4 +265,24 @@ func decodeStats(raw string) *system.Stats {
 		return nil
 	}
 	return &stats
+}
+
+// reconcileJobs settles job state when an agent (re)connects. For each job
+// the agent holds, the master says where to resume or to forget it. Jobs the
+// master is waiting on that the agent does not hold are abandoned: the agent
+// process that ran them is gone.
+func (svc *Service) reconcileJobs(deviceID string, states []*agentv1.JobState) []*agentv1.JobResume {
+	held := make(map[string]bool, len(states))
+	resumes := make([]*agentv1.JobResume, 0, len(states))
+	for _, state := range states {
+		acked, active := svc.jobs.Resume(deviceID, state.GetId())
+		if active {
+			held[state.GetId()] = true
+		}
+		resumes = append(resumes, &agentv1.JobResume{Id: state.GetId(), AckedSeq: acked, Forget: !active})
+	}
+	if err := svc.jobs.AbandonMissing(deviceID, held, "agent restarted"); err != nil {
+		logger.Warn("Failed to reconcile jobs for %s: %v", deviceID, err)
+	}
+	return resumes
 }

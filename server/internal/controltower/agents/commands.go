@@ -34,11 +34,13 @@ func (svc *Service) RunJob(deviceID, command, cwd string) (*Job, error) {
 	return job, nil
 }
 
-// CancelJob asks the agent to stop a running job.
+// CancelJob asks the agent to stop a running job. If the device is offline
+// the job is recorded as stopped straight away, and the agent is told to
+// stop it when it reconnects.
 func (svc *Service) CancelJob(deviceID, jobID, reason string) error {
 	conn, err := svc.connection(deviceID)
 	if err != nil {
-		return err
+		return svc.jobs.Finish(jobID, -1, "", true)
 	}
 	svc.stopMu.Lock()
 	svc.stopping[jobID] = struct{}{}

@@ -194,4 +194,11 @@ var migrations = []migration{
 			CREATE INDEX idx_devices_master ON devices(master);
 		`,
 	},
+	{
+		version: 8,
+		name:    "add_device_machine_id",
+		sql: `
+			ALTER TABLE devices ADD COLUMN machine_id TEXT;
+		`,
+	},
 }

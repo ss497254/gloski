@@ -22,6 +22,7 @@ import (
 	"github.com/ss497254/gloski/internal/tailnet"
 	"github.com/ss497254/gloski/proto/agentv1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 // Tower owns the control tower state, HTTP API, and agent connections.
@@ -84,7 +85,14 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 
 	fleetSvc.SetOnline(agentService.Connected)
 
-	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(32<<20), grpc.MaxSendMsgSize(32<<20))
+	grpcServer := grpc.NewServer(
+		grpc.MaxRecvMsgSize(32<<20),
+		grpc.MaxSendMsgSize(32<<20),
+		// Agents ping every 20 seconds; allow that, and ping back so a
+		// vanished agent is noticed without waiting on TCP timeouts.
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 10 * time.Second, PermitWithoutStream: true}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{Time: 20 * time.Second, Timeout: 10 * time.Second}),
+	)
 	agentv1.RegisterAgentServer(grpcServer, agentService)
 
 	t := &Tower{

@@ -1,4 +1,4 @@
-.PHONY: dev-server dev-web dev-agent build-server build-agent build-web build clean install install-agent test lint format format-check help
+.PHONY: proto dev-server dev-web dev-agent build-server build-agent build-web build clean install install-agent test lint format format-check help
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
@@ -59,6 +59,9 @@ install-service: ## Install systemd service (user)
 	echo "$(GREEN)Created config file at ~/.config/gloski/config.json. Please edit it before starting the service.$(NC)"
 	systemctl --user daemon-reload
 	@echo "$(GREEN)Service installed. Enable with: systemctl --user enable --now gloski$(NC)"
+
+proto: ## Regenerate gRPC code from agent.proto
+	cd server && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/agentv1/agent.proto
 
 # Testing
 test: ## Run tests

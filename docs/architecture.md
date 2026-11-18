@@ -54,9 +54,10 @@ All durable state lives in the master's SQLite database:
 - jobs and their streamed logs
 - cached device statistics
 
-Agents keep no state. Credentials and in-flight job maps live only in memory.
+Agents keep nothing on disk. Credentials and running jobs live only in memory.
 After a restart an agent re-registers with the master and receives a fresh
-device token.
+device token. Jobs survive a dropped stream or a master restart: the agent
+keeps running them, buffers their output, and replays it on reconnect.
 
 ## Device lifecycle
 

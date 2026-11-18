@@ -100,6 +100,7 @@ func (r *Registry) Register(req RegisterRequest) (*RegisterResponse, error) {
 		Version:   strings.TrimSpace(req.Version),
 		DeployID:  strings.TrimSpace(req.DeployID),
 		Master:    req.Master,
+		MachineID: strings.TrimSpace(req.MachineID),
 		Stats:     req.Stats,
 		CreatedAt: now,
 		LastSeen:  now,
@@ -309,4 +310,14 @@ func resolveJoinToken(cfg config.MasterConfig, dataDir string) (string, error) {
 	}
 	logger.Info("Generated master join token at %s", path)
 	return token, nil
+}
+
+// Identity returns the ID and machine ID of an enrolled device by name. The
+// boolean is false when no device has that name.
+func (r *Registry) Identity(name string) (id, machineID string, found bool) {
+	id, machineID, err := r.store.Identity(strings.TrimSpace(name))
+	if err != nil {
+		return "", "", false
+	}
+	return id, machineID, true
 }

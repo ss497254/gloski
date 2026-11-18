@@ -84,7 +84,8 @@ the former runs in the master, the latter on each device.
 4. The agent opens `Agent.Connect` and sends `RegisterRequest` with the join token.
 5. Master registers the device, issues a device token, and stores the stream under that device ID.
 6. Agent sends heartbeats with cached stats; master stores them and broadcasts fleet updates.
-7. If the stream drops, the agent reconnects with backoff. If the master's local agent has no
+7. If the stream drops, the agent reconnects with backoff, reports the jobs it still
+   holds, and resends the output the master is missing. If the master's local agent has no
    session for 20 seconds, master kills and restarts the child process.
 
 ## Request flows
@@ -115,7 +116,7 @@ All durable state is in the master's SQLite database:
 | `agent_jobs` / `agent_job_logs` | Master-owned jobs and streamed output |
 | `schema_migrations` | Applied migrations |
 
-Agents hold no durable state. Credentials and in-flight job maps live only in memory.
+Agents hold no durable state. Credentials and running jobs live only in memory.
 
 ## Configuration
 
@@ -147,4 +148,6 @@ CGO_ENABLED=0 go build -o ../bin/gloski-agent ./cmd/gloski-agent
 ```
 
 Both binaries stay under 30 MB. Generated protobuf code is checked in, so
-`protoc` is not required to build.
+`protoc` is not required to build. After editing `agent.proto`, run `make proto`
+(protoc 3.21 with `protoc-gen-go` v1.36.6 and `protoc-gen-go-grpc` v1.5.1 on
+`PATH`).

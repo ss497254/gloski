@@ -28,8 +28,10 @@ const (
 	stableSession = time.Minute
 )
 
-// Run starts a stateless device worker. It keeps nothing durable and
-// reconnects to the master whenever the stream drops.
+var errDisconnected = errors.New("not connected to master")
+
+// Run starts a device worker. It keeps nothing on disk and reconnects to the
+// master whenever the stream drops; jobs keep running across reconnects.
 func Run(cfg *config.Config, version string) error {
 	if cfg.Agent.MasterURL == "" {
 		return fmt.Errorf("worker.master_url is required (set GLOSKI_AGENT_MASTER_URL)")
@@ -54,7 +56,6 @@ func Run(cfg *config.Config, version string) error {
 	collector := system.NewCollector(statsStore, statsHub, 2*time.Second)
 	collector.Start()
 	defer collector.Stop()
-	statsService := system.NewService(statsStore, statsHub)
 
 	// One context ends the agent, whether from a signal or a Shutdown command
 	// from the master. A context cannot be "used up" the way a signal read
@@ -64,10 +65,24 @@ func Run(cfg *config.Config, version string) error {
 	ctx, shutdown := context.WithCancel(ctx)
 	defer shutdown()
 
+	worker := &Runtime{
+		cfg:       cfg,
+		version:   version,
+		name:      name,
+		machineID: machineID(),
+		stats:     system.NewService(statsStore, statsHub),
+		files:     files.NewService(cfg),
+		shutdown:  shutdown,
+		jobs:      make(map[string]*job),
+		terms:     make(map[string]*PTYSession),
+	}
+	// Jobs outlive connections but not the agent process.
+	defer worker.stopJobs()
+
 	backoff := time.Second
 	for ctx.Err() == nil {
 		started := time.Now()
-		if err := connectOnce(ctx, shutdown, cfg, version, name, statsService); err != nil && ctx.Err() == nil {
+		if err := worker.connectOnce(ctx); err != nil && ctx.Err() == nil {
 			logger.Warn("Agent session ended: %v", err)
 		}
 		if ctx.Err() != nil {
@@ -90,51 +105,67 @@ func Run(cfg *config.Config, version string) error {
 	return nil
 }
 
-func connectOnce(ctx context.Context, shutdown context.CancelFunc, cfg *config.Config, version, name string, statsService *system.Service) error {
-	logger.Info("Agent connecting to master at %s", cfg.Agent.MasterURL)
+// Runtime is the device-side executor. It lives for the whole agent process;
+// the stream to the master comes and goes underneath it.
+type Runtime struct {
+	cfg       *config.Config
+	version   string
+	name      string
+	machineID string
+	stats     *system.Service
+	files     *files.Service
+	deviceID  string
+	shutdown  context.CancelFunc // stops the whole agent
+
+	// sendMu serializes sends (gRPC streams do not allow concurrent SendMsg)
+	// and guards stream, which is nil while disconnected.
+	sendMu sync.Mutex
+	stream agentv1.Agent_ConnectClient
+
+	mu    sync.Mutex
+	jobs  map[string]*job
+	terms map[string]*PTYSession
+}
+
+func (w *Runtime) connectOnce(ctx context.Context) error {
+	logger.Info("Agent connecting to master at %s", w.cfg.Agent.MasterURL)
 	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	conn, err := dialMaster(dialCtx, cfg.Agent.MasterURL)
+	conn, err := dialMaster(dialCtx, w.cfg.Agent.MasterURL)
 	cancel()
 	if err != nil {
 		return fmt.Errorf("failed to connect to master: %w", err)
 	}
 	defer conn.Close()
 
-	stream, err := agentv1.NewAgentClient(conn).Connect(ctx)
+	// The stream gets its own context so leaving this function always ends it.
+	streamCtx, endStream := context.WithCancel(ctx)
+	defer endStream()
+	stream, err := agentv1.NewAgentClient(conn).Connect(streamCtx)
 	if err != nil {
 		return fmt.Errorf("failed to open agent stream: %w", err)
 	}
 
-	worker := &Runtime{
-		cfg:      cfg,
-		version:  version,
-		name:     name,
-		stream:   stream,
-		stats:    statsService,
-		files:    files.NewService(cfg),
-		shutdown: shutdown,
-		jobs:     make(map[string]context.CancelFunc),
-		terms:    make(map[string]*PTYSession),
-	}
-	defer worker.cleanup()
-	defer func() { _ = stream.CloseSend() }()
 	hostname, _ := os.Hostname()
-	stats, _ := statsService.GetStats()
+	stats, _ := w.stats.GetStats()
 	statsJSON, _ := json.Marshal(stats)
 
+	// Registration goes out directly: the stream is not attached yet, so no
+	// job output can slip in ahead of it.
 	requestID := strconv.FormatInt(time.Now().UnixNano(), 36)
-	if err := worker.send(&agentv1.AgentMessage{
+	if err := stream.Send(&agentv1.AgentMessage{
 		RequestId: requestID,
 		Payload: &agentv1.AgentMessage_Register{
 			Register: &agentv1.RegisterRequest{
-				JoinToken: cfg.Agent.JoinToken,
-				Name:      name,
+				JoinToken: w.cfg.Agent.JoinToken,
+				Name:      w.name,
 				Hostname:  hostname,
 				Platform:  runtime.GOOS + "/" + runtime.GOARCH,
-				Version:   version,
-				DeployId:  cfg.Agent.DeployID,
-				Master:    cfg.Agent.Master,
+				Version:   w.version,
+				DeployId:  w.cfg.Agent.DeployID,
+				Master:    w.cfg.Agent.Master,
 				StatsJson: string(statsJSON),
+				Jobs:      w.jobStates(),
+				MachineId: w.machineID,
 			},
 		},
 	}); err != nil {
@@ -149,21 +180,29 @@ func connectOnce(ctx context.Context, shutdown context.CancelFunc, cfg *config.C
 	if registration == nil {
 		return errors.New("master did not return a registration response")
 	}
-	worker.deviceID = registration.GetDeviceId()
+	w.deviceID = registration.GetDeviceId()
 	interval := int(registration.GetHeartbeatInterval())
 	if interval <= 0 {
-		interval = cfg.Agent.HeartbeatInterval
+		interval = w.cfg.Agent.HeartbeatInterval
 	}
 	if interval <= 0 {
 		interval = 10
 	}
-	logger.Info("Agent %s (%s) registered with master", name, worker.deviceID)
+	logger.Info("Agent %s (%s) registered with master", w.name, w.deviceID)
+
+	// Order matters: rewind each job to what the master has, then attach the
+	// stream, then replay. Attaching first would let live output go out with
+	// a stale position and be mistaken for a gap.
+	w.resumeJobs(registration.GetJobs())
+	w.attach(stream)
+	defer w.detach()
+	w.flushJobs()
 
 	sessionDone := make(chan struct{})
 	var once sync.Once
 	finish := func() { once.Do(func() { close(sessionDone) }) }
-	go worker.heartbeatLoop(sessionDone, interval, finish)
-	go worker.receiveLoop(sessionDone, finish)
+	go w.heartbeatLoop(sessionDone, interval, finish)
+	go w.receiveLoop(stream, sessionDone, finish)
 
 	select {
 	case <-ctx.Done():
@@ -173,39 +212,38 @@ func connectOnce(ctx context.Context, shutdown context.CancelFunc, cfg *config.C
 	}
 }
 
-type Runtime struct {
-	cfg      *config.Config
-	version  string
-	name     string
-	stream   agentv1.Agent_ConnectClient
-	stats    *system.Service
-	files    *files.Service
-	deviceID string
-	shutdown context.CancelFunc // stops the whole agent
+func (w *Runtime) attach(stream agentv1.Agent_ConnectClient) {
+	w.sendMu.Lock()
+	w.stream = stream
+	w.sendMu.Unlock()
+}
 
-	sendMu sync.Mutex
-	mu     sync.Mutex
-	jobs   map[string]context.CancelFunc
-	terms  map[string]*PTYSession
+// detach drops the stream and everything that cannot outlive it. Terminals
+// are interactive and end with the session; jobs carry on.
+func (w *Runtime) detach() {
+	w.sendMu.Lock()
+	stream := w.stream
+	w.stream = nil
+	w.sendMu.Unlock()
+	if stream != nil {
+		_ = stream.CloseSend()
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for id, session := range w.terms {
+		session.close()
+		delete(w.terms, id)
+	}
 }
 
 func (w *Runtime) send(message *agentv1.AgentMessage) error {
 	w.sendMu.Lock()
 	defer w.sendMu.Unlock()
+	if w.stream == nil {
+		return errDisconnected
+	}
 	return w.stream.Send(message)
-}
-
-func (w *Runtime) cleanup() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	for id, cancel := range w.jobs {
-		cancel()
-		delete(w.jobs, id)
-	}
-	for id, session := range w.terms {
-		session.close()
-		delete(w.terms, id)
-	}
 }
 
 func (w *Runtime) heartbeatLoop(done <-chan struct{}, interval int, finish func()) {
@@ -236,10 +274,10 @@ func (w *Runtime) heartbeatLoop(done <-chan struct{}, interval int, finish func(
 	}
 }
 
-func (w *Runtime) receiveLoop(done <-chan struct{}, finish func()) {
+func (w *Runtime) receiveLoop(stream agentv1.Agent_ConnectClient, done <-chan struct{}, finish func()) {
 	defer finish()
 	for {
-		message, err := w.stream.Recv()
+		message, err := stream.Recv()
 		if err != nil {
 			select {
 			case <-done:
@@ -255,14 +293,11 @@ func (w *Runtime) receiveLoop(done <-chan struct{}, finish func()) {
 func (w *Runtime) handle(message *agentv1.MasterMessage) {
 	switch payload := message.Payload.(type) {
 	case *agentv1.MasterMessage_RunJob:
-		go w.runJob(message.RequestId, payload.RunJob)
+		w.startJob(message.RequestId, payload.RunJob)
 	case *agentv1.MasterMessage_Cancel:
-		w.mu.Lock()
-		cancel := w.jobs[message.RequestId]
-		w.mu.Unlock()
-		if cancel != nil {
-			cancel()
-		}
+		w.cancelJob(message.RequestId)
+	case *agentv1.MasterMessage_JobAck:
+		w.forgetJob(message.RequestId)
 	case *agentv1.MasterMessage_FileRequest:
 		go w.handleFile(message.RequestId, payload.FileRequest)
 	case *agentv1.MasterMessage_ProcessRequest:

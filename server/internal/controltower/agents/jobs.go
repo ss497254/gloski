@@ -68,6 +68,18 @@ func NewJobStore(db *database.Database) (*JobStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	// last_seq is the newest output chunk stored for a job. These tables are
+	// created here rather than by a migration, so the column is added the
+	// same way for databases that predate it.
+	var hasSeq int
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('agent_jobs') WHERE name = 'last_seq'`).Scan(&hasSeq); err != nil {
+		return nil, err
+	}
+	if hasSeq == 0 {
+		if _, err := store.db.Exec(`ALTER TABLE agent_jobs ADD COLUMN last_seq INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return nil, err
+		}
+	}
 	return store, nil
 }
 
@@ -96,14 +108,101 @@ func (t *JobStore) MarkRunning(id string) error {
 	return err
 }
 
-// AppendLog stores one streamed output chunk.
-func (t *JobStore) AppendLog(id string, chunk []byte, stderr bool) error {
+// gapNotice is written into a job's log where output was lost.
+const gapNotice = "\n[gloski: some output was lost while the agent was disconnected]\n"
+
+// AppendLog stores one streamed output chunk. seq orders a job's chunks:
+// one already stored is dropped (a replay after reconnect), and a jump is
+// recorded as a gap. seq 0 means the agent does not number its output.
+func (t *JobStore) AppendLog(id string, seq uint64, chunk []byte, stderr bool) error {
 	if len(chunk) == 0 {
 		return nil
 	}
-	_, err := t.db.Exec(`
+	tx, err := t.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var last uint64
+	if err := tx.QueryRow(`SELECT last_seq FROM agent_jobs WHERE id = ?`, id).Scan(&last); err != nil {
+		if err == sql.ErrNoRows {
+			return nil // job was deleted; discard its output
+		}
+		return err
+	}
+	now := time.Now().UTC()
+	if seq != 0 {
+		if seq <= last {
+			return nil
+		}
+		if seq > last+1 {
+			if _, err := tx.Exec(`
+				INSERT INTO agent_job_logs (job_id, chunk, stderr, created_at) VALUES (?, ?, 1, ?)`,
+				id, []byte(gapNotice), now); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.Exec(`UPDATE agent_jobs SET last_seq = ? WHERE id = ?`, seq, id); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(`
 		INSERT INTO agent_job_logs (job_id, chunk, stderr, created_at) VALUES (?, ?, ?, ?)`,
-		id, chunk, stderr, time.Now().UTC())
+		id, chunk, stderr, now); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// Resume reports how to pick up a job an agent says it still holds: the
+// newest chunk stored, and whether the master is still waiting on the job.
+func (t *JobStore) Resume(deviceID, id string) (ackedSeq uint64, active bool) {
+	var status string
+	err := t.db.QueryRow(`SELECT last_seq, status FROM agent_jobs WHERE id = ? AND device_id = ?`, id, deviceID).Scan(&ackedSeq, &status)
+	if err != nil {
+		return 0, false
+	}
+	return ackedSeq, status == JobPending || status == JobRunning
+}
+
+// AbandonMissing marks a device's unfinished jobs as abandoned unless the
+// agent still holds them. It is the reckoning after a reconnect: a job the
+// agent no longer knows about died with a previous agent process.
+func (t *JobStore) AbandonMissing(deviceID string, held map[string]bool, reason string) error {
+	rows, err := t.db.Query(`SELECT id FROM agent_jobs WHERE device_id = ? AND status IN (?, ?)`, deviceID, JobPending, JobRunning)
+	if err != nil {
+		return err
+	}
+	var missing []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		if !held[id] {
+			missing = append(missing, id)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, id := range missing {
+		if err := t.Abandon(id, reason); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Abandon gives up on one unfinished job.
+func (t *JobStore) Abandon(id, reason string) error {
+	_, err := t.db.Exec(`
+		UPDATE agent_jobs SET status = ?, error = ?, finished_at = ?
+		WHERE id = ? AND status IN (?, ?)`,
+		JobAbandoned, reason, time.Now().UTC(), id, JobPending, JobRunning)
 	return err
 }
 
@@ -156,16 +255,6 @@ func (t *JobStore) Finish(id string, exitCode int, errMsg string, stopped bool) 
 	return err
 }
 
-// AbortAll marks every unfinished job as abandoned.
-func (t *JobStore) AbortAll(reason string) error {
-	_, err := t.db.Exec(`
-		UPDATE agent_jobs
-		SET status = ?, error = ?, finished_at = ?
-		WHERE status IN (?, ?)`,
-		JobAbandoned, reason, time.Now().UTC(), JobPending, JobRunning)
-	return err
-}
-
 // DeleteDevice removes every job and log belonging to a device.
 func (t *JobStore) DeleteDevice(deviceID string) error {
 	if _, err := t.db.Exec(`
@@ -174,16 +263,6 @@ func (t *JobStore) DeleteDevice(deviceID string) error {
 		return err
 	}
 	_, err := t.db.Exec(`DELETE FROM agent_jobs WHERE device_id = ?`, deviceID)
-	return err
-}
-
-// AbortDevice marks unfinished jobs for a device as abandoned.
-func (t *JobStore) AbortDevice(deviceID, reason string) error {
-	_, err := t.db.Exec(`
-		UPDATE agent_jobs
-		SET status = ?, error = ?, finished_at = ?
-		WHERE device_id = ? AND status IN (?, ?)`,
-		JobAbandoned, reason, time.Now().UTC(), deviceID, JobPending, JobRunning)
 	return err
 }
 

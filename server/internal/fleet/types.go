@@ -26,6 +26,8 @@ type Device struct {
 	CreatedAt time.Time     `json:"created_at"`
 	LastSeen  time.Time     `json:"last_seen"`
 	Token     string        `json:"-"`
+	// MachineID is the agent-reported hash of the machine identity.
+	MachineID string `json:"-"`
 
 	// DeployID links the device to a master-managed SSH deployment.
 	DeployID string      `json:"deploy_id,omitempty"`
@@ -44,6 +46,7 @@ type RegisterRequest struct {
 	Version   string        `json:"version"`
 	DeployID  string        `json:"deploy_id,omitempty"`
 	Master    bool          `json:"master"`
+	MachineID string        `json:"machine_id,omitempty"`
 	Stats     *system.Stats `json:"stats,omitempty"`
 }
 

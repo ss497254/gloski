@@ -36,6 +36,7 @@ message MasterMessage {
     TerminalClose terminal_close = 8;
     Shutdown shutdown = 9;
     ProcessRequest process_request = 10;
+    JobAck job_ack = 11;
   }
 }
 
@@ -57,6 +58,12 @@ message RegisterRequest {
   string deploy_id = 6;
   bool master = 7;
   string stats_json = 8;
+  // jobs lists every job this agent still holds: running ones, and finished
+  // ones whose result the master has not acknowledged.
+  repeated JobState jobs = 9;
+  // machine_id identifies the machine (not the agent process) so the master
+  // can tell a reconnect from a second machine using the same name.
+  string machine_id = 10;
 }
 
 message RegisterResponse {
@@ -64,6 +71,28 @@ message RegisterResponse {
   string device_token = 2;
   int32 heartbeat_interval = 3;
   string master_version = 4;
+  // jobs answers RegisterRequest.jobs, one entry per reported job.
+  repeated JobResume jobs = 5;
+}
+
+// JobState is the agent's view of one job when it (re)connects.
+message JobState {
+  string id = 1;
+  // last_seq is the sequence number of the newest output chunk produced.
+  uint64 last_seq = 2;
+  bool finished = 3;
+  int32 exit_code = 4;
+  string error = 5;
+}
+
+// JobResume tells the agent where to pick a job back up.
+message JobResume {
+  string id = 1;
+  // acked_seq is the newest output chunk the master has stored; the agent
+  // resends everything after it.
+  uint64 acked_seq = 2;
+  // forget means the master no longer tracks this job: stop it and drop it.
+  bool forget = 3;
 }
 
 message Heartbeat {
@@ -82,7 +111,14 @@ message CancelRequest {
 message JobOutput {
   bytes chunk = 1;
   bool stderr = 2;
+  // seq numbers a job's chunks from 1 so the master can drop duplicates and
+  // notice gaps after a reconnect. 0 means unsequenced (agents before this
+  // field existed).
+  uint64 seq = 3;
 }
+
+// JobAck confirms the master stored a job's result, so the agent can drop it.
+message JobAck {}
 
 message JobResult {
   int32 exit_code = 1;

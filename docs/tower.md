@@ -43,11 +43,17 @@ device binary.
 
 ## Ephemeral agents
 
-Agents keep no state. There is no `agent.json`, no local database, and no
-job log files on devices. Credentials and in-flight job maps live in memory
-only. On restart the agent re-registers with the master and receives a fresh
-device token. If an agent dies, the master marks its jobs abandoned and keeps
-the logs.
+Agents keep nothing on disk. There is no `agent.json`, no local database, and
+no job log files on devices. Credentials and running jobs live in memory only.
+On restart the agent re-registers with the master and receives a fresh device
+token.
+
+Jobs belong to the agent process, not to the connection. If the stream drops or
+the master restarts, jobs keep running and the agent buffers up to 4 MB of
+output per job. On reconnect it reports the jobs it holds and resends whatever
+the master is missing; if more than the buffer was produced, the log notes the
+gap. A job is marked abandoned only when the agent comes back without it,
+which means the agent process itself was restarted.
 
 Installing an agent means copying the binary to `/tmp/gloski-agent` over SSH
 and starting it with `nohup`. It will be gone after a reboot — that is

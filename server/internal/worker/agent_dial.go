@@ -5,9 +5,11 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 )
 
 func dialMaster(ctx context.Context, raw string) (*grpc.ClientConn, error) {
@@ -16,6 +18,13 @@ func dialMaster(ctx context.Context, raw string) (*grpc.ClientConn, error) {
 	options := []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(32<<20), grpc.MaxCallSendMsgSize(32<<20)),
+		// Pings notice a dead path (sleeping laptop, dropped tunnel) within
+		// about 30 seconds instead of waiting on TCP timeouts.
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                20 * time.Second,
+			Timeout:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	}
 
 	target := raw
