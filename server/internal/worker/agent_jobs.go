@@ -6,10 +6,15 @@ import (
 	"errors"
 	"os/exec"
 	"strings"
-	"sync"
+	"syscall"
+	"time"
 
 	"github.com/ss497254/gloski/proto/agentv1"
 )
+
+// jobStopGrace is how long a cancelled job gets between SIGTERM and SIGKILL,
+// and how long output pipes may stay open after the shell itself has exited.
+const jobStopGrace = 5 * time.Second
 
 func (w *Runtime) runJob(id string, request *agentv1.RunJob) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -31,40 +36,44 @@ func (w *Runtime) runJob(id string, request *agentv1.RunJob) {
 	if cwd := strings.TrimSpace(request.GetCwd()); cwd != "" {
 		command.Dir = cwd
 	}
+	// The shell gets its own process group so cancelling reaches everything it
+	// started, not just the shell.
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	command.Cancel = func() error {
+		return syscall.Kill(-command.Process.Pid, syscall.SIGTERM)
+	}
+	// exec copies output through these writers and Wait returns only after
+	// the copy is done, so no trailing output is lost. WaitDelay bounds that
+	// wait when a background child keeps the pipes open.
+	command.WaitDelay = jobStopGrace
+	command.Stdout = &jobOutput{runtime: w, id: id}
+	command.Stderr = &jobOutput{runtime: w, id: id, stderr: true}
 
-	stdout, err := command.StdoutPipe()
-	if err != nil {
-		w.sendResult(id, -1, err.Error())
-		return
-	}
-	stderr, err := command.StderrPipe()
-	if err != nil {
-		w.sendResult(id, -1, err.Error())
-		return
-	}
 	if err := command.Start(); err != nil {
 		w.sendResult(id, -1, err.Error())
 		return
 	}
+	pid := command.Process.Pid
 
-	// Both pipes must be drained while the command runs. Waiting on the
-	// process first can deadlock if the child fills one pipe buffer.
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		w.streamOutput(id, stdout, false)
-	}()
-	go func() {
-		defer wg.Done()
-		w.streamOutput(id, stderr, true)
-	}()
+	err := command.Wait()
+	if ctx.Err() != nil {
+		// Cancelled: make sure nothing that ignored SIGTERM is left behind.
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+	}
 
-	err = command.Wait()
-	wg.Wait()
 	code := 0
 	message := ""
-	if err != nil {
+	switch {
+	case err == nil, errors.Is(err, exec.ErrWaitDelay):
+		// ErrWaitDelay means the shell exited but a child still held the
+		// output pipe; the shell's own exit status is what counts.
+		if command.ProcessState != nil {
+			code = command.ProcessState.ExitCode()
+		}
+		if code != 0 {
+			message = command.ProcessState.String()
+		}
+	default:
 		message = err.Error()
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
@@ -76,27 +85,29 @@ func (w *Runtime) runJob(id string, request *agentv1.RunJob) {
 	w.sendResult(id, code, message)
 }
 
-func (w *Runtime) streamOutput(id string, reader interface{ Read([]byte) (int, error) }, stderr bool) {
-	buffer := make([]byte, 16*1024)
-	for {
-		n, err := reader.Read(buffer)
-		if n > 0 {
-			chunk := make([]byte, n)
-			copy(chunk, buffer[:n])
-			sendErr := w.send(&agentv1.AgentMessage{
-				RequestId: id,
-				Payload: &agentv1.AgentMessage_JobOutput{
-					JobOutput: &agentv1.JobOutput{Chunk: chunk, Stderr: stderr},
-				},
-			})
-			if sendErr != nil {
-				return
-			}
-		}
-		if err != nil {
-			return
-		}
+// jobOutput forwards one output stream of a job to the master.
+type jobOutput struct {
+	runtime *Runtime
+	id      string
+	stderr  bool
+}
+
+func (o *jobOutput) Write(data []byte) (int, error) {
+	if len(data) == 0 {
+		return 0, nil
 	}
+	chunk := make([]byte, len(data))
+	copy(chunk, data)
+	err := o.runtime.send(&agentv1.AgentMessage{
+		RequestId: o.id,
+		Payload: &agentv1.AgentMessage_JobOutput{
+			JobOutput: &agentv1.JobOutput{Chunk: chunk, Stderr: o.stderr},
+		},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return len(data), nil
 }
 
 func (w *Runtime) sendResult(id string, code int, message string) {

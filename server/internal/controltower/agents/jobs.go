@@ -16,6 +16,7 @@ const (
 	JobRunning   = "running"
 	JobFinished  = "finished"
 	JobFailed    = "failed"
+	JobStopped   = "stopped"
 	JobAbandoned = "abandoned"
 )
 
@@ -136,15 +137,43 @@ func (t *JobStore) Logs(id string) ([]string, error) {
 	return lines, rows.Err()
 }
 
-// Finish records a job's terminal result.
-func (t *JobStore) Finish(id string, exitCode int, errMsg string) error {
+// Finish records a job's terminal result. stopped marks a job the user
+// cancelled. A job that already reached a terminal state is left alone, so a
+// late result cannot overwrite it.
+func (t *JobStore) Finish(id string, exitCode int, errMsg string, stopped bool) error {
 	status := JobFinished
-	if errMsg != "" || exitCode != 0 {
+	switch {
+	case stopped:
+		status = JobStopped
+		errMsg = ""
+	case errMsg != "" || exitCode != 0:
 		status = JobFailed
 	}
 	_, err := t.db.Exec(`
-		UPDATE agent_jobs SET status = ?, exit_code = ?, error = ?, finished_at = ? WHERE id = ?`,
-		status, exitCode, nullable(errMsg), time.Now().UTC(), id)
+		UPDATE agent_jobs SET status = ?, exit_code = ?, error = ?, finished_at = ?
+		WHERE id = ? AND status IN (?, ?)`,
+		status, exitCode, nullable(errMsg), time.Now().UTC(), id, JobPending, JobRunning)
+	return err
+}
+
+// AbortAll marks every unfinished job as abandoned.
+func (t *JobStore) AbortAll(reason string) error {
+	_, err := t.db.Exec(`
+		UPDATE agent_jobs
+		SET status = ?, error = ?, finished_at = ?
+		WHERE status IN (?, ?)`,
+		JobAbandoned, reason, time.Now().UTC(), JobPending, JobRunning)
+	return err
+}
+
+// DeleteDevice removes every job and log belonging to a device.
+func (t *JobStore) DeleteDevice(deviceID string) error {
+	if _, err := t.db.Exec(`
+		DELETE FROM agent_job_logs
+		WHERE job_id IN (SELECT id FROM agent_jobs WHERE device_id = ?)`, deviceID); err != nil {
+		return err
+	}
+	_, err := t.db.Exec(`DELETE FROM agent_jobs WHERE device_id = ?`, deviceID)
 	return err
 }
 

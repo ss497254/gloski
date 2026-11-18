@@ -24,8 +24,11 @@ func Open(path string) (*Database, error) {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
-	// Open database with WAL mode for better concurrency
-	dsn := fmt.Sprintf("%s?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on", path)
+	// modernc.org/sqlite takes pragmas as _pragma=name(value); the mattn-style
+	// _journal_mode/_busy_timeout parameters are silently ignored. WAL lets
+	// readers run alongside the single writer, and the busy timeout makes a
+	// second writer wait instead of failing with "database is locked".
+	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)&_txlock=immediate", path)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)

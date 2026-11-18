@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/httpapi"
 )
 
@@ -38,17 +39,29 @@ func (t *Tower) handleRunJob(w http.ResponseWriter, r *http.Request) {
 	httpapi.Success(w, job)
 }
 
-func (t *Tower) handleGetJob(w http.ResponseWriter, r *http.Request) {
+// deviceJob loads the job named in the URL and checks that it belongs to the
+// device in the same URL, so one device's path cannot reach another's jobs.
+func (t *Tower) deviceJob(w http.ResponseWriter, r *http.Request) (*agents.Job, bool) {
 	job, err := t.agentService.GetJob(r.PathValue("jobId"))
-	if err != nil {
+	if err != nil || job.DeviceID != r.PathValue("id") {
 		httpapi.NotFound(w, "job not found")
-		return
+		return nil, false
 	}
-	httpapi.Success(w, job)
+	return job, true
+}
+
+func (t *Tower) handleGetJob(w http.ResponseWriter, r *http.Request) {
+	if job, ok := t.deviceJob(w, r); ok {
+		httpapi.Success(w, job)
+	}
 }
 
 func (t *Tower) handleJobLogs(w http.ResponseWriter, r *http.Request) {
-	logs, err := t.agentService.JobLogs(r.PathValue("jobId"))
+	job, ok := t.deviceJob(w, r)
+	if !ok {
+		return
+	}
+	logs, err := t.agentService.JobLogs(job.ID)
 	if err != nil {
 		writeAgentError(w, err)
 		return
@@ -57,7 +70,11 @@ func (t *Tower) handleJobLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Tower) handleCancelJob(w http.ResponseWriter, r *http.Request) {
-	if err := t.agentService.CancelJob(r.PathValue("id"), r.PathValue("jobId"), "cancelled by user"); err != nil {
+	job, ok := t.deviceJob(w, r)
+	if !ok {
+		return
+	}
+	if err := t.agentService.CancelJob(job.DeviceID, job.ID, "cancelled by user"); err != nil {
 		writeAgentError(w, err)
 		return
 	}
@@ -65,7 +82,11 @@ func (t *Tower) handleCancelJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Tower) handleDeleteJob(w http.ResponseWriter, r *http.Request) {
-	if err := t.agentService.DeleteJob(r.PathValue("jobId")); err != nil {
+	job, ok := t.deviceJob(w, r)
+	if !ok {
+		return
+	}
+	if err := t.agentService.DeleteJob(job.ID); err != nil {
 		writeAgentError(w, err)
 		return
 	}

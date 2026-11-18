@@ -21,6 +21,13 @@ import (
 	"github.com/ss497254/gloski/proto/agentv1"
 )
 
+const (
+	maxReconnectBackoff = 30 * time.Second
+	// A session that lasted this long was healthy, so the next reconnect
+	// starts from the shortest delay again.
+	stableSession = time.Minute
+)
+
 // Run starts a stateless device worker. It keeps nothing durable and
 // reconnects to the master whenever the stream drops.
 func Run(cfg *config.Config, version string) error {
@@ -49,63 +56,68 @@ func Run(cfg *config.Config, version string) error {
 	defer collector.Stop()
 	statsService := system.NewService(statsStore, statsHub)
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	// One context ends the agent, whether from a signal or a Shutdown command
+	// from the master. A context cannot be "used up" the way a signal read
+	// from a channel can, so every loop below sees the stop.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	ctx, shutdown := context.WithCancel(ctx)
+	defer shutdown()
 
 	backoff := time.Second
-	for {
-		select {
-		case <-quit:
-			logger.Info("Agent stopped")
-			return nil
-		default:
-		}
-
-		if err := connectOnce(cfg, version, name, statsService, quit); err != nil {
+	for ctx.Err() == nil {
+		started := time.Now()
+		if err := connectOnce(ctx, shutdown, cfg, version, name, statsService); err != nil && ctx.Err() == nil {
 			logger.Warn("Agent session ended: %v", err)
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		if time.Since(started) >= stableSession {
+			backoff = time.Second
 		}
 
 		logger.Info("Agent will reconnect in %s", backoff)
 		select {
-		case <-quit:
-			logger.Info("Agent stopped")
-			return nil
+		case <-ctx.Done():
 		case <-time.After(backoff):
 		}
-		if backoff < 30*time.Second {
+		if backoff < maxReconnectBackoff {
 			backoff *= 2
 		}
 	}
+	logger.Info("Agent stopped")
+	return nil
 }
 
-func connectOnce(cfg *config.Config, version, name string, statsService *system.Service, quit <-chan os.Signal) error {
+func connectOnce(ctx context.Context, shutdown context.CancelFunc, cfg *config.Config, version, name string, statsService *system.Service) error {
 	logger.Info("Agent connecting to master at %s", cfg.Agent.MasterURL)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	conn, err := dialMaster(ctx, cfg.Agent.MasterURL)
+	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	conn, err := dialMaster(dialCtx, cfg.Agent.MasterURL)
 	cancel()
 	if err != nil {
 		return fmt.Errorf("failed to connect to master: %w", err)
 	}
 	defer conn.Close()
 
-	stream, err := agentv1.NewAgentClient(conn).Connect(context.Background())
+	stream, err := agentv1.NewAgentClient(conn).Connect(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to open agent stream: %w", err)
 	}
 
 	worker := &Runtime{
-		cfg:     cfg,
-		version: version,
-		name:    name,
-		stream:  stream,
-		stats:   statsService,
-		files:   files.NewService(cfg),
-		jobs:    make(map[string]context.CancelFunc),
-		terms:   make(map[string]*PTYSession),
+		cfg:      cfg,
+		version:  version,
+		name:     name,
+		stream:   stream,
+		stats:    statsService,
+		files:    files.NewService(cfg),
+		shutdown: shutdown,
+		jobs:     make(map[string]context.CancelFunc),
+		terms:    make(map[string]*PTYSession),
 	}
 	defer worker.cleanup()
 	defer func() { _ = stream.CloseSend() }()
-
 	hostname, _ := os.Hostname()
 	stats, _ := statsService.GetStats()
 	statsJSON, _ := json.Marshal(stats)
@@ -154,7 +166,7 @@ func connectOnce(cfg *config.Config, version, name string, statsService *system.
 	go worker.receiveLoop(sessionDone, finish)
 
 	select {
-	case <-quit:
+	case <-ctx.Done():
 		return nil
 	case <-sessionDone:
 		return errors.New("master stream closed")
@@ -169,6 +181,7 @@ type Runtime struct {
 	stats    *system.Service
 	files    *files.Service
 	deviceID string
+	shutdown context.CancelFunc // stops the whole agent
 
 	sendMu sync.Mutex
 	mu     sync.Mutex
@@ -261,7 +274,8 @@ func (w *Runtime) handle(message *agentv1.MasterMessage) {
 	case *agentv1.MasterMessage_TerminalClose:
 		w.closeTerminal(message.RequestId)
 	case *agentv1.MasterMessage_Shutdown:
+		// Cancel rather than exit so running jobs and terminals are cleaned up.
 		logger.Info("Master requested agent shutdown")
-		os.Exit(0)
+		w.shutdown()
 	}
 }

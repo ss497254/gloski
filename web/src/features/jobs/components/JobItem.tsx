@@ -17,6 +17,7 @@ function getStatusIcon(status: string) {
     case 'failed':
       return <XCircle className="h-4 w-4 text-destructive" />
     case 'stopped':
+    case 'abandoned':
       return <AlertCircle className="h-4 w-4 text-warning" />
     case 'pending':
       return <Clock className="h-4 w-4 text-muted-foreground" />

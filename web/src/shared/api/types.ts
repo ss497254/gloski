@@ -343,7 +343,9 @@ export interface PinnedFoldersResponse {
 // Job Types
 // =============================================================================
 
-export type JobStatus = 'pending' | 'running' | 'stopped' | 'failed' | 'finished'
+// 'stopped' is a job the user cancelled; 'abandoned' is one whose agent or
+// master went away before it reported a result.
+export type JobStatus = 'pending' | 'running' | 'stopped' | 'failed' | 'finished' | 'abandoned'
 
 export interface Job {
   id: JobId

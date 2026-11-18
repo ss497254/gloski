@@ -39,6 +39,11 @@ type Service struct {
 
 	mu          sync.RWMutex
 	connections map[string]*connection
+
+	// stopping holds jobs the user cancelled, so their result is recorded as
+	// stopped rather than failed.
+	stopMu   sync.Mutex
+	stopping map[string]struct{}
 }
 
 func New(db *database.Database, fleetSvc *fleet.Registry, version string, interval int) (*Service, error) {
@@ -49,12 +54,18 @@ func New(db *database.Database, fleetSvc *fleet.Registry, version string, interv
 	if interval <= 0 {
 		interval = defaultHeartbeatInterval
 	}
+	// No agent is connected yet, so nothing can still report on jobs left
+	// running by a previous master process.
+	if err := jobs.AbortAll("master restarted"); err != nil {
+		return nil, err
+	}
 	return &Service{
 		fleetSvc:    fleetSvc,
 		jobs:        jobs,
 		version:     version,
 		interval:    interval,
 		connections: make(map[string]*connection),
+		stopping:    make(map[string]struct{}),
 	}, nil
 }
 
@@ -95,13 +106,15 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 		deviceID: device.ID,
 		token:    registered.DeviceToken,
 		stream:   stream,
+		closed:   make(chan struct{}),
 		pending:  make(map[string]chan *agentv1.AgentMessage),
 		terms:    make(map[string]chan []byte),
 	}
 	svc.mu.Lock()
 	if previous := svc.connections[device.ID]; previous != nil {
-		// The old stream will unwind later; it must not undo the new connection.
-		previous.replaced = true
+		// Hang up the old stream; its teardown must not undo the new connection.
+		previous.replaced.Store(true)
+		previous.close()
 	}
 	svc.connections[device.ID] = conn
 	svc.mu.Unlock()
@@ -123,15 +136,39 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 	}
 
 	logger.Info("Agent connected over gRPC: %s (%s)", device.Name, device.ID)
+	svc.fleetSvc.Changed()
+
+	// Recv blocks, so it runs on its own goroutine. Returning from this
+	// handler is the only way to end the stream from the master side, and
+	// doing so also unblocks that goroutine.
+	incoming := make(chan *agentv1.AgentMessage)
+	receiveErr := make(chan error, 1)
+	go func() {
+		for {
+			message, err := stream.Recv()
+			if err != nil {
+				receiveErr <- err
+				return
+			}
+			select {
+			case incoming <- message:
+			case <-conn.closed:
+				return
+			}
+		}
+	}()
 	for {
-		message, err := stream.Recv()
-		if err != nil {
+		select {
+		case <-conn.closed:
+			return nil
+		case err := <-receiveErr:
 			if !errors.Is(err, context.Canceled) {
 				logger.Debug("Agent stream %s closed: %v", device.ID, err)
 			}
 			return nil
+		case message := <-incoming:
+			svc.handle(conn, message)
 		}
-		svc.handle(conn, message)
 	}
 }
 
@@ -148,7 +185,11 @@ func (svc *Service) handle(conn *connection, message *agentv1.AgentMessage) {
 		}
 	case *agentv1.AgentMessage_JobResult:
 		result := payload.JobResult
-		if err := svc.jobs.Finish(message.RequestId, int(result.GetExitCode()), result.GetError()); err != nil {
+		svc.stopMu.Lock()
+		_, stopped := svc.stopping[message.RequestId]
+		delete(svc.stopping, message.RequestId)
+		svc.stopMu.Unlock()
+		if err := svc.jobs.Finish(message.RequestId, int(result.GetExitCode()), result.GetError(), stopped); err != nil {
 			logger.Warn("Failed to finish job %s: %v", message.RequestId, err)
 		}
 	case *agentv1.AgentMessage_FileResult:
@@ -178,13 +219,11 @@ func (svc *Service) disconnect(conn *connection) {
 	}
 	conn.mu.Unlock()
 
-	if conn.replaced {
+	if conn.replaced.Load() {
 		logger.Info("Agent connection replaced: %s", conn.deviceID)
 		return
 	}
-	if err := svc.fleetSvc.MarkOffline(conn.deviceID); err != nil {
-		logger.Warn("Failed to mark device %s offline: %v", conn.deviceID, err)
-	}
+	svc.fleetSvc.Changed()
 	if err := svc.jobs.AbortDevice(conn.deviceID, "agent disconnected"); err != nil {
 		logger.Warn("Failed to abort jobs for %s: %v", conn.deviceID, err)
 	}
@@ -201,7 +240,6 @@ func (svc *Service) connection(deviceID string) (*connection, error) {
 	return conn, nil
 }
 
-// RunJob starts a master-owned job on an agent and returns its ID.
 func decodeStats(raw string) *system.Stats {
 	if strings.TrimSpace(raw) == "" {
 		return nil

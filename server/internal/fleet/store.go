@@ -112,19 +112,6 @@ func (r *Store) UpdateHeartbeat(id string, stats *system.Stats, at time.Time) er
 	return err
 }
 
-// MarkOffline makes a device show as offline until its next heartbeat.
-func (r *Store) MarkOffline(id string, at time.Time) error {
-	res, err := r.db.Exec("UPDATE devices SET last_seen = ?, updated_at = ? WHERE id = ?", at, at, id)
-	if err != nil {
-		return err
-	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
-}
-
 // Delete removes a device.
 func (r *Store) Delete(id string) error {
 	res, err := r.db.Exec("DELETE FROM devices WHERE id = ?", id)

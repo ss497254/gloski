@@ -28,7 +28,7 @@ func (svc *Service) RunJob(deviceID, command, cwd string) (*Job, error) {
 		},
 	}
 	if err := conn.send(message); err != nil {
-		_ = svc.jobs.Finish(job.ID, -1, err.Error())
+		_ = svc.jobs.Finish(job.ID, -1, err.Error(), false)
 		return nil, err
 	}
 	return job, nil
@@ -40,12 +40,21 @@ func (svc *Service) CancelJob(deviceID, jobID, reason string) error {
 	if err != nil {
 		return err
 	}
-	return conn.send(&agentv1.MasterMessage{
+	svc.stopMu.Lock()
+	svc.stopping[jobID] = struct{}{}
+	svc.stopMu.Unlock()
+	err = conn.send(&agentv1.MasterMessage{
 		RequestId: jobID,
 		Payload: &agentv1.MasterMessage_Cancel{
 			Cancel: &agentv1.CancelRequest{Reason: reason},
 		},
 	})
+	if err != nil {
+		svc.stopMu.Lock()
+		delete(svc.stopping, jobID)
+		svc.stopMu.Unlock()
+	}
+	return err
 }
 
 // ListJobs returns a device's jobs from the master database.
@@ -196,3 +205,25 @@ func (svc *Service) request(deviceID string, message *agentv1.MasterMessage, tim
 		return nil, fmt.Errorf("agent %s did not respond in time", deviceID)
 	}
 }
+
+// Disconnect hangs up a device's stream, if it has one.
+func (svc *Service) Disconnect(deviceID string) {
+	if conn, err := svc.connection(deviceID); err == nil {
+		conn.close()
+	}
+}
+
+// Close hangs up every agent stream so the gRPC server can stop. Agents
+// treat this as a dropped connection and reconnect when the master returns.
+func (svc *Service) Close() {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	for _, conn := range svc.connections {
+		// Not a real disconnect: leave device and job state for the restart.
+		conn.replaced.Store(true)
+		conn.close()
+	}
+}
+
+// ForgetDevice removes a device's jobs and logs.
+func (svc *Service) ForgetDevice(deviceID string) error { return svc.jobs.DeleteDevice(deviceID) }

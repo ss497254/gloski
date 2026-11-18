@@ -64,9 +64,23 @@ func (t *Tower) handleGetDevice(w http.ResponseWriter, r *http.Request) {
 
 func (t *Tower) handleDeleteDevice(w http.ResponseWriter, r *http.Request) {
 	deviceID := r.PathValue("id")
-	if device, err := t.fleetSvc.Get(deviceID); err == nil && device.DeployID != "" {
-		if err := t.fleetSvc.DeleteDeployment(device.DeployID); err != nil {
-			logger.Warn("Failed to delete deployment for device %s: %v", deviceID, err)
+	if device, err := t.fleetSvc.Get(deviceID); err == nil {
+		if device.Master && t.localAgentProcess != nil {
+			httpapi.BadRequest(w, "the master device cannot be removed while its local agent is enabled")
+			return
+		}
+		// Stop the agent before forgetting it. A removed device whose agent
+		// kept running would simply enrol again on its next reconnect.
+		if err := t.agentService.Shutdown(deviceID); err == nil {
+			t.agentService.Disconnect(deviceID)
+		}
+		if device.DeployID != "" {
+			if err := t.fleetSvc.DeleteDeployment(device.DeployID); err != nil {
+				logger.Warn("Failed to delete deployment for device %s: %v", deviceID, err)
+			}
+		}
+		if err := t.agentService.ForgetDevice(deviceID); err != nil {
+			logger.Warn("Failed to delete jobs for device %s: %v", deviceID, err)
 		}
 	}
 	if err := t.fleetSvc.Delete(deviceID); err != nil {

@@ -2,6 +2,7 @@ package agents
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/ss497254/gloski/proto/agentv1"
 )
@@ -10,12 +11,23 @@ type connection struct {
 	deviceID string
 	token    string
 	stream   agentv1.Agent_ConnectServer
-	replaced bool // a newer connection took over this device
+
+	// replaced is set when a newer connection took over this device, so this
+	// one's teardown must not mark the device offline or abort its jobs.
+	replaced atomic.Bool
+	// closed ends the stream handler; closing it is how the master hangs up.
+	closed    chan struct{}
+	closeOnce sync.Once
 
 	sendMu  sync.Mutex // gRPC streams do not allow concurrent SendMsg
 	mu      sync.Mutex
 	pending map[string]chan *agentv1.AgentMessage
 	terms   map[string]chan []byte
+}
+
+// close makes the stream handler return, which ends the RPC for the agent.
+func (conn *connection) close() {
+	conn.closeOnce.Do(func() { close(conn.closed) })
 }
 
 func (conn *connection) send(message *agentv1.MasterMessage) error {

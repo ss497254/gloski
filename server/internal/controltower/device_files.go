@@ -3,6 +3,7 @@ package controltower
 import (
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/ss497254/gloski/internal/httpapi"
@@ -148,10 +149,17 @@ func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		httpapi.InternalError(w, "failed to read upload", err.Error())
 		return
 	}
-	path := strings.TrimRight(destination, "/") + "/" + header.Filename
+	// Browsers send a bare name, but the field is client-controlled: keep only
+	// the final element so it cannot climb out of the destination.
+	name := filepath.Base(filepath.FromSlash(header.Filename))
+	if name == "." || name == ".." || name == string(filepath.Separator) {
+		httpapi.BadRequest(w, "invalid file name")
+		return
+	}
+	path := strings.TrimRight(destination, "/") + "/" + name
 	grpcRequest := fileRequest(path, "write")
 	grpcRequest.Content = content
 	if t.performFile(w, r.PathValue("id"), grpcRequest) != nil {
-		httpapi.Success(w, map[string]interface{}{"filename": header.Filename})
+		httpapi.Success(w, map[string]interface{}{"filename": name})
 	}
 }

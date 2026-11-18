@@ -103,7 +103,7 @@ export class JobsResource {
     options?: { interval?: number; signal?: AbortSignal }
   ): AsyncGenerator<string[], void, unknown> {
     const interval = options?.interval ?? 1000
-    const terminalStatuses: JobStatus[] = ['finished', 'failed', 'stopped']
+    const terminalStatuses: JobStatus[] = ['finished', 'failed', 'stopped', 'abandoned']
     let lastLogCount = 0
 
     while (!options?.signal?.aborted) {

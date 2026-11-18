@@ -205,9 +205,8 @@ func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 	if err := t.fleetSvc.SetDeploymentStopped(target.DeployID); err != nil {
 		logger.Warn("Failed to update deployment %s: %v", target.DeployID, err)
 	}
-	if err := t.fleetSvc.MarkOffline(device.ID); err != nil {
-		logger.Warn("Failed to mark device %s offline: %v", device.ID, err)
-	}
+	// The agent is gone; drop its stream now instead of waiting for TCP to notice.
+	t.agentService.Disconnect(device.ID)
 	httpapi.SuccessWithMessage(w, map[string]interface{}{"stopped": stopped, "status": fleet.DeployStopped})
 }
 

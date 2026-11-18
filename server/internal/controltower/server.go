@@ -82,6 +82,8 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		return nil, fmt.Errorf("failed to initialize agent service: %w", err)
 	}
 
+	fleetSvc.SetOnline(agentService.Connected)
+
 	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(32<<20), grpc.MaxSendMsgSize(32<<20))
 	agentv1.RegisterAgentServer(grpcServer, agentService)
 
@@ -143,7 +145,19 @@ func (t *Tower) Close() error {
 		t.localAgentProcess.stop()
 	}
 	if t.agentGRPCServer != nil {
-		t.agentGRPCServer.GracefulStop()
+		// Agent streams never end on their own, so GracefulStop alone would
+		// wait forever. Hang them up first and force the stop if that stalls.
+		t.agentService.Close()
+		stopped := make(chan struct{})
+		go func() {
+			t.agentGRPCServer.GracefulStop()
+			close(stopped)
+		}()
+		select {
+		case <-stopped:
+		case <-time.After(agentShutdownWait):
+			t.agentGRPCServer.Stop()
+		}
 	}
 	t.listenersMu.Lock()
 	for _, listener := range t.listeners {

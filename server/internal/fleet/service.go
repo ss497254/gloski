@@ -32,6 +32,7 @@ type Registry struct {
 	interval    int
 	version     string
 	onChange    func()
+	online      func(deviceID string) bool
 }
 
 // NewService creates the fleet service.
@@ -53,6 +54,19 @@ func NewRegistry(db *database.Database, cfg config.MasterConfig, version, dataDi
 // SetOnChange registers a callback invoked after a device changes.
 func (r *Registry) SetOnChange(fn func()) {
 	r.onChange = fn
+}
+
+// SetOnline supplies the live connection check. Once set, a device is online
+// exactly while its agent stream is connected; without it, status falls back
+// to how recently the device was seen.
+func (r *Registry) SetOnline(fn func(deviceID string) bool) {
+	r.online = fn
+}
+
+// Changed tells subscribers that device state changed outside the registry,
+// such as an agent connecting or disconnecting.
+func (r *Registry) Changed() {
+	r.changed()
 }
 
 func (r *Registry) changed() {
@@ -180,17 +194,6 @@ func (r *Registry) Delete(id string) error {
 	return nil
 }
 
-// MarkOffline forces a device to show as offline until its next heartbeat.
-func (r *Registry) MarkOffline(id string) error {
-	// A stale last_seen is enough for decorate() to report offline; writing a
-	// dedicated status would be overwritten by the next heartbeat anyway.
-	if err := r.store.MarkOffline(id, time.Now().UTC().Add(-time.Hour)); err != nil {
-		return err
-	}
-	r.changed()
-	return nil
-}
-
 // CreateDeployment records a new SSH deployment.
 func (r *Registry) CreateDeployment(deployment *Deployment) error {
 	return r.deployments.Create(deployment)
@@ -237,9 +240,14 @@ func (r *Registry) JoinToken() string {
 }
 
 func (r *Registry) decorate(dev *Device) {
-	if dev.LastSeen.IsZero() || time.Since(dev.LastSeen) > r.timeout {
+	switch {
+	case r.online != nil && r.online(dev.ID):
+		dev.Status = StatusOnline
+	case r.online != nil:
 		dev.Status = StatusOffline
-	} else {
+	case dev.LastSeen.IsZero() || time.Since(dev.LastSeen) > r.timeout:
+		dev.Status = StatusOffline
+	default:
 		dev.Status = StatusOnline
 	}
 	if dev.DeployID != "" {
