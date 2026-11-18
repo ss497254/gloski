@@ -2,26 +2,33 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
-	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
-	"github.com/ss497254/gloski/internal/api"
-	"github.com/ss497254/gloski/internal/app"
+	"github.com/creack/pty"
 	"github.com/ss497254/gloski/internal/config"
-	"github.com/ss497254/gloski/internal/devices"
+	"github.com/ss497254/gloski/internal/files"
 	"github.com/ss497254/gloski/internal/logger"
-	"github.com/ss497254/gloski/internal/tailscale"
+	"github.com/ss497254/gloski/internal/system"
+	"github.com/ss497254/gloski/proto/agentv1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-// Run starts the device agent and blocks until it receives SIGINT/SIGTERM.
+// Run starts a stateless device agent. The agent keeps everything in memory,
+// connects to the master over one gRPC stream, and exits when asked or on SIGTERM.
 func Run(cfg *config.Config, version string) error {
 	if cfg.Agent.MasterURL == "" {
 		return fmt.Errorf("agent.master_url is required (set GLOSKI_AGENT_MASTER_URL)")
@@ -29,11 +36,8 @@ func Run(cfg *config.Config, version string) error {
 	if cfg.Mode != config.ModeAgent {
 		return fmt.Errorf("gloski-agent must run in agent mode (current mode: %s)", cfg.Mode)
 	}
-
-	creds, err := loadCredentials(cfg.AgentStatePath())
-	if err != nil {
-		logger.Warn("Failed to read agent state, re-enrolling: %v", err)
-		creds = nil
+	if strings.TrimSpace(cfg.Agent.JoinToken) == "" {
+		return fmt.Errorf("agent.join_token is required (set GLOSKI_AGENT_JOIN_TOKEN)")
 	}
 
 	name := strings.TrimSpace(cfg.Agent.Name)
@@ -44,41 +48,72 @@ func Run(cfg *config.Config, version string) error {
 		name = "gloski-agent"
 	}
 
-	if creds == nil || creds.MasterURL != strings.TrimRight(cfg.Agent.MasterURL, "/") {
-		creds, err = enroll(cfg, name, version)
-		if err != nil {
-			return err
-		}
-	}
-
-	logger.Info("Agent %s (%s) enrolled with %s", name, creds.DeviceID, creds.MasterURL)
-
-	// The master authenticates to this agent with the token it issued.
-	cfg.APIKey = creds.DeviceToken
-
-	application, err := app.New(cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	conn, err := dialMaster(ctx, cfg.Agent.MasterURL)
+	cancel()
 	if err != nil {
-		return fmt.Errorf("failed to initialize agent services: %w", err)
+		return fmt.Errorf("failed to connect to master: %w", err)
 	}
-	defer application.Shutdown(context.Background())
+	defer conn.Close()
 
-	apiServer := api.NewServer(application, api.ServerOptions{Version: version})
-
-	httpServer := &http.Server{
-		Addr:              cfg.Addr(),
-		Handler:           apiServer.Router(),
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       120 * time.Second,
+	client := agentv1.NewAgentClient(conn)
+	stream, err := client.Connect(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to open agent stream: %w", err)
 	}
 
-	go func() {
-		logger.Info("Agent API listening on http://%s", httpServer.Addr)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("Agent API failed to start: %v", err)
-		}
-	}()
+	statsStore := system.NewStore(300)
+	statsHub := system.NewHub(statsStore)
+	collector := system.NewCollector(statsStore, statsHub, 2*time.Second)
+	collector.Start()
+	defer collector.Stop()
+	statsService := system.NewService(statsStore, statsHub)
 
-	interval := creds.HeartbeatInterval
+	agent := &agentRuntime{
+		cfg:     cfg,
+		version: version,
+		name:    name,
+		stream:  stream,
+		stats:   statsService,
+		files:   files.NewService(cfg),
+		jobs:    make(map[string]context.CancelFunc),
+		terms:   make(map[string]*ptySession),
+	}
+
+	hostname, _ := os.Hostname()
+	stats, _ := statsService.GetStats()
+	statsJSON, _ := json.Marshal(stats)
+
+	requestID := strconv.FormatInt(time.Now().UnixNano(), 36)
+	if err := agent.send(&agentv1.AgentMessage{
+		RequestId: requestID,
+		Payload: &agentv1.AgentMessage_Register{
+			Register: &agentv1.RegisterRequest{
+				JoinToken: cfg.Agent.JoinToken,
+				Name:      name,
+				Hostname:  hostname,
+				Platform:  runtime.GOOS + "/" + runtime.GOARCH,
+				Version:   version,
+				DeployId:  cfg.Agent.DeployID,
+				Master:    cfg.Agent.Master,
+				StatsJson: string(statsJSON),
+			},
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to register: %w", err)
+	}
+
+	response, err := stream.Recv()
+	if err != nil {
+		return fmt.Errorf("registration failed: %w", err)
+	}
+	registration := response.GetRegisterResponse()
+	if registration == nil {
+		return errors.New("master did not return a registration response")
+	}
+	agent.deviceID = registration.GetDeviceId()
+	agent.token = registration.GetDeviceToken()
+	interval := int(registration.GetHeartbeatInterval())
 	if interval <= 0 {
 		interval = cfg.Agent.HeartbeatInterval
 	}
@@ -86,191 +121,414 @@ func Run(cfg *config.Config, version string) error {
 		interval = 10
 	}
 
-	stopHeartbeat := make(chan struct{})
-	heartbeatDone := make(chan struct{})
-	go heartbeatLoop(cfg, application, creds, interval, version, stopHeartbeat, heartbeatDone)
+	logger.Info("Agent %s (%s) registered with master", name, agent.deviceID)
+
+	done := make(chan struct{})
+	go agent.heartbeatLoop(done, interval)
+	go agent.receiveLoop(done)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
-	logger.Info("Received signal %v, shutting down agent...", sig)
+	logger.Info("Received %v, stopping agent...", sig)
 
-	close(stopHeartbeat)
-	select {
-	case <-heartbeatDone:
-	case <-time.After(3 * time.Second):
+	close(done)
+	agent.mu.Lock()
+	for id, cancel := range agent.jobs {
+		cancel()
+		delete(agent.jobs, id)
 	}
-
-	timeout := cfg.ShutdownTimeout
-	if timeout <= 0 {
-		timeout = 5
+	for id, session := range agent.terms {
+		session.close()
+		delete(agent.terms, id)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
-	defer cancel()
-
-	if err := httpServer.Shutdown(ctx); err != nil {
-		logger.Error("Agent HTTP server forced to shut down: %v", err)
-	}
-	apiServer.Shutdown()
-	if err := application.Shutdown(ctx); err != nil {
-		logger.Error("Agent service shutdown error: %v", err)
-	}
-
+	agent.mu.Unlock()
+	_ = stream.CloseSend()
 	logger.Info("Agent stopped")
 	return nil
 }
 
-func enroll(cfg *config.Config, name, version string) (*Credentials, error) {
-	if cfg.Agent.JoinToken == "" {
-		return nil, fmt.Errorf("agent is not enrolled and agent.join_token is empty (set GLOSKI_AGENT_JOIN_TOKEN)")
-	}
+type agentRuntime struct {
+	cfg      *config.Config
+	version  string
+	name     string
+	stream   agentv1.Agent_ConnectClient
+	stats    *system.Service
+	files    *files.Service
+	deviceID string
+	token    string
 
-	hostname, _ := os.Hostname()
-	req := devices.RegisterRequest{
-		JoinToken: cfg.Agent.JoinToken,
-		Name:      name,
-		URL:       advertiseURL(cfg),
-		Port:      cfg.Port,
-		Hostname:  hostname,
-		Platform:  runtime.GOOS + "/" + runtime.GOARCH,
-		Version:   version,
-		DeployID:  strings.TrimSpace(cfg.Agent.DeployID),
-	}
-
-	client := NewClient(cfg.Agent.MasterURL)
-	resp, err := client.Register(req)
-	if err != nil {
-		return nil, fmt.Errorf("enrollment failed: %w", err)
-	}
-
-	creds := &Credentials{
-		DeviceID:          resp.DeviceID,
-		DeviceToken:       resp.DeviceToken,
-		MasterURL:         strings.TrimRight(cfg.Agent.MasterURL, "/"),
-		Name:              name,
-		HeartbeatInterval: resp.HeartbeatInterval,
-	}
-	if err := saveCredentials(cfg.AgentStatePath(), creds); err != nil {
-		return nil, fmt.Errorf("failed to save agent credentials: %w", err)
-	}
-	logger.Info("Enrollment complete; credentials saved to %s", cfg.AgentStatePath())
-	return creds, nil
+	sendMu sync.Mutex
+	mu     sync.Mutex
+	jobs   map[string]context.CancelFunc
+	terms  map[string]*ptySession
 }
 
-func heartbeatLoop(cfg *config.Config, application *app.App, creds *Credentials, interval int, version string, stop, done chan struct{}) {
-	defer close(done)
+func (a *agentRuntime) send(message *agentv1.AgentMessage) error {
+	a.sendMu.Lock()
+	defer a.sendMu.Unlock()
+	return a.stream.Send(message)
+}
 
-	client := NewClient(cfg.Agent.MasterURL)
+func (a *agentRuntime) heartbeatLoop(done <-chan struct{}, interval int) {
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
-
-	send := func() {
-		latest, err := application.System.GetStats()
-		if err != nil {
-			logger.Debug("Failed to collect stats for heartbeat: %v", err)
-		}
-		req := devices.HeartbeatRequest{
-			URL:     advertiseURL(cfg),
-			Version: version,
-			Stats:   latest,
-		}
-		if err := client.Heartbeat(creds.DeviceToken, req); err != nil {
-			logger.Warn("Heartbeat failed: %v", err)
-		}
-	}
-
-	// Report immediately, then on the advertised interval.
-	send()
 	for {
 		select {
+		case <-done:
+			return
 		case <-ticker.C:
-			send()
-		case <-stop:
+			stats, err := a.stats.GetStats()
+			if err != nil {
+				continue
+			}
+			raw, err := json.Marshal(stats)
+			if err != nil {
+				continue
+			}
+			if err := a.send(&agentv1.AgentMessage{
+				Payload: &agentv1.AgentMessage_Heartbeat{
+					Heartbeat: &agentv1.Heartbeat{StatsJson: string(raw)},
+				},
+			}); err != nil {
+				return
+			}
+		}
+	}
+}
+
+func (a *agentRuntime) receiveLoop(done <-chan struct{}) {
+	for {
+		message, err := a.stream.Recv()
+		if err != nil {
+			select {
+			case <-done:
+			default:
+				logger.Warn("Agent stream closed: %v", err)
+			}
+			return
+		}
+		a.handle(message)
+	}
+}
+
+func (a *agentRuntime) handle(message *agentv1.MasterMessage) {
+	switch payload := message.Payload.(type) {
+	case *agentv1.MasterMessage_RunJob:
+		go a.runJob(message.RequestId, payload.RunJob)
+	case *agentv1.MasterMessage_Cancel:
+		a.mu.Lock()
+		cancel := a.jobs[message.RequestId]
+		a.mu.Unlock()
+		if cancel != nil {
+			cancel()
+		}
+	case *agentv1.MasterMessage_FileRequest:
+		go a.handleFile(message.RequestId, payload.FileRequest)
+	case *agentv1.MasterMessage_ProcessRequest:
+		go a.handleProcesses(message.RequestId, payload.ProcessRequest)
+	case *agentv1.MasterMessage_TerminalOpen:
+		go a.openTerminal(message.RequestId, payload.TerminalOpen)
+	case *agentv1.MasterMessage_TerminalInput:
+		a.terminalInput(message.RequestId, payload.TerminalInput.GetData())
+	case *agentv1.MasterMessage_TerminalClose:
+		a.closeTerminal(message.RequestId)
+	case *agentv1.MasterMessage_Shutdown:
+		logger.Info("Master requested agent shutdown")
+		os.Exit(0)
+	}
+}
+
+func (a *agentRuntime) runJob(id string, request *agentv1.RunJob) {
+	ctx, cancel := context.WithCancel(context.Background())
+	a.mu.Lock()
+	a.jobs[id] = cancel
+	a.mu.Unlock()
+	defer func() {
+		cancel()
+		a.mu.Lock()
+		delete(a.jobs, id)
+		a.mu.Unlock()
+	}()
+
+	shell := a.cfg.Shell
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	command := exec.CommandContext(ctx, shell, "-c", request.GetCommand())
+	if cwd := strings.TrimSpace(request.GetCwd()); cwd != "" {
+		command.Dir = cwd
+	}
+
+	stdout, err := command.StdoutPipe()
+	if err != nil {
+		a.sendResult(id, -1, err.Error())
+		return
+	}
+	stderr, err := command.StderrPipe()
+	if err != nil {
+		a.sendResult(id, -1, err.Error())
+		return
+	}
+	if err := command.Start(); err != nil {
+		a.sendResult(id, -1, err.Error())
+		return
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		a.streamOutput(id, stdout, false)
+	}()
+	go func() {
+		defer wg.Done()
+		a.streamOutput(id, stderr, true)
+	}()
+
+	err = command.Wait()
+	wg.Wait()
+	code := 0
+	message := ""
+	if err != nil {
+		message = err.Error()
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			code = exitErr.ExitCode()
+		} else {
+			code = -1
+		}
+	}
+	a.sendResult(id, code, message)
+}
+
+func (a *agentRuntime) streamOutput(id string, reader interface{ Read([]byte) (int, error) }, stderr bool) {
+	buffer := make([]byte, 16*1024)
+	for {
+		n, err := reader.Read(buffer)
+		if n > 0 {
+			chunk := make([]byte, n)
+			copy(chunk, buffer[:n])
+			sendErr := a.send(&agentv1.AgentMessage{
+				RequestId: id,
+				Payload: &agentv1.AgentMessage_JobOutput{
+					JobOutput: &agentv1.JobOutput{Chunk: chunk, Stderr: stderr},
+				},
+			})
+			if sendErr != nil {
+				return
+			}
+		}
+		if err != nil {
 			return
 		}
 	}
 }
 
-func advertiseURL(cfg *config.Config) string {
-	if cfg.Agent.AdvertiseURL != "" {
-		return strings.TrimRight(cfg.Agent.AdvertiseURL, "/")
-	}
-
-	host := cfg.Host
-	switch host {
-	case "", "127.0.0.1", "localhost", "::1":
-		// The master fills in the observed address. An agent bound only to
-		// loopback is reachable solely on this machine.
-		return ""
-	case "0.0.0.0", "::":
-		// A wildcard bind can be reached on any interface, but the master
-		// may see the connection through a local proxy (tailscale serve).
-		// Advertise the tailnet address explicitly when we can find it.
-		host = preferredAdvertiseIP(cfg)
-		if host == "" {
-			return ""
-		}
-	}
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(cfg.Port))
+func (a *agentRuntime) sendResult(id string, code int, message string) {
+	_ = a.send(&agentv1.AgentMessage{
+		RequestId: id,
+		Payload: &agentv1.AgentMessage_JobResult{
+			JobResult: &agentv1.JobResult{ExitCode: int32(code), Error: message},
+		},
+	})
 }
 
-// preferredAdvertiseIP picks a stable address for the master to call back on.
-// It asks tailscaled directly first, then falls back to interface scan.
-func preferredAdvertiseIP(cfg *config.Config) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	ips := tailscale.New(cfg.Tailscale.Socket).SelfIPs(ctx)
-	if ip := tailscale.PrimaryIP(ips); ip != "" {
-		return ip
-	}
-	return interfaceAdvertiseIP()
-}
-
-// interfaceAdvertiseIP is the fallback when the tailscaled API is unavailable.
-func interfaceAdvertiseIP() string {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return ""
-	}
-
-	fallback := ""
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		addrs, err := iface.Addrs()
+func (a *agentRuntime) handleFile(id string, request *agentv1.FileRequest) {
+	result := &agentv1.FileResult{}
+	switch request.GetOp() {
+	case agentv1.FileOp_FILE_OP_LIST:
+		listing, err := a.files.List(request.GetPath())
 		if err != nil {
-			continue
+			result.Code, result.Message = 1, err.Error()
+			break
 		}
-		for _, addr := range addrs {
-			var ip net.IP
-			switch value := addr.(type) {
-			case *net.IPNet:
-				ip = value.IP
-			case *net.IPAddr:
-				ip = value.IP
-			}
-			if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
-				continue
-			}
-			if isTailscaleIP(ip) {
-				return ip.String()
-			}
-			if fallback == "" {
-				fallback = ip.String()
-			}
+		raw, err := json.Marshal(listing)
+		if err != nil {
+			result.Code, result.Message = 1, err.Error()
+			break
 		}
+		result.EntriesJson = string(raw)
+	case agentv1.FileOp_FILE_OP_READ:
+		content, err := a.files.Read(request.GetPath())
+		if err != nil {
+			result.Code, result.Message = 1, err.Error()
+			break
+		}
+		result.Content = []byte(content)
+	case agentv1.FileOp_FILE_OP_WRITE:
+		if err := a.files.Write(request.GetPath(), string(request.GetContent())); err != nil {
+			result.Code, result.Message = 1, err.Error()
+		}
+	case agentv1.FileOp_FILE_OP_DELETE:
+		if err := a.files.Delete(request.GetPath()); err != nil {
+			result.Code, result.Message = 1, err.Error()
+		}
+	case agentv1.FileOp_FILE_OP_MKDIR:
+		if err := a.files.Mkdir(request.GetPath()); err != nil {
+			result.Code, result.Message = 1, err.Error()
+		}
+	case agentv1.FileOp_FILE_OP_RENAME:
+		if err := a.files.Rename(request.GetPath(), request.GetNewPath()); err != nil {
+			result.Code, result.Message = 1, err.Error()
+		}
+	default:
+		result.Code, result.Message = 1, "unsupported file operation"
 	}
-	return fallback
+	_ = a.send(&agentv1.AgentMessage{
+		RequestId: id,
+		Payload:   &agentv1.AgentMessage_FileResult{FileResult: result},
+	})
 }
 
-func isTailscaleIP(ip net.IP) bool {
-	if v4 := ip.To4(); v4 != nil {
-		return v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127
+func (a *agentRuntime) handleProcesses(id string, request *agentv1.ProcessRequest) {
+	limit := int(request.GetLimit())
+	if limit <= 0 {
+		limit = 20
 	}
-	// Tailscale's IPv6 range is fd7a:115c:a1e0::/48.
-	return len(ip) == net.IPv6len &&
-		ip[0] == 0xfd && ip[1] == 0x7a && ip[2] == 0x11 &&
-		ip[3] == 0x5c && ip[4] == 0xa1 && ip[5] == 0xe0
+	processes, err := a.stats.GetProcesses(limit, request.GetSort())
+	result := &agentv1.ProcessResult{}
+	if err != nil {
+		result.Json = jsonLine("error", err.Error())
+	} else {
+		raw, marshalErr := json.Marshal(processes)
+		if marshalErr != nil {
+			result.Json = jsonLine("error", marshalErr.Error())
+		} else {
+			result.Json = string(raw)
+		}
+	}
+	_ = a.send(&agentv1.AgentMessage{
+		RequestId: id,
+		Payload:   &agentv1.AgentMessage_ProcessResult{ProcessResult: result},
+	})
+}
+
+func jsonLine(key, value string) string {
+	raw, _ := json.Marshal(map[string]string{key: value})
+	return string(raw)
+}
+
+type ptySession struct {
+	ptmx   *os.File
+	cmd    *exec.Cmd
+	cancel context.CancelFunc
+}
+
+func (p *ptySession) close() {
+	p.cancel()
+	_ = p.ptmx.Close()
+}
+
+func (a *agentRuntime) openTerminal(id string, request *agentv1.TerminalOpen) {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd := exec.CommandContext(ctx, shell)
+	if cwd := strings.TrimSpace(request.GetCwd()); cwd != "" {
+		cmd.Dir = cwd
+	}
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "TERM=xterm-256color")
+
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		_ = a.send(&agentv1.AgentMessage{
+			RequestId: id,
+			Payload: &agentv1.AgentMessage_TerminalOutput{
+				TerminalOutput: &agentv1.TerminalOutput{Data: []byte(err.Error() + "\r\n"), Closed: true},
+			},
+		})
+		cancel()
+		return
+	}
+	if request.GetCols() > 0 && request.GetRows() > 0 {
+		_ = pty.Setsize(ptmx, &pty.Winsize{Rows: uint16(request.GetRows()), Cols: uint16(request.GetCols())})
+	}
+
+	session := &ptySession{ptmx: ptmx, cmd: cmd, cancel: cancel}
+	a.mu.Lock()
+	a.terms[id] = session
+	a.mu.Unlock()
+	defer func() {
+		session.close()
+		a.mu.Lock()
+		delete(a.terms, id)
+		a.mu.Unlock()
+		_, _ = cmd.Process.Wait()
+		_ = a.send(&agentv1.AgentMessage{
+			RequestId: id,
+			Payload: &agentv1.AgentMessage_TerminalOutput{
+				TerminalOutput: &agentv1.TerminalOutput{Closed: true},
+			},
+		})
+	}()
+
+	buffer := make([]byte, 16*1024)
+	for {
+		n, err := ptmx.Read(buffer)
+		if n > 0 {
+			chunk := make([]byte, n)
+			copy(chunk, buffer[:n])
+			if sendErr := a.send(&agentv1.AgentMessage{
+				RequestId: id,
+				Payload: &agentv1.AgentMessage_TerminalOutput{
+					TerminalOutput: &agentv1.TerminalOutput{Data: chunk},
+				},
+			}); sendErr != nil {
+				return
+			}
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
+func (a *agentRuntime) terminalInput(id string, data []byte) {
+	a.mu.Lock()
+	session := a.terms[id]
+	a.mu.Unlock()
+	if session == nil {
+		return
+	}
+	if len(data) >= 5 && data[0] == 0x01 {
+		cols := int(data[1])<<8 | int(data[2])
+		rows := int(data[3])<<8 | int(data[4])
+		_ = pty.Setsize(session.ptmx, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
+		return
+	}
+	_, _ = session.ptmx.Write(data)
+}
+
+func (a *agentRuntime) closeTerminal(id string) {
+	a.mu.Lock()
+	session := a.terms[id]
+	a.mu.Unlock()
+	if session != nil {
+		session.close()
+	}
+}
+
+func dialMaster(ctx context.Context, raw string) (*grpc.ClientConn, error) {
+	raw = strings.TrimSpace(raw)
+	transport := insecure.NewCredentials()
+	options := []grpc.DialOption{
+		grpc.WithTransportCredentials(transport),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(32<<20), grpc.MaxCallSendMsgSize(32<<20)),
+	}
+
+	target := raw
+	if strings.HasPrefix(raw, "unix://") {
+		socket := strings.TrimPrefix(raw, "unix://")
+		target = "unix://" + socket
+		options = append(options, grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
+		}))
+	} else if parsed, err := url.Parse(raw); err == nil && parsed.Host != "" {
+		target = parsed.Host
+	}
+	return grpc.DialContext(ctx, target, options...)
 }

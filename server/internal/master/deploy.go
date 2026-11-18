@@ -70,10 +70,9 @@ func (s *Server) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	masterURL := strings.TrimSpace(request.MasterURL)
-	if masterURL == "" {
-		masterURL = s.requestURL(r)
-	}
+	// Agents speak gRPC. Derive the endpoint the master advertises instead of
+	// using the browser origin, which points at the HTTP dashboard.
+	masterURL := s.agentGRPCURL()
 
 	target := deploy.Target{
 		Name:      strings.TrimSpace(request.Name),

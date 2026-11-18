@@ -58,7 +58,14 @@ function DeviceRow({ device }: { device: FleetDevice }) {
         <div className="flex items-center gap-3">
           <span className={cn('h-2 w-2 shrink-0 rounded-full', online ? 'bg-success' : 'bg-muted-foreground/40')} />
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">{device.name}</p>
+            <p className="flex items-center gap-2 truncate text-sm font-medium text-foreground">
+              {device.name}
+              {device.master && (
+                <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-foreground">
+                  Master
+                </span>
+              )}
+            </p>
             <p className="truncate text-xs text-muted-foreground">{device.hostname || device.url}</p>
           </div>
         </div>
@@ -142,11 +149,11 @@ export function FleetPage() {
 
   if (mode === 'standalone') {
     return (
-      <PageLayout title="Fleet" description="This instance is not running as a control tower">
+      <PageLayout title="Fleet" description="Waiting for the control tower">
         <EmptyState
           icon={Radar}
-          title="No control tower here"
-          description="Start Gloski with --mode master on the device that should control your tailnet, then open its dashboard to manage agents."
+          title="No control tower detected"
+          description="Open the dashboard served by the Gloski master to manage this tailnet's devices."
         />
       </PageLayout>
     )
@@ -246,12 +253,7 @@ export function FleetPage() {
         </span>
       </div>
 
-      <DeployDeviceDialog
-        open={deployOpen}
-        onOpenChange={setDeployOpen}
-        onDeployed={() => void refresh()}
-        info={info}
-      />
+      <DeployDeviceDialog open={deployOpen} onOpenChange={setDeployOpen} onDeployed={() => void refresh()} />
     </PageLayout>
   )
 }

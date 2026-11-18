@@ -186,4 +186,12 @@ var migrations = []migration{
 			CREATE INDEX idx_deployments_device_id ON deployments(device_id);
 		`,
 	},
+	{
+		version: 7,
+		name:    "mark_master_device",
+		sql: `
+			ALTER TABLE devices ADD COLUMN master INTEGER NOT NULL DEFAULT 0;
+			CREATE INDEX idx_devices_master ON devices(master);
+		`,
+	},
 }

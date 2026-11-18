@@ -4,7 +4,7 @@ import type { Server } from '@/shared/lib/server'
 import { cn } from '@/shared/lib/utils'
 import { useTower } from '@/shared/tower'
 import { useServersStore } from '@/shared/store/servers'
-import { ChevronLeft, ChevronRight, Layers, Moon, Plus, Sun, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Layers, Moon, Sun, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation, useParams } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
@@ -87,14 +87,10 @@ interface SidebarContentProps {
 
 function SidebarContent({ collapsed }: SidebarContentProps) {
   const { serverId } = useParams()
-  const { mode } = useTower()
   const servers = useServersStore((s) => s.servers)
   const currentServer = servers.find((s) => s.id === serverId)
-  const tower = mode === 'tower'
 
-  const navItems = tower
-    ? mainNavItems.filter((item) => item.id === 'fleet')
-    : mainNavItems.filter((item) => item.id === 'dashboard' || item.id === 'servers')
+  const navItems = mainNavItems.filter((item) => item.id === 'fleet')
   const settingsItem = mainNavItems.find((item) => item.id === 'settings')!
 
   return (
@@ -133,16 +129,8 @@ function SidebarContent({ collapsed }: SidebarContentProps) {
             {!collapsed && (
               <div className="px-3 mb-2 flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                  {tower ? 'Devices' : 'Servers'}
+                  Devices
                 </span>
-                {!tower && (
-                  <NavLink
-                    to="/servers/add"
-                    className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </NavLink>
-                )}
               </div>
             )}
             {collapsed && <div className="border-t my-3" />}
@@ -152,7 +140,7 @@ function SidebarContent({ collapsed }: SidebarContentProps) {
               ))}
               {servers.length > 5 && !collapsed && (
                 <NavLink
-                  to={tower ? '/fleet' : '/servers'}
+                  to="/fleet"
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <span className="text-xs">+{servers.length - 5} more</span>

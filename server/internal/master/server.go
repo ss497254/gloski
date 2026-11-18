@@ -4,6 +4,7 @@ package master
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ss497254/gloski/internal/agentgrpc"
 	"github.com/ss497254/gloski/internal/api/handlers"
 	"github.com/ss497254/gloski/internal/api/middleware"
 	"github.com/ss497254/gloski/internal/auth"
@@ -20,6 +22,8 @@ import (
 	"github.com/ss497254/gloski/internal/devices"
 	"github.com/ss497254/gloski/internal/logger"
 	"github.com/ss497254/gloski/internal/tailscale"
+	"github.com/ss497254/gloski/proto/agentv1"
+	"google.golang.org/grpc"
 )
 
 // Server is the master control tower.
@@ -40,6 +44,12 @@ type Server struct {
 	indexHTML []byte
 	stop      chan struct{}
 	done      chan struct{}
+
+	agents    *agentgrpc.Server
+	agentGRPC *grpc.Server
+	agentSock string
+	listeners []net.Listener
+	local     *localAgent
 }
 
 // New creates a master server and opens its database.
@@ -66,6 +76,15 @@ func New(cfg *config.Config, version string) (*Server, error) {
 		hostname = "gloski-tower"
 	}
 
+	agentService, err := agentgrpc.New(db, devicesSvc, version, cfg.Master.HeartbeatInterval)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to initialize agent service: %w", err)
+	}
+
+	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(32<<20), grpc.MaxSendMsgSize(32<<20))
+	agentv1.RegisterAgentServer(grpcServer, agentService)
+
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.ResponseHeaderTimeout = 30 * time.Second
 	transport.MaxIdleConnsPerHost = 8
@@ -84,6 +103,8 @@ func New(cfg *config.Config, version string) (*Server, error) {
 		startedAt: time.Now().UTC(),
 		stop:      make(chan struct{}),
 		done:      make(chan struct{}),
+		agents:    agentService,
+		agentGRPC: grpcServer,
 	}
 
 	devicesSvc.SetOnChange(func() {
@@ -103,6 +124,8 @@ func New(cfg *config.Config, version string) (*Server, error) {
 
 	go s.fleetLoop()
 	s.router = s.routes()
+	s.startAgentTransport(cfg)
+	s.startLocalAgent(cfg, version)
 	logger.Info("Control tower initialized (db=%s, web=%s)", cfg.MasterDBPath(), displayPath(s.webDir))
 	return s, nil
 }
@@ -121,6 +144,18 @@ func (s *Server) JoinToken() string {
 func (s *Server) Close() error {
 	close(s.stop)
 	<-s.done
+	if s.local != nil {
+		s.local.stop()
+	}
+	if s.agentGRPC != nil {
+		s.agentGRPC.GracefulStop()
+	}
+	for _, listener := range s.listeners {
+		_ = listener.Close()
+	}
+	if s.agentSock != "" {
+		_ = os.Remove(s.agentSock)
+	}
 	return s.db.Close()
 }
 
@@ -173,7 +208,27 @@ func (s *Server) routes() http.Handler {
 	mux.Handle("DELETE /api/devices/{id}", s.userAuth(http.HandlerFunc(s.handleDeleteDevice)))
 	mux.Handle("POST /api/devices/{id}/start", s.userAuth(http.HandlerFunc(s.handleStartDevice)))
 	mux.Handle("POST /api/devices/{id}/stop", s.userAuth(http.HandlerFunc(s.handleStopDevice)))
-	mux.Handle("/api/devices/{id}/", s.userAuth(http.HandlerFunc(s.handleDeviceProxy)))
+
+	// Browser-facing device API. The master translates each call into gRPC
+	// commands on the device's agent stream.
+	mux.Handle("GET /api/devices/{id}/api/system/stats", s.userAuth(http.HandlerFunc(s.handleDeviceStats)))
+	mux.Handle("GET /api/devices/{id}/api/system/stats/ws", s.userAuth(http.HandlerFunc(s.handleDeviceStatsWS)))
+	mux.Handle("GET /api/devices/{id}/api/system/processes", s.userAuth(http.HandlerFunc(s.handleDeviceProcesses)))
+	mux.Handle("GET /api/devices/{id}/api/jobs", s.userAuth(http.HandlerFunc(s.handleListJobs)))
+	mux.Handle("POST /api/devices/{id}/api/jobs", s.userAuth(http.HandlerFunc(s.handleRunJob)))
+	mux.Handle("GET /api/devices/{id}/api/jobs/{jobId}", s.userAuth(http.HandlerFunc(s.handleGetJob)))
+	mux.Handle("GET /api/devices/{id}/api/jobs/{jobId}/logs", s.userAuth(http.HandlerFunc(s.handleJobLogs)))
+	mux.Handle("POST /api/devices/{id}/api/jobs/{jobId}/stop", s.userAuth(http.HandlerFunc(s.handleCancelJob)))
+	mux.Handle("DELETE /api/devices/{id}/api/jobs/{jobId}", s.userAuth(http.HandlerFunc(s.handleDeleteJob)))
+	mux.Handle("GET /api/devices/{id}/api/files", s.userAuth(http.HandlerFunc(s.handleListFiles)))
+	mux.Handle("DELETE /api/devices/{id}/api/files", s.userAuth(http.HandlerFunc(s.handleDeleteFile)))
+	mux.Handle("GET /api/devices/{id}/api/files/read", s.userAuth(http.HandlerFunc(s.handleReadFile)))
+	mux.Handle("GET /api/devices/{id}/api/files/download", s.userAuth(http.HandlerFunc(s.handleDownloadFile)))
+	mux.Handle("POST /api/devices/{id}/api/files/write", s.userAuth(http.HandlerFunc(s.handleWriteFile)))
+	mux.Handle("POST /api/devices/{id}/api/files/mkdir", s.userAuth(http.HandlerFunc(s.handleMkdir)))
+	mux.Handle("POST /api/devices/{id}/api/files/rename", s.userAuth(http.HandlerFunc(s.handleRename)))
+	mux.Handle("POST /api/devices/{id}/api/files/upload", s.userAuth(http.HandlerFunc(s.handleUploadFile)))
+	mux.Handle("GET /api/devices/{id}/api/terminal", s.userAuth(http.HandlerFunc(s.handleTerminalWS)))
 
 	// SSH deployment and tailnet discovery.
 	mux.Handle("GET /api/deployments", s.userAuth(http.HandlerFunc(s.handleListDeployments)))

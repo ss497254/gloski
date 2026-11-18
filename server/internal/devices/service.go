@@ -88,6 +88,7 @@ func (s *Service) Register(req RegisterRequest, remoteIP string) (*RegisterRespo
 		Platform:  strings.TrimSpace(req.Platform),
 		Version:   strings.TrimSpace(req.Version),
 		DeployID:  strings.TrimSpace(req.DeployID),
+		Master:    req.Master,
 		Stats:     req.Stats,
 		CreatedAt: now,
 		LastSeen:  now,

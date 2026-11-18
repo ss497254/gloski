@@ -23,7 +23,7 @@ var (
 
 func main() {
 	configPath := flag.String("c", "", "Path to config file")
-	mode := flag.String("mode", "", "Operating mode: standalone or master")
+	mode := flag.String("mode", "", "Operating mode (master by default)")
 	showVersion := flag.Bool("v", false, "Show version information")
 	flag.Parse()
 

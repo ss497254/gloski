@@ -88,6 +88,17 @@ type MasterConfig struct {
 	SSHKeyFile string `json:"ssh_key_file"`
 	// DeployTimeout is the maximum time for an SSH deployment (seconds).
 	DeployTimeout int `json:"deploy_timeout"`
+	// LocalAgent controls whether the master also runs an agent for itself.
+	LocalAgent bool `json:"local_agent"`
+	// LocalAgentPort is the loopback port used by that agent.
+	LocalAgentPort int `json:"local_agent_port"`
+	// LocalAgentName overrides the display name of the master device.
+	LocalAgentName string `json:"local_agent_name"`
+	// AgentGRPCHost/Port is where remote agents connect to the master.
+	AgentGRPCHost string `json:"agent_grpc_host"`
+	AgentGRPCPort int    `json:"agent_grpc_port"`
+	// AgentGRPCURL overrides the address given to deployed agents.
+	AgentGRPCURL string `json:"agent_grpc_url"`
 }
 
 // AgentConfig holds settings for a device agent.
@@ -107,6 +118,8 @@ type AgentConfig struct {
 	StateFile string `json:"state_file"`
 	// DeployID links this agent to the master deployment that started it.
 	DeployID string `json:"deploy_id"`
+	// Master marks the agent running on the control tower itself.
+	Master bool `json:"master"`
 }
 
 // DownloadsConfig holds configuration for the download manager
@@ -127,7 +140,7 @@ func DefaultConfig() *Config {
 	dataDir := filepath.Join(homeDir, ".gloski", "data")
 
 	return &Config{
-		Mode:            ModeStandalone,
+		Mode:            ModeMaster,
 		Host:            "127.0.0.1",
 		Port:            8080,
 		ShutdownTimeout: 5,
@@ -150,6 +163,10 @@ func DefaultConfig() *Config {
 			DeviceTimeout:     45,
 			HeartbeatInterval: 10,
 			DeployTimeout:     120,
+			LocalAgent:        true,
+			LocalAgentPort:    18081,
+			AgentGRPCHost:     "0.0.0.0",
+			AgentGRPCPort:     9090,
 		},
 		Agent: AgentConfig{
 			HeartbeatInterval: 10,
@@ -325,6 +342,31 @@ func (c *Config) loadFromEnv() {
 		if _, err := fmt.Sscanf(v, "%d", &c.Master.DeployTimeout); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_MASTER_DEPLOY_TIMEOUT value %q: %v\n", v, err)
 		}
+	}
+	if v := os.Getenv("GLOSKI_MASTER_LOCAL_AGENT"); v != "" {
+		c.Master.LocalAgent = v == "true" || v == "1"
+	}
+	if v := os.Getenv("GLOSKI_MASTER_LOCAL_AGENT_PORT"); v != "" {
+		if _, err := fmt.Sscanf(v, "%d", &c.Master.LocalAgentPort); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_MASTER_LOCAL_AGENT_PORT value %q: %v\n", v, err)
+		}
+	}
+	if v := os.Getenv("GLOSKI_MASTER_LOCAL_AGENT_NAME"); v != "" {
+		c.Master.LocalAgentName = v
+	}
+	if v := os.Getenv("GLOSKI_MASTER_AGENT_GRPC_HOST"); v != "" {
+		c.Master.AgentGRPCHost = v
+	}
+	if v := os.Getenv("GLOSKI_MASTER_AGENT_GRPC_PORT"); v != "" {
+		if _, err := fmt.Sscanf(v, "%d", &c.Master.AgentGRPCPort); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_MASTER_AGENT_GRPC_PORT value %q: %v\n", v, err)
+		}
+	}
+	if v := os.Getenv("GLOSKI_MASTER_AGENT_GRPC_URL"); v != "" {
+		c.Master.AgentGRPCURL = v
+	}
+	if v := os.Getenv("GLOSKI_AGENT_IS_MASTER"); v != "" {
+		c.Agent.Master = v == "true" || v == "1"
 	}
 }
 

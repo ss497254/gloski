@@ -46,6 +46,7 @@ export interface FleetDevice {
   last_seen: string
   deploy_id?: string
   managed: boolean
+  master: boolean
   deployment?: Deployment | null
 }
 

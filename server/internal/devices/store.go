@@ -35,10 +35,11 @@ func (s *Store) Upsert(dev *Device) error {
 		_, err = tx.Exec(`
 			INSERT INTO devices
 				(id, name, url, token, hostname, platform, version, stats_json,
-				 deploy_id, created_at, last_seen, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 deploy_id, master, created_at, last_seen, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			dev.ID, dev.Name, dev.URL, dev.Token, dev.Hostname, dev.Platform, dev.Version,
-			marshalStats(dev.Stats), nullable(dev.DeployID), dev.CreatedAt, dev.LastSeen, dev.LastSeen,
+			marshalStats(dev.Stats), nullable(dev.DeployID), dev.Master,
+			dev.CreatedAt, dev.LastSeen, dev.LastSeen,
 		)
 	case err != nil:
 		return err
@@ -48,10 +49,11 @@ func (s *Store) Upsert(dev *Device) error {
 			UPDATE devices
 			SET url = ?, token = ?, hostname = ?, platform = ?, version = ?,
 			    stats_json = ?, deploy_id = COALESCE(NULLIF(?, ''), deploy_id),
-			    last_seen = ?, updated_at = ?
+			    master = ?, last_seen = ?, updated_at = ?
 			WHERE id = ?`,
 			dev.URL, dev.Token, dev.Hostname, dev.Platform, dev.Version,
-			marshalStats(dev.Stats), dev.DeployID, dev.LastSeen, dev.LastSeen, dev.ID,
+			marshalStats(dev.Stats), dev.DeployID, dev.Master,
+			dev.LastSeen, dev.LastSeen, dev.ID,
 		)
 	}
 	if err != nil {
@@ -64,7 +66,7 @@ func (s *Store) Upsert(dev *Device) error {
 func (s *Store) Get(id string) (*Device, error) {
 	row := s.db.QueryRow(`
 		SELECT id, name, url, token, COALESCE(hostname, ''), COALESCE(platform, ''),
-		       COALESCE(version, ''), stats_json, COALESCE(deploy_id, ''), created_at, last_seen
+		       COALESCE(version, ''), stats_json, COALESCE(deploy_id, ''), master, created_at, last_seen
 		FROM devices WHERE id = ?`, id)
 	return scanDevice(row)
 }
@@ -73,7 +75,7 @@ func (s *Store) Get(id string) (*Device, error) {
 func (s *Store) GetByToken(token string) (*Device, error) {
 	row := s.db.QueryRow(`
 		SELECT id, name, url, token, COALESCE(hostname, ''), COALESCE(platform, ''),
-		       COALESCE(version, ''), stats_json, COALESCE(deploy_id, ''), created_at, last_seen
+		       COALESCE(version, ''), stats_json, COALESCE(deploy_id, ''), master, created_at, last_seen
 		FROM devices WHERE token = ?`, token)
 	return scanDevice(row)
 }
@@ -82,7 +84,7 @@ func (s *Store) GetByToken(token string) (*Device, error) {
 func (s *Store) List() ([]Device, error) {
 	rows, err := s.db.Query(`
 		SELECT id, name, url, token, COALESCE(hostname, ''), COALESCE(platform, ''),
-		       COALESCE(version, ''), stats_json, COALESCE(deploy_id, ''), created_at, last_seen
+		       COALESCE(version, ''), stats_json, COALESCE(deploy_id, ''), master, created_at, last_seen
 		FROM devices ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, err
@@ -150,7 +152,7 @@ func scanDevice(row scanner) (*Device, error) {
 	var lastSeen sql.NullTime
 	err := row.Scan(
 		&dev.ID, &dev.Name, &dev.URL, &dev.Token, &dev.Hostname, &dev.Platform,
-		&dev.Version, &statsJSON, &dev.DeployID, &dev.CreatedAt, &lastSeen,
+		&dev.Version, &statsJSON, &dev.DeployID, &dev.Master, &dev.CreatedAt, &lastSeen,
 	)
 	if err != nil {
 		return nil, err

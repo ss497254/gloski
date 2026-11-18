@@ -4,20 +4,17 @@ import { TowerProvider } from '@/shared/tower'
 import { Toaster } from '@/ui/sonner'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 
-// Create route configuration for SPA
+// The dashboard is master-only. Device tools are mounted under internal
+// /servers/<virtual-device-id> routes but are reached from the Device page.
 const router = createBrowserRouter([
   {
     element: <AppLayout />,
     errorElement: <RouteErrorBoundary />,
     children: [
-      // Dashboard
       {
         path: '/',
-        lazy: {
-          Component: async () => (await import('@/features/dashboard')).DashboardPage,
-        },
+        element: <Navigate to="/fleet" replace />,
       },
-      // Fleet (control tower)
       {
         path: '/fleet',
         lazy: {
@@ -30,89 +27,52 @@ const router = createBrowserRouter([
           Component: async () => (await import('@/features/fleet')).DevicePage,
         },
       },
-      // Settings
       {
         path: '/settings',
         lazy: {
           Component: async () => (await import('@/features/dashboard')).SettingsPage,
         },
       },
-      // Servers - parent route grouping all server-related pages
       {
-        path: '/servers',
+        path: '/servers/:serverId',
+        element: <ServerLayout />,
+        errorElement: <RouteErrorBoundary />,
         children: [
-          // Servers list (index route)
           {
-            index: true,
+            path: 'files',
             lazy: {
-              Component: async () => (await import('@/features/servers')).ServersPage,
+              Component: async () => (await import('@/features/files')).default,
             },
           },
-          // Add server page
           {
-            path: 'add',
+            path: 'terminal',
             lazy: {
-              Component: async () => (await import('@/features/servers')).AddServerPage,
+              Component: async () => (await import('@/features/terminal')).default,
             },
           },
-          // Server-scoped features - wrapped with ServerLayout (provides ServerProvider context)
           {
-            path: ':serverId',
-            element: <ServerLayout />,
-            errorElement: <RouteErrorBoundary />,
-            children: [
-              // Server overview (index route)
-              {
-                index: true,
-                lazy: {
-                  Component: async () => (await import('@/features/servers')).ServerDetailPage,
-                },
-              },
-              // Server sub-pages
-              {
-                path: 'files',
-                lazy: {
-                  Component: async () => (await import('@/features/files')).default,
-                },
-              },
-              {
-                path: 'metrics',
-                lazy: {
-                  Component: async () => (await import('@/features/servers')).ServerMetricsPage,
-                },
-              },
-              {
-                path: 'search',
-                lazy: {
-                  Component: async () => (await import('@/features/search')).default,
-                },
-              },
-              {
-                path: 'terminal',
-                lazy: {
-                  Component: async () => (await import('@/features/terminal')).default,
-                },
-              },
-              {
-                path: 'jobs',
-                lazy: {
-                  Component: async () => (await import('@/features/jobs')).default,
-                },
-              },
-              {
-                path: 'downloads',
-                lazy: {
-                  Component: async () => (await import('@/features/downloads')).default,
-                },
-              },
-            ],
+            path: 'jobs',
+            lazy: {
+              Component: async () => (await import('@/features/jobs')).default,
+            },
+          },
+          {
+            path: 'downloads',
+            lazy: {
+              Component: async () => (await import('@/features/downloads')).default,
+            },
+          },
+          {
+            path: 'search',
+            lazy: {
+              Component: async () => (await import('@/features/search')).default,
+            },
           },
         ],
       },
-      // Catch all - redirect to dashboard
       {
         path: '*',
-        element: <Navigate to="/" replace />,
+        element: <Navigate to="/fleet" replace />,
       },
     ],
   },

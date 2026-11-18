@@ -31,23 +31,20 @@ Open http://localhost:4000:
 
 ## Control Tower
 
-One `gloski` instance acts as a master for the whole tailnet. The Fleet page
-discovers peers through Tailscale's LocalAPI and deploys `gloski-agent` to them
-over an in-process SSH connection: the binary is copied to `/tmp`, started, and
-can be stopped or restarted from the dashboard.
+One `gloski` master serves the dashboard and holds all state. Every device —
+including the master itself — runs a stateless `gloski-agent`. Master and agents
+communicate over one gRPC bidirectional stream (Unix socket locally, h2c over
+Tailnet remotely); the browser only talks HTTP/WS to the master.
+
+The Fleet page discovers peers through Tailscale's LocalAPI and deploys agents
+over SSH to `/tmp`.
 
 ```bash
 make build
-
-GLOSKI_MODE=master \
-GLOSKI_MASTER_WEB_DIR="$PWD/web/dist" \
-GLOSKI_HOST=0.0.0.0 \
-GLOSKI_PORT=8080 \
-bin/gloski
+GLOSKI_MODE=master GLOSKI_MASTER_WEB_DIR="$PWD/web/dist" bin/gloski
 ```
 
-Open the dashboard, choose **Deploy agent**, pick a tailnet peer, and provide
-the SSH user. See [Control Tower](docs/tower.md) for details.
+See [Control Tower](docs/tower.md) for details.
 
 ## Features
 

@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package gloski.agent.v1;
+
+option go_package = "github.com/ss497254/gloski/proto/agentv1;agentv1";
+
+// Agent exposes one long-lived bidirectional stream per device. The master
+// sends commands; the agent sends registration, stats, and results.
+service Agent {
+  rpc Connect(stream AgentMessage) returns (stream MasterMessage);
+}
+
+message AgentMessage {
+  // request_id correlates replies and streaming chunks with master commands.
+  string request_id = 1;
+  oneof payload {
+    RegisterRequest register = 2;
+    Heartbeat heartbeat = 3;
+    JobOutput job_output = 4;
+    JobResult job_result = 5;
+    FileResult file_result = 6;
+    TerminalOutput terminal_output = 7;
+    ProcessResult process_result = 8;
+  }
+}
+
+message MasterMessage {
+  string request_id = 1;
+  oneof payload {
+    RegisterResponse register_response = 2;
+    RunJob run_job = 3;
+    CancelRequest cancel = 4;
+    FileRequest file_request = 5;
+    TerminalOpen terminal_open = 6;
+    TerminalInput terminal_input = 7;
+    TerminalClose terminal_close = 8;
+    Shutdown shutdown = 9;
+    ProcessRequest process_request = 10;
+  }
+}
+
+message ProcessRequest {
+  int32 limit = 1;
+  string sort = 2;
+}
+
+message ProcessResult {
+  string json = 1;
+}
+
+message RegisterRequest {
+  string join_token = 1;
+  string name = 2;
+  string hostname = 3;
+  string platform = 4;
+  string version = 5;
+  string deploy_id = 6;
+  bool master = 7;
+  string stats_json = 8;
+}
+
+message RegisterResponse {
+  string device_id = 1;
+  string device_token = 2;
+  int32 heartbeat_interval = 3;
+  string master_version = 4;
+}
+
+message Heartbeat {
+  string stats_json = 1;
+}
+
+message RunJob {
+  string command = 1;
+  string cwd = 2;
+}
+
+message CancelRequest {
+  string reason = 1;
+}
+
+message JobOutput {
+  bytes chunk = 1;
+  bool stderr = 2;
+}
+
+message JobResult {
+  int32 exit_code = 1;
+  string error = 2;
+}
+
+enum FileOp {
+  FILE_OP_UNSPECIFIED = 0;
+  FILE_OP_LIST = 1;
+  FILE_OP_READ = 2;
+  FILE_OP_WRITE = 3;
+  FILE_OP_DELETE = 4;
+  FILE_OP_MKDIR = 5;
+  FILE_OP_RENAME = 6;
+}
+
+message FileRequest {
+  FileOp op = 1;
+  string path = 2;
+  bytes content = 3;
+  string new_path = 4;
+}
+
+message FileResult {
+  int32 code = 1;
+  string message = 2;
+  bytes content = 3;
+  string entries_json = 4;
+}
+
+message TerminalOpen {
+  string cwd = 1;
+  uint32 cols = 2;
+  uint32 rows = 3;
+}
+
+message TerminalInput {
+  bytes data = 1;
+}
+
+message TerminalClose {}
+
+message TerminalOutput {
+  bytes data = 1;
+  bool closed = 2;
+}
+
+message Shutdown {
+  bool restart = 1;
+}

@@ -30,6 +30,7 @@ type Device struct {
 	// DeployID links the device to a master-managed SSH deployment.
 	DeployID string      `json:"deploy_id,omitempty"`
 	Managed  bool        `json:"managed"`
+	Master   bool        `json:"master"`
 	Deploy   *Deployment `json:"deployment,omitempty"`
 }
 
@@ -43,6 +44,7 @@ type RegisterRequest struct {
 	Platform  string        `json:"platform"`
 	Version   string        `json:"version"`
 	DeployID  string        `json:"deploy_id,omitempty"`
+	Master    bool          `json:"master"`
 	Stats     *system.Stats `json:"stats,omitempty"`
 }
 

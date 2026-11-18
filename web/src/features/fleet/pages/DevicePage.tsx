@@ -3,18 +3,7 @@ import { cn } from '@/shared/lib/utils'
 import { useTower } from '@/shared/tower'
 import type { FleetDevice } from '@/shared/tower/types'
 import { Button } from '@/ui/button'
-import {
-  ArrowLeft,
-  Download,
-  FolderOpen,
-  ListTodo,
-  Loader2,
-  Play,
-  Search,
-  Square,
-  Terminal,
-  Trash2,
-} from 'lucide-react'
+import { ArrowLeft, FolderOpen, ListTodo, Loader2, Play, Square, Terminal, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -129,11 +118,14 @@ export function DevicePage() {
           <span className={cn('h-1.5 w-1.5 rounded-full', online ? 'bg-success' : 'bg-muted-foreground/50')} />
           {managedDevice.status}
         </span>
+        {managedDevice.master && (
+          <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+            Master device
+          </span>
+        )}
         <ToolLink to={`${toolBase}/files`} icon={FolderOpen} label="Files" />
         <ToolLink to={`${toolBase}/terminal`} icon={Terminal} label="Terminal" />
         <ToolLink to={`${toolBase}/jobs`} icon={ListTodo} label="Jobs" />
-        <ToolLink to={`${toolBase}/downloads`} icon={Download} label="Downloads" />
-        <ToolLink to={`${toolBase}/search`} icon={Search} label="Search" />
       </div>
 
       <QuickRun deviceId={managedDevice.id} />

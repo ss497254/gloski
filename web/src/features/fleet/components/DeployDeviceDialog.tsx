@@ -1,5 +1,5 @@
 import { deployDevice, getDeployment, listTailnetPeers } from '@/shared/tower/client'
-import type { Deployment, TailnetNode, TowerInfo } from '@/shared/tower/types'
+import type { Deployment, TailnetNode } from '@/shared/tower/types'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Input } from '@/ui/input'
@@ -11,7 +11,6 @@ interface DeployDeviceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onDeployed: () => void
-  info: TowerInfo | null
 }
 
 interface FormState {
@@ -21,7 +20,6 @@ interface FormState {
   user: string
   sshPort: string
   agentPort: string
-  masterURL: string
 }
 
 function peerKey(peer: TailnetNode): string {
@@ -30,18 +28,6 @@ function peerKey(peer: TailnetNode): string {
 
 function peerHost(peer: TailnetNode): string {
   return peer.ips.find((ip) => ip.includes('.')) ?? peer.ips[0] ?? peer.dns_name
-}
-
-function suggestMasterURL(info: TowerInfo | null, self?: TailnetNode): string {
-  const origin = window.location.origin
-  const local = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
-  if (!local) return origin
-  if (self?.dns_name) return `https://${self.dns_name}`
-  if (self?.ips?.length) {
-    const ip = self.ips.find((value) => value.includes('.')) ?? self.ips[0]
-    return `http://${ip}:${info?.port ?? 8080}`
-  }
-  return origin
 }
 
 function statusLabel(status: Deployment['status']): string {
@@ -58,7 +44,7 @@ function statusLabel(status: Deployment['status']): string {
   }
 }
 
-export function DeployDeviceDialog({ open, onOpenChange, onDeployed, info }: DeployDeviceDialogProps) {
+export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDeviceDialogProps) {
   const [peers, setPeers] = useState<TailnetNode[]>([])
   const [peersAvailable, setPeersAvailable] = useState(false)
   const [peersError, setPeersError] = useState<string | null>(null)
@@ -70,7 +56,6 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed, info }: Dep
     user: '',
     sshPort: '22',
     agentPort: '18081',
-    masterURL: window.location.origin,
   })
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<'idle' | 'deploying' | 'failed'>('idle')
@@ -108,7 +93,6 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed, info }: Dep
         user: localStorage.getItem('gloski-ssh-user') ?? '',
         sshPort: '22',
         agentPort: '18081',
-        masterURL: suggestMasterURL(info, response?.self),
       })
       setLoadingPeers(false)
     }
@@ -117,7 +101,7 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed, info }: Dep
     return () => {
       cancelled = true
     }
-  }, [open, info])
+  }, [open])
 
   useEffect(() => {
     if (!deploymentId || status !== 'deploying') return
@@ -193,7 +177,7 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed, info }: Dep
         user: form.user.trim(),
         ssh_port: Number(form.sshPort) || 22,
         agent_port: Number(form.agentPort) || 18081,
-        master_url: form.masterURL.trim() || window.location.origin,
+        master_url: '',
       })
       setDeployment(created)
     } catch (err) {
@@ -316,21 +300,10 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed, info }: Dep
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-master-url">
-              Tower URL the agent should call
-            </label>
-            <Input
-              id="deploy-master-url"
-              value={form.masterURL}
-              onChange={(event) => update('masterURL', event.target.value)}
-              disabled={busy}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Use the HTTPS URL from <code className="font-mono">tailscale serve</code> when available. SSH keys or an
-              agent are read from the machine running the tower.
-            </p>
-          </div>
+          <p className="text-[11px] text-muted-foreground">
+            The master chooses the agent's gRPC endpoint automatically. SSH keys or an agent are read from the machine
+            running the tower.
+          </p>
 
           {deployment && status === 'deploying' && (
             <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">

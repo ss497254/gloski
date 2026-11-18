@@ -1,23 +1,8 @@
 import type { LucideIcon } from 'lucide-react'
-import {
-  AreaChart,
-  Download,
-  FolderOpen,
-  LayoutDashboard,
-  ListTodo,
-  Radar,
-  Search,
-  Server,
-  Settings,
-  Terminal,
-} from 'lucide-react'
+import { FolderOpen, ListTodo, Radar, Settings, Terminal } from 'lucide-react'
 
 export type NavSection = 'main' | 'server'
 
-/**
- * Navigation item metadata for sidebar, command palette, and UI.
- * Actual route definitions are in App.tsx to handle complex nesting.
- */
 export interface NavItem {
   id: string
   name: string
@@ -30,28 +15,12 @@ export interface NavItem {
 
 export const mainNavItems: NavItem[] = [
   {
-    id: 'dashboard',
-    name: 'Dashboard',
-    icon: LayoutDashboard,
-    path: '/',
-    section: 'main',
-    shortcut: 'g d',
-  },
-  {
     id: 'fleet',
     name: 'Fleet',
     icon: Radar,
     path: '/fleet',
     section: 'main',
     shortcut: 'g f',
-  },
-  {
-    id: 'servers',
-    name: 'Servers',
-    icon: Server,
-    path: '/servers',
-    section: 'main',
-    shortcut: 'g s',
   },
   {
     id: 'settings',
@@ -63,21 +32,12 @@ export const mainNavItems: NavItem[] = [
   },
 ]
 
-// Server-scoped navigation items (shown when a server is selected)
 export const serverNavItems: NavItem[] = [
   {
     id: 'server-overview',
     name: 'Overview',
-    icon: LayoutDashboard,
-    path: '/servers/:serverId',
-    section: 'server',
-    serverScoped: true,
-  },
-  {
-    id: 'metrics',
-    name: 'Metrics',
-    icon: AreaChart,
-    path: '/servers/:serverId/metrics',
+    icon: Radar,
+    path: '/fleet/:serverId',
     section: 'server',
     serverScoped: true,
   },
@@ -86,14 +46,6 @@ export const serverNavItems: NavItem[] = [
     name: 'Files',
     icon: FolderOpen,
     path: '/servers/:serverId/files',
-    section: 'server',
-    serverScoped: true,
-  },
-  {
-    id: 'search',
-    name: 'Search',
-    icon: Search,
-    path: '/servers/:serverId/search',
     section: 'server',
     serverScoped: true,
   },
@@ -113,23 +65,9 @@ export const serverNavItems: NavItem[] = [
     section: 'server',
     serverScoped: true,
   },
-  {
-    id: 'downloads',
-    name: 'Downloads',
-    icon: Download,
-    path: '/servers/:serverId/downloads',
-    section: 'server',
-    serverScoped: true,
-  },
 ]
 
-// Helper functions
-export const getNavItemsBySection = (section: NavSection) => mainNavItems.filter((item) => item.section === section)
-
 export const getMainNavItems = () => mainNavItems.filter((item) => item.id !== 'settings')
-
 export const getSettingsNavItem = () => mainNavItems.find((item) => item.id === 'settings')!
-
 export const getAllNavItems = () => [...mainNavItems, ...serverNavItems]
-
 export const getNavItemById = (id: string) => getAllNavItems().find((item) => item.id === id)
