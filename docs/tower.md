@@ -26,6 +26,19 @@ dashboard action goes to the master, which forwards it to the right agent.
 - **Browser → master:** plain HTTP/WS. The master translates those calls into
   gRPC commands. No HTTP agent API exists anymore.
 
+## Code layout
+
+- `internal/controltower` — master HTTP API, SPA, gRPC listeners, local agent supervision
+- `internal/controltower/agents` — master side of the agent stream
+- `internal/fleet` — device registry and deployment records
+- `internal/provisioning` — SSH install/start/stop of remote agents
+- `internal/tailnet` — tailnet peer discovery
+- `internal/worker` — the device-side agent binary implementation
+
+`controltower/agents` and `worker` are the two halves of one gRPC connection;
+“agent” is the product term, `worker` is just the Go package name for the
+device binary.
+
 ## Ephemeral agents
 
 Agents keep no state. There is no `agent.json`, no local database, and no

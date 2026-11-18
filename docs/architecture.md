@@ -19,6 +19,21 @@ Browser ──HTTP/WS──▶ Master ──gRPC──▶ agent on A (master hos
                        └───────gRPC──▶ agent on C
 ```
 
+## Code map
+
+| Package | Side | Role |
+|---|---|---|
+| `internal/controltower` | Master | `Tower`: dashboard, browser API, gRPC listeners, local agent supervision |
+| `internal/controltower/agents` | Master | Master half of the agent stream: connections, commands, job dispatch |
+| `internal/fleet` | Master | `Registry`: device identities, heartbeats, deployments, event hub |
+| `internal/provisioning` | Master | `Installer`: SSH copy/start/stop of remote agents |
+| `internal/tailnet` | Master | Tailnet peer discovery via tailscaled LocalAPI |
+| `internal/worker` | Device | The `gloski-agent` implementation: `Runtime`, jobs, files, terminal |
+
+`controltower/agents` and `worker` are the two ends of the same gRPC stream.
+The word “agent” is product terminology; `worker` is simply the Go package that
+implements the device-side binary.
+
 ## Communication
 
 The master and agents use a single bidirectional gRPC `Agent.Connect` stream.

@@ -33,6 +33,13 @@ See [Control Tower](docs/tower.md) for setup and configuration.
 The browser talks only to the master over HTTP/WS. Master and agents do not use
 HTTP between them.
 
+## Code layout
+
+The master lives in `server/internal/controltower`, the device-side agent in
+`server/internal/worker`, fleet state in `server/internal/fleet`, and SSH
+installation in `server/internal/provisioning`. See
+[Backend Architecture](docs/backend.md) for the full map.
+
 ## Configuration
 
 | Variable | Default | Description |

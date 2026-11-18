@@ -1,637 +1,150 @@
 # Backend Architecture
 
-The Gloski server is a Go application that provides APIs for system management, file operations, terminal access, and more.
+The Go side has two binaries: `gloski` (the master/control tower) and
+`gloski-agent` (the device-side worker). They communicate only over gRPC.
 
-## Tech Stack
+## Tech stack
 
 | Technology | Purpose |
-|------------|---------|
-| Go 1.24+ | Language (uses new router patterns) |
-| net/http | HTTP server |
-| gorilla/websocket | Browser terminal WebSocket |
-| gRPC / protobuf | Master ↔ agent communication |
-| golang-jwt/jwt | JWT token verification |
-| creack/pty | PTY for terminal |
+|---|---|
+| Go 1.24+ | Language |
+| `net/http` | Browser-facing API and SPA |
+| `gorilla/websocket` | Browser terminal and fleet streams |
+| gRPC + protobuf | Master ↔ agent communication |
+| `golang.org/x/crypto/ssh` | In-process SSH for agent installation |
+| `modernc.org/sqlite` | Master database |
+| `creack/pty` | PTY for terminal sessions |
 
-## Directory Structure
+## Directory layout
 
 ```
 server/
 ├── cmd/
-│   ├── gloski/
-│   │   └── main.go           # Master entry point
-│   └── gloski-agent/
-│       └── main.go           # Device agent entry point
-│
+│   ├── gloski/               # Master entry point
+│   └── gloski-agent/         # Device agent entry point
+├── proto/agentv1/            # Generated gRPC types (checked in)
 └── internal/
-    ├── app/
-    │   └── app.go            # Application container
-    │
-    ├── api/
-    │   ├── server.go         # HTTP server setup
-    │   ├── handlers/         # HTTP handlers
-    │   │   ├── auth.go
-    │   │   ├── files.go      # File ops + pinned folders
-    │   │   ├── system.go
-    │   │   ├── jobs.go
-    │   │   ├── systemd.go
-    │   │   ├── terminal.go
-    │   │   ├── cron.go
-    │   │   ├── packages.go
-    │   │   ├── downloads.go
-    │   │   ├── health.go
-    │   │   └── response.go
-    │   ├── middleware/       # HTTP middleware
-    │   │   ├── auth.go
-    │   │   ├── cors.go
-    │   │   ├── logging.go
-    │   │   ├── ratelimit.go
-    │   │   └── chain.go
-    │   ├── routes/
-    │   │   └── routes.go     # Route definitions
-    │   └── response/
-    │       └── response.go   # Response helpers
-    │
-    ├── auth/
-    │   └── service.go        # API key + JWT authentication
-    │
-    ├── config/
-    │   └── config.go         # Configuration loading
-    │
-    ├── database/
-    │   └── migrations.go     # SQLite migrations
-    │
-    ├── devices/
-    │   ├── service.go        # Enrollment, heartbeats, online status
-    │   ├── deployment.go     # SSH deployment records
-    │   ├── store.go          # Device registry (SQLite)
-    │   ├── hub.go            # Fleet WebSocket fan-out
-    │   └── types.go          # Device and protocol types
-    │
-    ├── agentgrpc/
-    │   ├── server.go         # Bidirectional gRPC stream per agent
-    │   └── jobs.go           # Master-owned jobs and logs
-    │
-    ├── master/
-    │   ├── server.go         # Browser routes + SPA serving
-    │   ├── device_api.go     # Browser API translated into gRPC calls
-    │   ├── agent_transport.go# Local agent process and gRPC listeners
-    │   ├── deploy.go         # SSH deployment and lifecycle
+    ├── controltower/         # Master: dashboard, browser API, listeners
+    │   ├── agents/           # Master side of the agent gRPC stream
+    │   ├── server.go         # Tower type, construction, shutdown
+    │   ├── routes.go         # Browser routes and auth wrapper
+    │   ├── spa.go            # SPA static files and fallback
+    │   ├── local_agent.go    # Supervised agent on the master host
+    │   ├── agent_transport.go# gRPC listeners and endpoint selection
+    │   ├── fleet_loop.go     # Periodic fleet status broadcast
+    │   ├── deploy.go         # SSH deployment/lifecycle endpoints
     │   ├── dashboard.go      # Summary and issues
-    │   └── run.go            # Master HTTP server lifecycle
-    │
-    ├── agent/
-    │   └── run.go            # Stateless agent: connect, execute, report
-    │
-    ├── deploy/
-    │   └── deploy.go         # In-process SSH file copy and start/stop
-    │
-    ├── tailscale/
-    │   └── tailscale.go      # LocalAPI peer discovery over Unix socket
-    │
-    ├── files/
-    │   └── service.go        # File operations
-    │
-    ├── system/
-    │   ├── service.go        # System stats API
-    │   ├── collector.go      # Background stats collector
-    │   ├── store.go          # Time-series ring buffer
-    │   └── types.go          # Data structures
-    │
-    ├── jobs/
-    │   └── service.go        # Job/process management
-    │
-    ├── systemd/
-    │   └── service.go        # Systemd service management
-    │
-    ├── terminal/
-    │   └── terminal.go       # PTY terminal
-    │
-    ├── cron/
-    │   └── service.go        # Cron job management
-    │
-    ├── packages/
-    │   └── service.go        # Package manager integration
-    │
-    ├── downloads/
-    │   └── service.go        # Download manager
-    │
-    └── logger/
-        └── logger.go         # Structured logging
+    │   ├── device_api.go     # Shared device API helpers
+    │   ├── device_jobs.go    # Job endpoints
+    │   ├── device_files.go   # File endpoints
+    │   └── device_terminal.go# Terminal WebSocket bridge
+    ├── fleet/                # Device registry, deployments, event hub
+    │   ├── service.go        # Registry: enrollment, heartbeats, status
+    │   ├── store.go          # SQLite persistence for devices
+    │   ├── deployment.go     # Deployment records and store
+    │   ├── hub.go            # EventHub for fleet WebSockets
+    │   └── types.go          # Device/deployment types
+    ├── provisioning/         # Installs and controls remote agents
+    │   ├── installer.go      # Installer: copy binary, start, stop
+    │   ├── ssh.go            # Auth, host-key trust, SSH execution
+    │   └── scripts.go        # Remote shell scripts
+    ├── tailnet/              # Tailscaled LocalAPI discovery
+    │   └── client.go
+    ├── worker/               # Device agent implementation
+    │   ├── run.go            # Runtime lifecycle and command dispatch
+    │   ├── agent_jobs.go     # Job execution and file operations
+    │   ├── agent_terminal.go # PTY sessions
+    │   └── agent_dial.go     # Dial master over Unix socket or h2c
+    ├── config/               # Config types, defaults, env overrides
+    ├── database/             # SQLite migrations
+    ├── api/                  # Legacy HTTP server used by standalone mode
+    ├── app/                  # Legacy application container
+    └── files/, system/       # Shared filesystem and stats helpers
 ```
 
-## Application Container
+## Main types
 
-The `App` struct in `internal/app/app.go` is the central dependency container:
+| Type | Meaning |
+|---|---|
+| `controltower.Tower` | Owns the master DB, HTTP API, gRPC listeners, and local agent process |
+| `fleet.Registry` | Source of truth for enrolled devices, heartbeats, and online status |
+| `agents.Service` | Master-side stream registry; sends commands to a specific device |
+| `agents.connection` | One device's gRPC stream with serialized sends and pending request channels |
+| `provisioning.Installer` | Copies `gloski-agent` to `/tmp` over SSH and controls it by PID |
+| `worker.Runtime` | Device-side executor: handles jobs, files, terminal, and heartbeats |
+| `tailnet.Client` | Reads tailnet peers from tailscaled's LocalAPI socket |
 
-```go
-type App struct {
-    Config *config.Config
-    DB     *sql.DB  // SQLite database
+`controltower/agents` and `worker` are the two ends of the same gRPC stream:
+the former runs in the master, the latter on each device.
 
-    // Core services (always available)
-    Auth   *auth.Service
-    Files  *files.Service
-    System *system.Service
-    Jobs   *jobs.Service
+## Connection lifecycle
 
-    // Optional services (may be nil)
-    Packages  *packages.Service
-    Cron      *cron.Service
-    Systemd   *systemd.Service
-    Downloads *downloads.Service
+1. Master starts gRPC listeners: a Unix socket for its own agent and TCP h2c for remote agents.
+2. Master starts `gloski-agent` as a supervised child process pointed at the Unix socket.
+3. Remote agents are installed to `/tmp` by `provisioning.Installer` and pointed at the TCP listener.
+4. The agent opens `Agent.Connect` and sends `RegisterRequest` with the join token.
+5. Master registers the device, issues a device token, and stores the stream under that device ID.
+6. Agent sends heartbeats with cached stats; master stores them and broadcasts fleet updates.
+7. If the stream drops, the agent reconnects with backoff. If the master's local agent has no
+   session for 20 seconds, master kills and restarts the child process.
 
-    // Background services
-    statsCollector *system.Collector
-}
+## Request flows
+
+**Browser → device**
+```
+Browser ──HTTP/WS──▶ Tower route ──gRPC command──▶ agents.connection
+                                                   │
+                                                   ▼
+                                             worker.Runtime
 ```
 
-### Initialization
+- **Stats** — agent collector → heartbeat → master DB → dashboard and `/api/fleet/ws`.
+- **Jobs** — browser POST → master stores job → `RunJob` command → agent executes →
+  output chunks stream back → master persists logs in `agent_job_logs`.
+- **Files** — master translates `/api/devices/{id}/api/files/*` into gRPC `FileRequest`.
+- **Terminal** — browser WebSocket frames are forwarded as `TerminalInput`; resize frames
+  are decoded by the agent. PTY output is streamed back as `TerminalOutput`.
 
-```go
-func New(cfg *config.Config) (*App, error) {
-    // 1. Create stats store (ring buffer for 5 min history)
-    statsStore := system.NewStore(150)
-    
-    // 2. Start background collector (2s interval)
-    collector := system.NewCollector(statsStore, 2*time.Second)
-    collector.Start()
-    
-    // 3. Initialize core services
-    app.Auth = auth.NewService(cfg)
-    app.Files = files.NewService(cfg)
-    app.System = system.NewService(statsStore)
-    app.Jobs = jobs.NewService(cfg.DB)
-    
-    // 4. Initialize optional services (may fail gracefully)
-    app.Packages, _ = packages.NewService()
-    app.Cron, _ = cron.NewService()
-    
-    return app, nil
-}
-```
+## State
 
-## Authentication
+All durable state is in the master's SQLite database:
 
-The server supports two authentication methods:
+| Table | Contents |
+|---|---|
+| `devices` | Device identity, token, URL label, cached stats, master flag, deployment link |
+| `deployments` | SSH deployment records and status |
+| `agent_jobs` / `agent_job_logs` | Master-owned jobs and streamed output |
+| `schema_migrations` | Applied migrations |
 
-### 1. API Key
-
-Simple static key authentication:
-
-```
-Header: X-API-Key: your-api-key
-Query:  ?api_key=your-api-key
-```
-
-### 2. JWT (RS256)
-
-Asymmetric JWT verification - server only needs the public key:
-
-```
-Header: Authorization: Bearer <token>
-Query:  ?token=<jwt-token>
-```
-
-Tokens are signed externally (e.g., by a central auth service).
-
-### Auth Service
-
-```go
-// internal/auth/service.go
-type Service struct {
-    apiKey       string
-    jwtPublicKey *rsa.PublicKey
-}
-
-// Validate API key
-func (s *Service) ValidateAPIKey(key string) error
-
-// Validate JWT token (RS256)
-func (s *Service) ValidateToken(tokenString string) error
-```
-
-### Auth Middleware
-
-```go
-// internal/api/middleware/auth.go
-func Auth(authService *auth.Service) func(http.Handler) http.Handler {
-    return func(next http.Handler) http.Handler {
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            // Try API key first (header or query)
-            if apiKey := getAPIKey(r); apiKey != "" {
-                if authService.ValidateAPIKey(apiKey) == nil {
-                    next.ServeHTTP(w, r)
-                    return
-                }
-            }
-            
-            // Try JWT token (header or query)
-            if token := getToken(r); token != "" {
-                if authService.ValidateToken(token) == nil {
-                    next.ServeHTTP(w, r)
-                    return
-                }
-            }
-            
-            http.Error(w, "Unauthorized", 401)
-        })
-    }
-}
-```
+Agents hold no durable state. Credentials and in-flight job maps live only in memory.
 
 ## Configuration
 
-Configuration is loaded from environment variables and/or config file.
+Configuration comes from an optional JSON file, then environment overrides
+(`internal/config/env.go`). Key settings:
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GLOSKI_HOST` | `127.0.0.1` | Bind address |
-| `GLOSKI_PORT` | `8080` | Port |
-| `GLOSKI_API_KEY` | (none) | API key |
-| `GLOSKI_JWT_PUBLIC_KEY` | (none) | PEM-encoded RSA public key |
-| `GLOSKI_JWT_PUBLIC_KEY_FILE` | (none) | Path to public key PEM file |
-| `GLOSKI_LOG_LEVEL` | `info` | Log level |
-| `GLOSKI_SHELL` | `$SHELL` | Shell for terminal |
-| `GLOSKI_ALLOWED_ORIGINS` | `*` | CORS origins (comma-separated) |
-| `GLOSKI_ALLOWED_PATHS` | `/` | Allowed filesystem paths |
+| Variable | Default | Purpose |
+|---|---|---|
 | `GLOSKI_MODE` | `master` | `master` or `agent` |
-| `GLOSKI_DATA_DIR` | `~/.gloski/data` | Database, tokens, socket, and logs |
-| `GLOSKI_MASTER_WEB_DIR` | `web/dist` | SPA directory served by the master |
-| `GLOSKI_MASTER_JOIN_TOKEN` | generated | Agent enrollment token |
-| `GLOSKI_MASTER_DEVICE_TIMEOUT` | `45` | Seconds before a device is offline |
-| `GLOSKI_MASTER_HEARTBEAT_INTERVAL` | `10` | Advertised heartbeat interval |
-| `GLOSKI_AGENT_MASTER_URL` | (required) | Master URL for `gloski-agent` |
-| `GLOSKI_AGENT_JOIN_TOKEN` | (none) | Enrollment token for first registration |
-| `GLOSKI_AGENT_NAME` | hostname | Device display name / registry key |
-| `GLOSKI_AGENT_HEARTBEAT_INTERVAL` | `10` | Agent heartbeat interval |
-| `GLOSKI_AGENT_DEPLOY_ID` | (none) | Links the agent to its master deployment |
+| `GLOSKI_HOST` / `GLOSKI_PORT` | `127.0.0.1:8080` | Dashboard listener |
+| `GLOSKI_MASTER_WEB_DIR` | `web/dist` | SPA directory |
+| `GLOSKI_MASTER_AGENT_GRPC_HOST` / `_PORT` | `0.0.0.0:9090` | Remote agent listener |
+| `GLOSKI_MASTER_AGENT_BINARY` | next to master | Binary used for deployments |
+| `GLOSKI_MASTER_LOCAL_AGENT` | `true` | Run the master's own agent |
+| `GLOSKI_TAILSCALE_SOCKET` | auto | tailscaled LocalAPI socket |
+| `GLOSKI_API_KEY` | none | Optional browser API auth |
 
-See [Control Tower](tower.md) for topology, Tailscale, and enrollment details.
+See [Control Tower](tower.md) for the full list.
 
-### Config File
-
-`~/.config/gloski/config.json`:
-
-```json
-{
-  "host": "0.0.0.0",
-  "port": 8080,
-  "api_key": "your-secure-key",
-  "jwt_public_key_file": "/path/to/public.pem",
-  "allowed_origins": ["https://your-frontend.com"],
-  "allowed_paths": ["/home/user"],
-  "log_level": "info"
-}
-```
-
-## Services
-
-### Files Service
-
-```go
-// internal/files/service.go
-type Service struct {
-    allowedPaths []string
-}
-
-func (s *Service) List(path string) ([]FileEntry, error)
-func (s *Service) Read(path string) (string, error)
-func (s *Service) Write(path, content string) error
-func (s *Service) Mkdir(path string) error
-func (s *Service) Delete(path string) error
-func (s *Service) Rename(oldPath, newPath string) error
-func (s *Service) Search(root, pattern string, content bool) ([]SearchResult, error)
-```
-
-### System Service
-
-```go
-// internal/system/service.go
-type Service struct {
-    store *Store  // Ring buffer for history
-}
-
-func (s *Service) GetStats() (*Stats, error)
-func (s *Service) GetHistory(duration time.Duration) ([]Sample, error)
-func (s *Service) GetProcesses(limit int, sortBy string) ([]ProcessInfo, error)
-func (s *Service) GetInfo() (*SystemInfo, error)
-```
-
-### Stats Collector
-
-Background goroutine that collects system stats:
-
-```go
-// internal/system/collector.go
-type Collector struct {
-    store    *Store
-    interval time.Duration
-    stop     chan struct{}
-}
-
-func (c *Collector) Start()  // Starts collection goroutine
-func (c *Collector) Stop()   // Stops collection
-```
-
-### Stats Store (Ring Buffer)
-
-```go
-// internal/system/store.go
-type Store struct {
-    samples  []Sample
-    capacity int
-    head     int
-    count    int
-    mu       sync.RWMutex
-}
-
-func (s *Store) Add(stats *Stats)
-func (s *Store) GetHistory(duration time.Duration) []Sample
-func (s *Store) GetLatest() *Sample
-```
-
-### Jobs Service
-
-```go
-// internal/jobs/service.go
-type Service struct {
-    db *sql.DB  // SQLite for persistence
-    mu sync.RWMutex
-}
-
-func (s *Service) Start(command, cwd string) (*Job, error)
-func (s *Service) Get(id string) (*Job, error)
-func (s *Service) List() []*Job
-func (s *Service) Stop(id string) error
-func (s *Service) Delete(id string) error
-func (s *Service) GetLogs(id string) (string, error)
-```
-
-### Systemd Service
-
-```go
-// internal/systemd/service.go
-type Service struct {}
-
-func (s *Service) List(userMode bool) ([]SystemdUnit, error)
-func (s *Service) Action(unit, action string, userMode bool) error
-func (s *Service) Logs(unit string, userMode bool, lines int) (string, error)
-func (s *Service) Status(unit string, userMode bool) (*SystemdUnit, error)
-```
-
-### Terminal
-
-WebSocket-based PTY terminal:
-
-```go
-// internal/terminal/terminal.go
-type Terminal struct {
-    pty  *os.File
-    cmd  *exec.Cmd
-    conn *websocket.Conn
-}
-
-func New(shell, cwd string, conn *websocket.Conn) (*Terminal, error)
-func (t *Terminal) Run() error  // Blocks until terminal closes
-```
-
-## HTTP Handlers
-
-### Handler Pattern
-
-```go
-// internal/api/handlers/files.go
-type FilesHandler struct {
-    service *files.Service
-}
-
-func NewFilesHandler(service *files.Service) *FilesHandler {
-    return &FilesHandler{service: service}
-}
-
-func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
-    path := r.URL.Query().Get("path")
-    if path == "" {
-        path = "/"
-    }
-    
-    entries, err := h.service.List(path)
-    if err != nil {
-        response.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
-    
-    response.JSON(w, map[string]interface{}{
-        "path":    path,
-        "entries": entries,
-    })
-}
-```
-
-### Response Helpers
-
-```go
-// internal/api/response/response.go
-func JSON(w http.ResponseWriter, data interface{})
-func Error(w http.ResponseWriter, message string, status int)
-func Success(w http.ResponseWriter, message string)
-```
-
-## Routes
-
-Routes are defined in `internal/api/routes/routes.go` using Go 1.24's enhanced router:
-
-```go
-func Setup(cfg Config) http.Handler {
-    mux := http.NewServeMux()
-    
-    // Public routes
-    mux.HandleFunc("GET /api/health", healthHandler.Check)
-    
-    // Protected routes
-    mux.Handle("GET /api/system/stats", requireAuth(systemHandler.GetStats))
-    mux.Handle("GET /api/files", requireAuth(filesHandler.List))
-    mux.Handle("POST /api/files/write", requireAuth(filesHandler.Write))
-    
-    // Routes with path parameters
-    mux.Handle("GET /api/jobs/{id}", requireAuth(jobsHandler.Get))
-    mux.Handle("DELETE /api/jobs/{id}", requireAuth(jobsHandler.Stop))
-    
-    // Apply global middleware
-    return middleware.Chain(
-        middleware.Logging,
-        middleware.CORS(corsConfig),
-    )(mux)
-}
-```
-
-## Middleware
-
-### Middleware Chain
-
-```go
-// internal/api/middleware/chain.go
-func Chain(middlewares ...func(http.Handler) http.Handler) func(http.Handler) http.Handler {
-    return func(final http.Handler) http.Handler {
-        for i := len(middlewares) - 1; i >= 0; i-- {
-            final = middlewares[i](final)
-        }
-        return final
-    }
-}
-```
-
-### CORS Middleware
-
-```go
-// internal/api/middleware/cors.go
-type CORSConfig struct {
-    AllowedOrigins []string
-    AllowedMethods []string
-    AllowedHeaders []string
-    MaxAge         int
-}
-
-func CORS(config CORSConfig) func(http.Handler) http.Handler
-```
-
-### Logging Middleware
-
-```go
-// internal/api/middleware/logging.go
-func Logging(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        start := time.Now()
-        wrapped := &responseWriter{ResponseWriter: w}
-        
-        next.ServeHTTP(wrapped, r)
-        
-        logger.Info("%s %s %d %v",
-            r.Method, r.URL.Path,
-            wrapped.status, time.Since(start))
-    })
-}
-```
-
-## Adding a New Endpoint
-
-### 1. Create Service Method
-
-```go
-// internal/myservice/service.go
-func (s *Service) DoSomething(input string) (Result, error) {
-    // Business logic
-}
-```
-
-### 2. Create Handler
-
-```go
-// internal/api/handlers/myservice.go
-type MyHandler struct {
-    service *myservice.Service
-}
-
-func NewMyHandler(s *myservice.Service) *MyHandler {
-    return &MyHandler{service: s}
-}
-
-func (h *MyHandler) DoSomething(w http.ResponseWriter, r *http.Request) {
-    var req struct {
-        Input string `json:"input"`
-    }
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        response.Error(w, "Invalid request", http.StatusBadRequest)
-        return
-    }
-    
-    result, err := h.service.DoSomething(req.Input)
-    if err != nil {
-        response.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    
-    response.JSON(w, result)
-}
-```
-
-### 3. Register Route
-
-```go
-// internal/api/routes/routes.go
-myHandler := handlers.NewMyHandler(cfg.MyService)
-mux.Handle("POST /api/my-endpoint", requireAuth(http.HandlerFunc(myHandler.DoSomething)))
-```
-
-### 4. Initialize Service in App
-
-```go
-// internal/app/app.go
-app.MyService = myservice.NewService()
-```
-
-## Error Handling
-
-Services return errors that handlers translate to HTTP responses:
-
-```go
-// Service
-var ErrNotFound = errors.New("not found")
-var ErrPermissionDenied = errors.New("permission denied")
-
-// Handler
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-    result, err := h.service.Get(id)
-    if err != nil {
-        switch {
-        case errors.Is(err, service.ErrNotFound):
-            response.Error(w, "Not found", http.StatusNotFound)
-        case errors.Is(err, service.ErrPermissionDenied):
-            response.Error(w, "Permission denied", http.StatusForbidden)
-        default:
-            response.Error(w, err.Error(), http.StatusInternalServerError)
-        }
-        return
-    }
-    response.JSON(w, result)
-}
-```
-
-## Building
+## Build and test
 
 ```bash
 cd server
-
-# Development
-go run ./cmd/gloski
-
-# Build binaries
-go build -o gloski ./cmd/gloski
-go build -o gloski-agent ./cmd/gloski-agent
-
-# Build for Linux (cross-compile)
-GOOS=linux GOARCH=amd64 go build -o gloski ./cmd/gloski
-GOOS=linux GOARCH=amd64 go build -o gloski-agent ./cmd/gloski-agent
-
-# Run tests
 go test ./...
+go vet ./...
+CGO_ENABLED=0 go build -o ../bin/gloski ./cmd/gloski
+CGO_ENABLED=0 go build -o ../bin/gloski-agent ./cmd/gloski-agent
 ```
 
-## Logging
-
-```go
-// internal/logger/logger.go
-func Debug(format string, args ...interface{})
-func Info(format string, args ...interface{})
-func Warn(format string, args ...interface{})
-func Error(format string, args ...interface{})
-
-// Usage
-logger.Info("Server started on %s:%d", host, port)
-logger.Error("Failed to read file: %v", err)
-```
-
-Log level is controlled by `GLOSKI_LOG_LEVEL` env var.
+Both binaries stay under 30 MB. Generated protobuf code is checked in, so
+`protoc` is not required to build.
