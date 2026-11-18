@@ -363,6 +363,24 @@ func (w *Runtime) handleFile(id string, request *agentv1.FileRequest) {
 		if err := w.files.Rename(request.GetPath(), request.GetNewPath()); err != nil {
 			result = fileError(err)
 		}
+	case agentv1.FileOp_FILE_OP_STAT:
+		stat, err := w.statFile(request.GetPath())
+		if err != nil {
+			result = fileError(err)
+			break
+		}
+		result = stat
+	case agentv1.FileOp_FILE_OP_READ_AT:
+		piece, err := w.readFileAt(request.GetPath(), request.GetOffset(), request.GetLength())
+		if err != nil {
+			result = fileError(err)
+			break
+		}
+		result = piece
+	case agentv1.FileOp_FILE_OP_WRITE_AT:
+		if err := w.writeFileAt(request.GetPath(), request.GetOffset(), request.GetContent(), request.GetFinal()); err != nil {
+			result = fileError(err)
+		}
 	default:
 		result.Code, result.Message = 1, "unsupported file operation"
 	}

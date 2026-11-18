@@ -115,7 +115,7 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 		stream:   stream,
 		closed:   make(chan struct{}),
 		pending:  make(map[string]chan *agentv1.AgentMessage),
-		terms:    make(map[string]chan []byte),
+		terms:    make(map[string]*TerminalOutput),
 	}
 	svc.mu.Lock()
 	if previous := svc.connections[device.ID]; previous != nil {
@@ -229,8 +229,8 @@ func (svc *Service) disconnect(conn *connection) {
 		close(channel)
 		delete(conn.pending, id)
 	}
-	for id, channel := range conn.terms {
-		close(channel)
+	for id, terminal := range conn.terms {
+		terminal.close()
 		delete(conn.terms, id)
 	}
 	conn.mu.Unlock()

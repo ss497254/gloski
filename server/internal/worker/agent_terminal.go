@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/creack/pty"
+	"github.com/ss497254/gloski/internal/files"
 	"github.com/ss497254/gloski/proto/agentv1"
 )
 
@@ -21,6 +22,9 @@ func (p *PTYSession) close() {
 	_ = p.ptmx.Close()
 }
 
+// openTerminal starts a shell on a PTY. The session is registered before
+// this returns, so the input and resize messages that follow on the stream
+// always find it; only the output pump runs in the background.
 func (w *Runtime) openTerminal(id string, request *agentv1.TerminalOpen) {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
@@ -29,36 +33,51 @@ func (w *Runtime) openTerminal(id string, request *agentv1.TerminalOpen) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, shell)
 	if cwd := strings.TrimSpace(request.GetCwd()); cwd != "" {
-		cmd.Dir = cwd
+		if expanded, err := files.ExpandTilde(cwd); err == nil {
+			cwd = expanded
+		}
+		// A stale or mistyped directory should not prevent the shell from
+		// opening; it starts in the agent's working directory instead.
+		if info, err := os.Stat(cwd); err == nil && info.IsDir() {
+			cmd.Dir = cwd
+		}
 	}
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "TERM=xterm-256color")
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 
-	ptmx, err := pty.Start(cmd)
+	size := &pty.Winsize{Rows: 24, Cols: 80}
+	if cols, rows := request.GetCols(), request.GetRows(); cols > 0 && rows > 0 && cols <= 0xffff && rows <= 0xffff {
+		size = &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)}
+	}
+	ptmx, err := pty.StartWithSize(cmd, size)
 	if err != nil {
+		cancel()
 		_ = w.send(&agentv1.AgentMessage{
 			RequestId: id,
 			Payload: &agentv1.AgentMessage_TerminalOutput{
 				TerminalOutput: &agentv1.TerminalOutput{Data: []byte(err.Error() + "\r\n"), Closed: true},
 			},
 		})
-		cancel()
 		return
-	}
-	if request.GetCols() > 0 && request.GetRows() > 0 {
-		_ = pty.Setsize(ptmx, &pty.Winsize{Rows: uint16(request.GetRows()), Cols: uint16(request.GetCols())})
 	}
 
 	session := &PTYSession{ptmx: ptmx, cmd: cmd, cancel: cancel}
 	w.mu.Lock()
 	w.terms[id] = session
 	w.mu.Unlock()
+
+	go w.pumpTerminal(id, session)
+}
+
+// pumpTerminal forwards PTY output until the shell exits or the stream fails.
+func (w *Runtime) pumpTerminal(id string, session *PTYSession) {
 	defer func() {
 		session.close()
 		w.mu.Lock()
-		delete(w.terms, id)
+		if w.terms[id] == session {
+			delete(w.terms, id)
+		}
 		w.mu.Unlock()
-		_, _ = cmd.Process.Wait()
+		_, _ = session.cmd.Process.Wait()
 		_ = w.send(&agentv1.AgentMessage{
 			RequestId: id,
 			Payload: &agentv1.AgentMessage_TerminalOutput{
@@ -69,7 +88,7 @@ func (w *Runtime) openTerminal(id string, request *agentv1.TerminalOpen) {
 
 	buffer := make([]byte, 16*1024)
 	for {
-		n, err := ptmx.Read(buffer)
+		n, err := session.ptmx.Read(buffer)
 		if n > 0 {
 			chunk := make([]byte, n)
 			copy(chunk, buffer[:n])
@@ -95,15 +114,17 @@ func (w *Runtime) terminalInput(id string, data []byte) {
 	if session == nil {
 		return
 	}
-	// Browser resize frames are [0x01, cols_hi, cols_lo, rows_hi, rows_lo];
-	// all other frames are keystrokes.
-	if len(data) >= 5 && data[0] == 0x01 {
-		cols := int(data[1])<<8 | int(data[2])
-		rows := int(data[3])<<8 | int(data[4])
-		_ = pty.Setsize(session.ptmx, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
+	_, _ = session.ptmx.Write(data)
+}
+
+func (w *Runtime) resizeTerminal(id string, cols, rows uint32) {
+	w.mu.Lock()
+	session := w.terms[id]
+	w.mu.Unlock()
+	if session == nil || cols == 0 || rows == 0 || cols > 0xffff || rows > 0xffff {
 		return
 	}
-	_, _ = session.ptmx.Write(data)
+	_ = pty.Setsize(session.ptmx, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
 }
 
 func (w *Runtime) closeTerminal(id string) {

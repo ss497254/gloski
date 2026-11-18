@@ -303,9 +303,11 @@ func (w *Runtime) handle(message *agentv1.MasterMessage) {
 	case *agentv1.MasterMessage_ProcessRequest:
 		go w.handleProcesses(message.RequestId, payload.ProcessRequest)
 	case *agentv1.MasterMessage_TerminalOpen:
-		go w.openTerminal(message.RequestId, payload.TerminalOpen)
+		w.openTerminal(message.RequestId, payload.TerminalOpen)
 	case *agentv1.MasterMessage_TerminalInput:
 		w.terminalInput(message.RequestId, payload.TerminalInput.GetData())
+	case *agentv1.MasterMessage_TerminalResize:
+		w.resizeTerminal(message.RequestId, payload.TerminalResize.GetCols(), payload.TerminalResize.GetRows())
 	case *agentv1.MasterMessage_TerminalClose:
 		w.closeTerminal(message.RequestId)
 	case *agentv1.MasterMessage_Shutdown:

@@ -22,7 +22,7 @@ type connection struct {
 	sendMu  sync.Mutex // gRPC streams do not allow concurrent SendMsg
 	mu      sync.Mutex
 	pending map[string]chan *agentv1.AgentMessage
-	terms   map[string]chan []byte
+	terms   map[string]*TerminalOutput
 }
 
 // close makes the stream handler return, which ends the RPC for the agent.
@@ -51,20 +51,16 @@ func (conn *connection) respond(id string, message *agentv1.AgentMessage) {
 
 func (conn *connection) terminalOutput(id string, output *agentv1.TerminalOutput) {
 	conn.mu.Lock()
-	channel := conn.terms[id]
+	terminal := conn.terms[id]
 	if output.GetClosed() {
 		delete(conn.terms, id)
 	}
 	conn.mu.Unlock()
-	if channel == nil {
+	if terminal == nil {
 		return
 	}
+	terminal.push(output.GetData())
 	if output.GetClosed() {
-		close(channel)
-		return
-	}
-	select {
-	case channel <- output.GetData():
-	default:
+		terminal.close()
 	}
 }

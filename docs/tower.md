@@ -117,8 +117,10 @@ the SSH user. SSH keys come from `SSH_AUTH_SOCK` or `~/.ssh/id_*`.
 | `POST` | `/api/devices/{id}/api/jobs` | Run a task |
 | `GET` | `/api/devices/{id}/api/jobs/{jobId}/logs` | Job logs |
 | `GET` | `/api/devices/{id}/api/files` | File listing |
-| `GET` | `/api/devices/{id}/api/files/read` | Read a file |
-| `GET` | `/api/devices/{id}/api/terminal` | Terminal WebSocket |
+| `GET` | `/api/devices/{id}/api/files/read` | Read a text file for the editor (up to 10 MB) |
+| `GET` | `/api/devices/{id}/api/files/download` | Download any file; supports `Range` |
+| `POST` | `/api/devices/{id}/api/files/upload` | Multipart upload, streamed to the device (up to 8 GB) |
+| `GET` | `/api/devices/{id}/api/terminal` | Terminal WebSocket (`cwd`, `cols`, `rows`) |
 
 ## Logs and health
 

@@ -105,59 +105,6 @@ func (svc *Service) Processes(deviceID string, limit int, sortBy string) ([]byte
 	return []byte(result.GetJson()), nil
 }
 
-// OpenTerminal starts a PTY connection on an agent and returns its output channel.
-func (svc *Service) OpenTerminal(deviceID, cwd string, cols, rows uint32) (<-chan []byte, string, error) {
-	conn, err := svc.connection(deviceID)
-	if err != nil {
-		return nil, "", err
-	}
-	id := uuid.NewString()
-	channel := make(chan []byte, 256)
-	conn.mu.Lock()
-	conn.terms[id] = channel
-	conn.mu.Unlock()
-
-	message := &agentv1.MasterMessage{
-		RequestId: id,
-		Payload: &agentv1.MasterMessage_TerminalOpen{
-			TerminalOpen: &agentv1.TerminalOpen{Cwd: cwd, Cols: cols, Rows: rows},
-		},
-	}
-	if err := conn.send(message); err != nil {
-		conn.mu.Lock()
-		delete(conn.terms, id)
-		conn.mu.Unlock()
-		return nil, "", err
-	}
-	return channel, id, nil
-}
-
-// TerminalInput forwards keystrokes to an agent PTY.
-func (svc *Service) TerminalInput(deviceID, id string, data []byte) error {
-	conn, err := svc.connection(deviceID)
-	if err != nil {
-		return err
-	}
-	return conn.send(&agentv1.MasterMessage{
-		RequestId: id,
-		Payload: &agentv1.MasterMessage_TerminalInput{
-			TerminalInput: &agentv1.TerminalInput{Data: data},
-		},
-	})
-}
-
-// CloseTerminal closes an agent PTY connection.
-func (svc *Service) CloseTerminal(deviceID, id string) error {
-	conn, err := svc.connection(deviceID)
-	if err != nil {
-		return err
-	}
-	return conn.send(&agentv1.MasterMessage{
-		RequestId: id,
-		Payload:   &agentv1.MasterMessage_TerminalClose{TerminalClose: &agentv1.TerminalClose{}},
-	})
-}
-
 // Shutdown asks an agent to stop itself.
 func (svc *Service) Shutdown(deviceID string) error {
 	conn, err := svc.connection(deviceID)

@@ -743,3 +743,9 @@ func (s *Service) searchFileContent(path, query string, maxMatches int) []conten
 
 	return matches
 }
+
+// ResolvePath expands, cleans and checks a path against the allowed roots,
+// returning the absolute path. The file itself does not have to exist.
+func (s *Service) ResolvePath(path string) (string, error) {
+	return s.validatePath(path)
+}

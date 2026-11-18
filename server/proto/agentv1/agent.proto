@@ -37,6 +37,7 @@ message MasterMessage {
     Shutdown shutdown = 9;
     ProcessRequest process_request = 10;
     JobAck job_ack = 11;
+    TerminalResize terminal_resize = 12;
   }
 }
 
@@ -133,6 +134,10 @@ enum FileOp {
   FILE_OP_DELETE = 4;
   FILE_OP_MKDIR = 5;
   FILE_OP_RENAME = 6;
+  // STAT, READ_AT and WRITE_AT move files of any size in bounded pieces.
+  FILE_OP_STAT = 7;
+  FILE_OP_READ_AT = 8;
+  FILE_OP_WRITE_AT = 9;
 }
 
 message FileRequest {
@@ -140,6 +145,12 @@ message FileRequest {
   string path = 2;
   bytes content = 3;
   string new_path = 4;
+  // offset and length select the range for READ_AT; offset is where a
+  // WRITE_AT piece belongs.
+  int64 offset = 5;
+  int64 length = 6;
+  // final marks the last WRITE_AT piece: the upload is moved into place.
+  bool final = 7;
 }
 
 message FileResult {
@@ -147,6 +158,10 @@ message FileResult {
   string message = 2;
   bytes content = 3;
   string entries_json = 4;
+  // size, mod_time_unix and is_dir describe the file for STAT and READ_AT.
+  int64 size = 5;
+  int64 mod_time_unix = 6;
+  bool is_dir = 7;
 }
 
 message TerminalOpen {
@@ -160,6 +175,11 @@ message TerminalInput {
 }
 
 message TerminalClose {}
+
+message TerminalResize {
+  uint32 cols = 1;
+  uint32 rows = 2;
+}
 
 message TerminalOutput {
   bytes data = 1;

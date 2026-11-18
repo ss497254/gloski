@@ -102,8 +102,12 @@ Browser ──HTTP/WS──▶ Tower route ──gRPC command──▶ agents.co
 - **Jobs** — browser POST → master stores job → `RunJob` command → agent executes →
   output chunks stream back → master persists logs in `agent_job_logs`.
 - **Files** — master translates `/api/devices/{id}/api/files/*` into gRPC `FileRequest`.
-- **Terminal** — browser WebSocket frames are forwarded as `TerminalInput`; resize frames
-  are decoded by the agent. PTY output is streamed back as `TerminalOutput`.
+  Downloads and uploads move in 1 MB pieces (`READ_AT` / `WRITE_AT`), so file size is not
+  limited by message size; an upload replaces its target only when the last piece lands.
+  Only images, audio, video and PDF are served inline; everything else is a download.
+- **Terminal** — text frames are forwarded as `TerminalInput` and the 5-byte binary resize
+  frame as `TerminalResize`. PTY output is streamed back as `TerminalOutput` into a bounded
+  buffer per session, so a slow browser cannot stall the device's stream.
 
 ## State
 

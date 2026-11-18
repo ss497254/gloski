@@ -1,10 +1,7 @@
 package controltower
 
 import (
-	"io"
 	"net/http"
-	"path/filepath"
-	"strings"
 
 	"github.com/ss497254/gloski/internal/httpapi"
 	"github.com/ss497254/gloski/proto/agentv1"
@@ -78,16 +75,6 @@ func (t *Tower) handleReadFile(w http.ResponseWriter, r *http.Request) {
 	httpapi.Success(w, map[string]interface{}{"content": string(result.GetContent()), "path": path})
 }
 
-func (t *Tower) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Query().Get("path")
-	result := t.performFile(w, r.PathValue("id"), fileRequest(path, "read"))
-	if result == nil {
-		return
-	}
-	w.Header().Set("Content-Type", "application/octet-stream")
-	_, _ = w.Write(result.GetContent())
-}
-
 func (t *Tower) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	if t.performFile(w, r.PathValue("id"), fileRequest(path, "delete")) != nil {
@@ -126,40 +113,5 @@ func (t *Tower) handleRename(w http.ResponseWriter, r *http.Request) {
 	grpcRequest.NewPath = request.NewPath
 	if t.performFile(w, r.PathValue("id"), grpcRequest) != nil {
 		httpapi.SuccessWithMessage(w, nil)
-	}
-}
-
-func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		httpapi.BadRequest(w, "invalid upload")
-		return
-	}
-	destination := r.FormValue("path")
-	if destination == "" {
-		destination = "~"
-	}
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		httpapi.BadRequest(w, "file is required")
-		return
-	}
-	defer file.Close()
-	content, err := io.ReadAll(io.LimitReader(file, 32<<20))
-	if err != nil {
-		httpapi.InternalError(w, "failed to read upload", err.Error())
-		return
-	}
-	// Browsers send a bare name, but the field is client-controlled: keep only
-	// the final element so it cannot climb out of the destination.
-	name := filepath.Base(filepath.FromSlash(header.Filename))
-	if name == "." || name == ".." || name == string(filepath.Separator) {
-		httpapi.BadRequest(w, "invalid file name")
-		return
-	}
-	path := strings.TrimRight(destination, "/") + "/" + name
-	grpcRequest := fileRequest(path, "write")
-	grpcRequest.Content = content
-	if t.performFile(w, r.PathValue("id"), grpcRequest) != nil {
-		httpapi.Success(w, map[string]interface{}{"filename": name})
 	}
 }
