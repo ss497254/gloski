@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useServer } from '@/shared/context'
-import type { Download, ShareLink } from '@gloski/sdk'
+import { downloadId as toDownloadId, unwrap, type Download, type ShareLink } from '@/shared/api'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
@@ -68,8 +68,8 @@ export function DownloadsProvider({ children }: DownloadsProviderProps) {
 
   const fetchDownloads = useCallback(async () => {
     try {
-      const response = await server.getClient().downloads.list()
-      setDownloads(response.downloads || [])
+      const response = unwrap(await server.getClient().downloads.list())
+      setDownloads(response || [])
     } catch {
       // Silently fail for polling
     }
@@ -146,7 +146,7 @@ export function DownloadsProvider({ children }: DownloadsProviderProps) {
   const handlePause = useCallback(
     async (id: string) => {
       try {
-        await server.getClient().downloads.pause(id)
+        await server.getClient().downloads.pause(toDownloadId(id))
         toast.success('Download paused')
         fetchDownloads()
       } catch (err) {
@@ -159,7 +159,7 @@ export function DownloadsProvider({ children }: DownloadsProviderProps) {
   const handleResume = useCallback(
     async (id: string) => {
       try {
-        await server.getClient().downloads.resume(id)
+        await server.getClient().downloads.resume(toDownloadId(id))
         toast.success('Download resumed')
         fetchDownloads()
       } catch (err) {
@@ -172,7 +172,7 @@ export function DownloadsProvider({ children }: DownloadsProviderProps) {
   const handleCancel = useCallback(
     async (id: string) => {
       try {
-        await server.getClient().downloads.cancel(id)
+        await server.getClient().downloads.cancel(toDownloadId(id))
         toast.success('Download cancelled')
         fetchDownloads()
       } catch (err) {
@@ -185,7 +185,7 @@ export function DownloadsProvider({ children }: DownloadsProviderProps) {
   const handleRetry = useCallback(
     async (id: string) => {
       try {
-        await server.getClient().downloads.retry(id)
+        await server.getClient().downloads.retry(toDownloadId(id))
         toast.success('Retrying download')
         fetchDownloads()
       } catch (err) {
@@ -198,7 +198,7 @@ export function DownloadsProvider({ children }: DownloadsProviderProps) {
   const handleDelete = useCallback(
     async (id: string, deleteFile: boolean) => {
       try {
-        await server.getClient().downloads.delete(id, deleteFile)
+        await server.getClient().downloads.delete(toDownloadId(id), deleteFile)
         toast.success('Download deleted')
         fetchDownloads()
       } catch (err) {
@@ -219,9 +219,11 @@ export function DownloadsProvider({ children }: DownloadsProviderProps) {
   const handleCreateShareLink = useCallback(
     async (id: string, expiresIn?: number) => {
       try {
-        const link = await server
-          .getClient()
-          .downloads.createShareLink(id, expiresIn ? { expires_in: expiresIn } : undefined)
+        const link = unwrap(
+          await server
+            .getClient()
+            .downloads.createShareLink(toDownloadId(id), expiresIn ? { expires_in: expiresIn } : undefined)
+        )
         await navigator.clipboard.writeText(link.url)
         toast.success('Share link copied to clipboard')
         fetchDownloads()
@@ -237,7 +239,7 @@ export function DownloadsProvider({ children }: DownloadsProviderProps) {
   const handleRevokeShareLink = useCallback(
     async (downloadId: string, token: string) => {
       try {
-        await server.getClient().downloads.revokeShareLink(downloadId, token)
+        await server.getClient().downloads.revokeShareLink(toDownloadId(downloadId), token)
         toast.success('Share link revoked')
         fetchDownloads()
       } catch (err) {

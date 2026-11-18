@@ -22,7 +22,10 @@ type Collector struct {
 
 	// For CPU delta calculation
 	prevCPU     CPUTimes
+	prevCores   []CPUTimes
 	prevCPUTime time.Time
+	prevNet     NetStats
+	prevNetTime time.Time
 
 	// Cached CPU model (doesn't change at runtime)
 	cpuModel string
@@ -55,9 +58,11 @@ func (c *Collector) Start() {
 		}
 	}
 
-	// Initial CPU read for delta calculation
-	c.prevCPU, _ = c.readCPUTimes()
+	// Initial reads for delta calculation
+	c.prevCPU, c.prevCores, _ = c.readCPUTimes()
 	c.prevCPUTime = time.Now()
+	c.prevNet = c.readNetworkStats()
+	c.prevNetTime = time.Now()
 
 	// Collect immediately on start
 	c.collect()
@@ -136,7 +141,7 @@ func (c *Collector) getCPUStats() CPUStats {
 	}
 
 	// Calculate CPU usage
-	current, err := c.readCPUTimes()
+	current, cores, err := c.readCPUTimes()
 	if err != nil {
 		return stats
 	}
@@ -151,46 +156,76 @@ func (c *Collector) getCPUStats() CPUStats {
 		stats.UsagePercent = 100 - stats.Idle
 	}
 
+	// Per-core deltas for the btop-style view.
+	stats.PerCore = make([]float64, len(cores))
+	for i := range cores {
+		if i >= len(c.prevCores) {
+			break
+		}
+		delta := float64(cores[i].Total - c.prevCores[i].Total)
+		if delta <= 0 {
+			continue
+		}
+		idle := float64(cores[i].Idle-c.prevCores[i].Idle) / delta * 100
+		stats.PerCore[i] = clampPercent(100 - idle)
+	}
+
 	// Update previous values
 	c.prevCPU = current
+	c.prevCores = cores
 	c.prevCPUTime = time.Now()
 
 	return stats
 }
 
-func (c *Collector) readCPUTimes() (CPUTimes, error) {
-	var times CPUTimes
+func (c *Collector) readCPUTimes() (CPUTimes, []CPUTimes, error) {
+	var total CPUTimes
+	var cores []CPUTimes
 
 	file, err := os.Open("/proc/stat")
 	if err != nil {
-		return times, err
+		return total, nil, err
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "cpu ") {
-			fields := strings.Fields(line)
-			if len(fields) >= 8 {
-				times.User, _ = strconv.ParseUint(fields[1], 10, 64)
-				times.Nice, _ = strconv.ParseUint(fields[2], 10, 64)
-				times.System, _ = strconv.ParseUint(fields[3], 10, 64)
-				times.Idle, _ = strconv.ParseUint(fields[4], 10, 64)
-				times.IOWait, _ = strconv.ParseUint(fields[5], 10, 64)
-				times.IRQ, _ = strconv.ParseUint(fields[6], 10, 64)
-				times.SoftIRQ, _ = strconv.ParseUint(fields[7], 10, 64)
-				if len(fields) >= 9 {
-					times.Steal, _ = strconv.ParseUint(fields[8], 10, 64)
-				}
-				times.Total = times.User + times.Nice + times.System + times.Idle +
-					times.IOWait + times.IRQ + times.SoftIRQ + times.Steal
-			}
-			break
+		if !strings.HasPrefix(line, "cpu") {
+			continue
 		}
+		fields := strings.Fields(line)
+		if len(fields) < 8 {
+			continue
+		}
+
+		times := parseCPULine(fields)
+		if fields[0] == "cpu" {
+			total = times
+			continue
+		}
+		// cpu0, cpu1, ... in /proc/stat order.
+		cores = append(cores, times)
 	}
 
-	return times, nil
+	return total, cores, nil
+}
+
+func parseCPULine(fields []string) CPUTimes {
+	var times CPUTimes
+	times.User, _ = strconv.ParseUint(fields[1], 10, 64)
+	times.Nice, _ = strconv.ParseUint(fields[2], 10, 64)
+	times.System, _ = strconv.ParseUint(fields[3], 10, 64)
+	times.Idle, _ = strconv.ParseUint(fields[4], 10, 64)
+	times.IOWait, _ = strconv.ParseUint(fields[5], 10, 64)
+	times.IRQ, _ = strconv.ParseUint(fields[6], 10, 64)
+	times.SoftIRQ, _ = strconv.ParseUint(fields[7], 10, 64)
+	if len(fields) >= 9 {
+		times.Steal, _ = strconv.ParseUint(fields[8], 10, 64)
+	}
+	times.Total = times.User + times.Nice + times.System + times.Idle +
+		times.IOWait + times.IRQ + times.SoftIRQ + times.Steal
+	return times
 }
 
 // getMemoryAndSwapStats reads both memory and swap stats from /proc/meminfo in a single read
@@ -301,6 +336,30 @@ func (c *Collector) getDiskStats() []DiskStats {
 }
 
 func (c *Collector) getNetworkStats() NetStats {
+	current := c.readNetworkStats()
+	elapsed := time.Since(c.prevNetTime).Seconds()
+	if elapsed > 0 && c.prevNet.TotalRx > 0 {
+		current.RxRate = byteRate(current.TotalRx, c.prevNet.TotalRx, elapsed)
+		current.TxRate = byteRate(current.TotalTx, c.prevNet.TotalTx, elapsed)
+
+		prevByName := make(map[string]NetInterface, len(c.prevNet.Interfaces))
+		for _, iface := range c.prevNet.Interfaces {
+			prevByName[iface.Name] = iface
+		}
+		for i := range current.Interfaces {
+			if prev, ok := prevByName[current.Interfaces[i].Name]; ok {
+				current.Interfaces[i].RxRate = byteRate(current.Interfaces[i].RxBytes, prev.RxBytes, elapsed)
+				current.Interfaces[i].TxRate = byteRate(current.Interfaces[i].TxBytes, prev.TxBytes, elapsed)
+			}
+		}
+	}
+
+	c.prevNet = current
+	c.prevNetTime = time.Now()
+	return current
+}
+
+func (c *Collector) readNetworkStats() NetStats {
 	stats := NetStats{
 		Interfaces: []NetInterface{},
 	}
@@ -398,6 +457,23 @@ func (c *Collector) getUptime() (int64, int64) {
 	bootTime := time.Now().Unix() - int64(uptime)
 
 	return int64(uptime), bootTime
+}
+
+func byteRate(current, previous uint64, elapsed float64) float64 {
+	if elapsed <= 0 || current < previous {
+		return 0
+	}
+	return float64(current-previous) / elapsed
+}
+
+func clampPercent(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 100 {
+		return 100
+	}
+	return v
 }
 
 func (c *Collector) getProcessCount() int {

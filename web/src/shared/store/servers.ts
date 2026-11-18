@@ -3,11 +3,19 @@ import { proxy } from 'valtio'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+interface TowerDeviceInput {
+  id: string
+  name: string
+  status: ServerStatus
+}
+
 interface ServersState {
   servers: Server[]
   addServer: (url: string, name: string, apiKey?: string) => string
   removeServer: (id: string) => void
   getServer: (id: string) => Server | undefined
+  /** Reconcile the virtual server list with devices reported by the tower. */
+  syncTowerDevices: (devices: TowerDeviceInput[]) => void
 }
 
 export const useServersStore = create<ServersState>()(
@@ -38,19 +46,59 @@ export const useServersStore = create<ServersState>()(
       },
 
       getServer: (id) => get().servers.find((s) => s.id === id),
+
+      syncTowerDevices: (devices) => {
+        set((state) => {
+          const masterURL = typeof window !== 'undefined' ? window.location.origin : ''
+          const existing = new Map(state.servers.map((server) => [server.id, server]))
+          const towerServers: Server[] = []
+          const seen = new Set<string>()
+
+          for (const device of devices) {
+            const id = `tower-${device.id}`
+            seen.add(id)
+            const current = existing.get(id)
+            if (current) {
+              current.name = device.name
+              current.setStatus(device.status)
+              towerServers.push(current)
+            } else {
+              towerServers.push(
+                proxy(
+                  new Server({
+                    id,
+                    name: device.name,
+                    url: masterURL,
+                    apiKey: null,
+                    token: null,
+                    status: device.status,
+                    apiPrefix: `/api/devices/${device.id}/api`,
+                    managedBy: 'tower',
+                  })
+                )
+              )
+            }
+          }
+
+          const manual = state.servers.filter((server) => server.managedBy !== 'tower' && !seen.has(server.id))
+          return { servers: [...towerServers, ...manual] }
+        })
+      },
     }),
     {
       name: 'gloski-servers',
       // Don't persist tokens for security, only persist server configs
       partialize: (state) => ({
-        servers: state.servers.map((s) => ({
-          id: s.id,
-          url: s.url,
-          name: s.name,
-          apiKey: s['apiKey'],
-          token: null,
-          status: 'offline' as ServerStatus,
-        })),
+        servers: state.servers
+          .filter((s) => s.managedBy !== 'tower')
+          .map((s) => ({
+            id: s.id,
+            url: s.url,
+            name: s.name,
+            apiKey: s['apiKey'],
+            token: null,
+            status: 'offline' as ServerStatus,
+          })),
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

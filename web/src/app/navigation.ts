@@ -5,6 +5,7 @@ import {
   FolderOpen,
   LayoutDashboard,
   ListTodo,
+  Radar,
   Search,
   Server,
   Settings,
@@ -35,6 +36,14 @@ export const mainNavItems: NavItem[] = [
     path: '/',
     section: 'main',
     shortcut: 'g d',
+  },
+  {
+    id: 'fleet',
+    name: 'Fleet',
+    icon: Radar,
+    path: '/fleet',
+    section: 'main',
+    shortcut: 'g f',
   },
   {
     id: 'servers',

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useServer } from '@/shared/context'
-import type { FileEntry, ListResponse } from '@gloski/sdk'
+import { pinnedFolderId as toPinnedFolderId, unwrap, type FileEntry, type ListResponse } from '@/shared/api'
 import {
   createContext,
   useCallback,
@@ -268,7 +268,8 @@ export function FilesProvider({ children }: FilesProviderProps) {
     server
       .getClient()
       .files.pinned.list()
-      .then((response) => {
+      .then((result) => {
+        const response = unwrap(result)
         setPinnedFolders(response.folders || [])
         setHomeDir(response.home_dir)
       })
@@ -287,7 +288,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
       setError('')
       try {
         const result = await server.getClient().files.list(path)
-        setData(result)
+        setData(unwrap(result))
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load directory')
       } finally {
@@ -331,7 +332,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
     async (entry: FileEntry) => {
       setFileLoading(true)
       try {
-        const result = await server.getClient().files.read(entry.path)
+        const result = unwrap(await server.getClient().files.read(entry.path))
         setFileContent(result.content)
         setEditedContent(result.content)
       } catch (err) {
@@ -576,7 +577,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
         }
       } else {
         try {
-          const folder = await server.getClient().files.pinned.pin(entry.path, entry.name)
+          const folder = unwrap(await server.getClient().files.pinned.pin(entry.path, entry.name))
           addPinnedFolder(folder)
           toast.success('Folder pinned')
         } catch {
@@ -590,7 +591,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
   const handleSidebarUnpin = useCallback(
     async (id: string) => {
       try {
-        await server.getClient().files.pinned.unpin(id)
+        await server.getClient().files.pinned.unpin(toPinnedFolderId(id))
         removePinnedFolder(id)
         toast.success('Folder unpinned')
       } catch {

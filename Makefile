@@ -1,4 +1,4 @@
-.PHONY: dev-server dev-web build-server build-web build clean install test lint format format-check help
+.PHONY: dev-server dev-web dev-agent build-server build-agent build-web build clean install install-agent test lint format format-check help
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
@@ -18,25 +18,37 @@ dev-server: ## Run backend in development mode
 dev-web: ## Run frontend in development mode
 	cd web && bun run dev
 
+dev-agent: ## Run the device agent in development mode (requires master URL)
+	cd server && GLOSKI_LOG_LEVEL=debug go run $(LDFLAGS) ./cmd/gloski-agent
+
 dev: ## Run both backend and frontend (requires tmux)
 	@tmux new-session -d -s gloski 'make dev-server' \; split-window -h 'make dev-web' \; attach
 
 # Build
-build-server: ## Build backend binary
+build-server: ## Build backend binary (standalone/master)
 	@mkdir -p bin
 	cd server && CGO_ENABLED=0 go build $(LDFLAGS) -o ../bin/gloski ./cmd/gloski
 	@echo "$(GREEN)Built bin/gloski$(NC)"
+
+build-agent: ## Build device agent binary
+	@mkdir -p bin
+	cd server && CGO_ENABLED=0 go build $(LDFLAGS) -o ../bin/gloski-agent ./cmd/gloski-agent
+	@echo "$(GREEN)Built bin/gloski-agent$(NC)"
 
 build-web: ## Build frontend for production
 	cd web && bun run build
 	@echo "$(GREEN)Built web/dist/$(NC)"
 
-build: build-server build-web ## Build both backend and frontend
+build: build-server build-agent build-web ## Build backend, agent, and frontend
 
 # Installation
-install: build-server ## Install binary to ~/.local/bin
-	cp bin/gloski ~/.local/bin/
-	@echo "$(GREEN)Installed to ~/.local/bin/gloski$(NC)"
+install: build-server build-agent ## Install binaries to ~/.local/bin
+	cp bin/gloski bin/gloski-agent ~/.local/bin/
+	@echo "$(GREEN)Installed to ~/.local/bin/{gloski,gloski-agent}$(NC)"
+
+install-agent: build-agent ## Install only the device agent binary
+	cp bin/gloski-agent ~/.local/bin/
+	@echo "$(GREEN)Installed to ~/.local/bin/gloski-agent$(NC)"
 
 install-service: ## Install systemd service (user)
 	mkdir -p ~/.config/systemd/user

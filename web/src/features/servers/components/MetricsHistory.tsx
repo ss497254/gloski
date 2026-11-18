@@ -1,7 +1,7 @@
 import { MetricsChart } from '@/shared/components/MetricsChart'
 import { cn, formatBytes } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
-import type { StatsSample } from '@gloski/sdk'
+import { unwrap, type StatsSample } from '@/shared/api'
 import { Cpu, HardDrive, Network } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useServer } from '../../../shared/context'
@@ -53,7 +53,7 @@ export function MetricsHistory({ enabled = true }: MetricsHistoryProps) {
 
         const config = TIME_RANGE_CONFIG[timeRange]
         const client = server.getClient()
-        const history = await client.system.getHistory(config.duration, { signal: abortController.signal })
+        const history = unwrap(await client.system.getHistory(config.duration, { signal: abortController.signal }))
 
         if (!mounted) return
 

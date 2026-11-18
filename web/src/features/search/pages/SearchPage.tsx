@@ -4,7 +4,7 @@ import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { ScrollArea } from '@/ui/scroll-area'
-import type { SearchResult } from '@gloski/sdk'
+import { unwrap, type SearchResult } from '@/shared/api'
 import {
   ExternalLink,
   File,
@@ -46,8 +46,8 @@ export function SearchPage() {
       setSearched(true)
 
       try {
-        const searchResults = await server.getClient().search.search({ path, query: q.trim(), content })
-        setResults(searchResults || [])
+        const response = unwrap(await server.getClient().search.search({ path, query: q.trim(), content }))
+        setResults(response.results || [])
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Search failed')
         setResults([])

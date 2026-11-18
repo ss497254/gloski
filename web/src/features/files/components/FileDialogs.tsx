@@ -1,7 +1,7 @@
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Input } from '@/ui/input'
-import type { FileEntry } from '@gloski/sdk'
+import type { FileEntry } from '@/shared/api'
 
 interface NewFolderDialogProps {
   open: boolean

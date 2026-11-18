@@ -1,0 +1,128 @@
+/* eslint-disable react-refresh/only-export-components */
+import { useServersStore } from '@/shared/store/servers'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { connectFleetSocket, deleteDevice, detectTower, listDevices, type FleetSocket } from './client'
+import type { FleetDevice, TowerInfo, TowerMode } from './types'
+
+interface TowerContextValue {
+  mode: TowerMode
+  info: TowerInfo | null
+  devices: FleetDevice[]
+  connected: boolean
+  error: string | null
+  refresh: () => Promise<void>
+  removeDevice: (id: string) => Promise<void>
+}
+
+const TowerContext = createContext<TowerContextValue | null>(null)
+
+function sortDevices(devices: FleetDevice[]): FleetDevice[] {
+  return [...devices].sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'online' ? -1 : 1
+    return a.name.localeCompare(b.name)
+  })
+}
+
+export function TowerProvider({ children }: { children: ReactNode }) {
+  const [mode, setMode] = useState<TowerMode>('loading')
+  const [info, setInfo] = useState<TowerInfo | null>(null)
+  const [devices, setDevices] = useState<FleetDevice[]>([])
+  const [connected, setConnected] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const socketRef = useRef<FleetSocket | null>(null)
+  const syncTowerDevices = useServersStore((s) => s.syncTowerDevices)
+
+  const refresh = useCallback(async () => {
+    try {
+      const list = await listDevices()
+      setDevices(sortDevices(list))
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load devices')
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const boot = async () => {
+      const detected = await detectTower()
+      if (cancelled) return
+      if (!detected) {
+        setMode('standalone')
+        return
+      }
+
+      setInfo(detected)
+      setMode('tower')
+      await refresh()
+      if (cancelled) return
+
+      socketRef.current = connectFleetSocket({
+        onStatus: setConnected,
+        onEvent: (event) => {
+          setDevices((current) => {
+            switch (event.type) {
+              case 'snapshot':
+              case 'devices':
+                return sortDevices(event.devices ?? current)
+              case 'device.updated': {
+                if (!event.device) return current
+                const next = current.filter((d) => d.id !== event.device!.id)
+                next.push(event.device)
+                return sortDevices(next)
+              }
+              case 'device.removed':
+                return current.filter((d) => d.id !== event.device_id)
+              default:
+                return current
+            }
+          })
+        },
+      })
+    }
+
+    boot()
+    return () => {
+      cancelled = true
+      socketRef.current?.close()
+      socketRef.current = null
+    }
+  }, [refresh])
+
+  // Keep tower devices available to the existing server-scoped feature pages.
+  useEffect(() => {
+    if (mode !== 'tower') return
+    syncTowerDevices(
+      devices.map((device) => ({
+        id: device.id,
+        name: device.name,
+        status: device.status === 'online' ? 'online' : 'offline',
+      }))
+    )
+  }, [devices, mode, syncTowerDevices])
+
+  const removeDevice = useCallback(async (id: string) => {
+    await deleteDevice(id)
+    setDevices((current) => current.filter((device) => device.id !== id))
+  }, [])
+
+  const value = useMemo<TowerContextValue>(
+    () => ({ mode, info, devices, connected, error, refresh, removeDevice }),
+    [mode, info, devices, connected, error, refresh, removeDevice]
+  )
+
+  return <TowerContext.Provider value={value}>{children}</TowerContext.Provider>
+}
+
+export function useTower(): TowerContextValue {
+  const context = useContext(TowerContext)
+  if (!context) {
+    throw new Error('useTower must be used within a TowerProvider')
+  }
+  return context
+}
+
+export function useTowerOptional(): TowerContextValue | null {
+  return useContext(TowerContext)
+}

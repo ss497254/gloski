@@ -4,8 +4,8 @@ This guide will help you get started with developing Gloski.
 
 ## Prerequisites
 
-- **Go 1.22+** - for the server
-- **Node.js 20+** - for the frontend
+- **Go 1.24+** - for the server and agent
+- **Bun** - for the frontend
 - **Git** - for version control
 
 ## Development Setup
@@ -17,7 +17,7 @@ git clone https://github.com/ss497254/gloski.git
 cd gloski
 
 # Install frontend dependencies
-cd web && npm install
+cd web && bun install
 ```
 
 ### 2. Run Development Servers
@@ -33,7 +33,7 @@ GLOSKI_API_KEY=dev-key go run ./cmd/gloski
 **Terminal 2 - Frontend:**
 ```bash
 cd web
-npm run dev
+bun run dev
 ```
 
 ### 3. Access the App
@@ -97,13 +97,13 @@ See [docs/frontend.md](docs/frontend.md) and [docs/backend.md](docs/backend.md) 
 cd web
 
 # Type checking
-npm run typecheck
+bun run type-check
 
 # Build (catches errors)
-npm run build
+bun run build
 
 # Lint
-npm run lint
+bun run lint
 ```
 
 ### Backend
@@ -142,7 +142,7 @@ go build ./cmd/gloski
 
 1. Create a feature branch: `git checkout -b feature/my-feature`
 2. Make your changes
-3. Test: `npm run build` (frontend) and `go build ./cmd/gloski` (backend)
+3. Test: `bun run build` (frontend) and `go build ./cmd/gloski` and `go build ./cmd/gloski-agent` (backend)
 4. Commit with clear messages
 5. Push and create a PR
 

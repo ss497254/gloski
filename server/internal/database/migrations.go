@@ -137,4 +137,26 @@ var migrations = []migration{
 			CREATE INDEX idx_pinned_folders_path ON pinned_folders(path);
 		`,
 	},
+	{
+		version: 4,
+		name:    "create_devices_table",
+		sql: `
+			CREATE TABLE devices (
+				id TEXT PRIMARY KEY,
+				name TEXT NOT NULL UNIQUE,
+				url TEXT NOT NULL,
+				token TEXT NOT NULL UNIQUE,
+				hostname TEXT,
+				platform TEXT,
+				version TEXT,
+				stats_json TEXT,
+				created_at DATETIME NOT NULL,
+				last_seen DATETIME,
+				updated_at DATETIME NOT NULL
+			);
+
+			CREATE INDEX idx_devices_last_seen ON devices(last_seen);
+			CREATE INDEX idx_devices_token ON devices(token);
+		`,
+	},
 }

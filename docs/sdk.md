@@ -1,23 +1,20 @@
-# Gloski JavaScript SDK
+# Gloski JavaScript Client
 
-The `@gloski/sdk` package provides a TypeScript client for interacting with Gloski servers.
+The Gloski client is a TypeScript library for interacting with Gloski servers and agents. It lives inside the web app at `web/src/shared/api` and is imported through the `@/shared/api` path alias.
 
 ## Installation
 
-The SDK is included as a workspace dependency. In the `web/` package, it's already configured:
+There is no separate package to install. The client is part of the `web/`
+workspace and shares its dependencies:
 
-```json
-{
-  "dependencies": {
-    "@gloski/sdk": "*"
-  }
-}
+```typescript
+import { GloskiClient } from '@/shared/api'
 ```
 
 ## Quick Start
 
 ```typescript
-import { GloskiClient } from '@gloski/sdk'
+import { GloskiClient } from '@/shared/api'
 
 // Create a client
 const client = new GloskiClient({
@@ -25,17 +22,24 @@ const client = new GloskiClient({
   apiKey: 'your-api-key',
 })
 
-// Get system stats
-const stats = await client.system.getStats()
-console.log(`CPU: ${stats.cpu.usage_percent}%`)
+// All resource methods return Result<T> = { data, error }
+const { data: stats, error } = await client.system.getStats()
+if (error) {
+  console.error(error.message)
+} else {
+  console.log(`CPU: ${stats.cpu.usage_percent}%`)
+}
 
 // List files
-const { entries } = await client.files.list('/home')
+const { data: listing } = await client.files.list('/home')
 
-// Connect to terminal
+// Connect to terminal (WebSocket — not wrapped in Result)
 const term = client.terminal.connect()
 term.on('data', (data) => console.log(data))
 term.write('ls -la\n')
+
+// Dispose when done
+client.dispose()
 ```
 
 ## Client Configuration
@@ -80,6 +84,36 @@ const client = new GloskiClient({
 })
 ```
 
+### Cleanup
+
+Call `dispose()` when the client is no longer needed to clear pending request references:
+
+```typescript
+client.dispose()
+```
+
+## Result Type
+
+All resource methods return `Promise<Result<T>>` instead of throwing errors:
+
+```typescript
+type Result<T> =
+  | { data: T; error: null }
+  | { data: null; error: GloskiError }
+```
+
+This allows safe destructuring without try/catch:
+
+```typescript
+const { data, error } = await client.system.getStats()
+if (error) {
+  console.error(error.message)
+  return
+}
+// data is typed as SystemStats
+console.log(data.cpu.usage_percent)
+```
+
 ## Resources
 
 The client provides namespaced access to different API resources:
@@ -90,7 +124,6 @@ The client provides namespaced access to different API resources:
 | `client.system`    | System stats and monitoring               |
 | `client.files`     | File operations (includes pinned folders) |
 | `client.jobs`      | Job/process management                    |
-| `client.systemd`   | Systemd service management                |
 | `client.search`    | File search                               |
 | `client.terminal`  | Terminal WebSocket connections            |
 | `client.packages`  | Package management (optional)             |
@@ -101,34 +134,42 @@ The client provides namespaced access to different API resources:
 
 ```typescript
 // Get current stats
-const stats = await client.system.getStats()
+const { data: stats } = await client.system.getStats()
 
 // Get stats history (last 5 minutes)
-const history = await client.system.getHistory('5m')
+const { data: history } = await client.system.getHistory('5m')
 
 // Get system info
-const info = await client.system.getInfo()
+const { data: info } = await client.system.getInfo()
 
 // Get running processes
-const processes = await client.system.getProcesses(100)
+const { data: processes } = await client.system.getProcesses(100)
+
+// Real-time stats via WebSocket
+const statsConn = client.system.connectStats()
+statsConn.on('stats', (stats) => {
+  console.log('CPU:', stats.cpu.usage_percent)
+})
+statsConn.on('error', (err) => console.error(err))
+// Later: statsConn.close()
 ```
 
 ### Files Resource
 
 ```typescript
-// List directory (also returns home_dir from pinned response)
-const { path, entries } = await client.files.list('/home/user')
+// List directory
+const { data: listing } = await client.files.list('/home/user')
 
 // Read file
-const { content } = await client.files.read('/etc/hosts')
+const { data: file } = await client.files.read('/etc/hosts')
 
 // Pinned folders (sub-resource of files)
-const { folders, home_dir } = await client.files.pinned.list()
-const pinned = await client.files.pinned.pin('/home/user/projects', 'Projects')
-await client.files.pinned.unpin(pinned.id)
+const { data: pinned } = await client.files.pinned.list()
+const { data: folder } = await client.files.pinned.pin('/home/user/projects', 'Projects')
+await client.files.pinned.unpin(folder.id)
 
 // Read large file with progress
-const result = await client.files.readWithProgress('/var/log/large.log', (loaded, total) => {
+const { data: result } = await client.files.readWithProgress('/var/log/large.log', (loaded, total) => {
   console.log(`Progress: ${loaded}/${total}`)
 })
 
@@ -147,7 +188,7 @@ await client.files.rename('/tmp/old.txt', '/tmp/new.txt')
 // Upload file
 await client.files.upload('/tmp', file)
 
-// Get download URL
+// Get download URL (synchronous, returns string)
 const url = client.files.getDownloadUrl('/tmp/file.zip')
 ```
 
@@ -155,16 +196,16 @@ const url = client.files.getDownloadUrl('/tmp/file.zip')
 
 ```typescript
 // List jobs
-const jobs = await client.jobs.list()
+const { data: jobs } = await client.jobs.list()
 
 // Start a job
-const job = await client.jobs.start('bun run build', '/home/user/project')
+const { data: job } = await client.jobs.start('bun run build', '/home/user/project')
 
 // Get job details
-const job = await client.jobs.get('job-id')
+const { data: job } = await client.jobs.get('job-id')
 
 // Get job logs
-const logs = await client.jobs.getLogs('job-id')
+const { data: logs } = await client.jobs.getLogs('job-id')
 
 // Stop job
 await client.jobs.stop('job-id')
@@ -173,36 +214,17 @@ await client.jobs.stop('job-id')
 await client.jobs.delete('job-id')
 ```
 
-### Systemd Resource
-
-```typescript
-// List units
-const units = await client.systemd.list(true) // true = user mode
-
-// Start/stop/restart
-await client.systemd.start('my-service.service')
-await client.systemd.stop('my-service.service')
-await client.systemd.restart('my-service.service')
-
-// Enable/disable
-await client.systemd.enable('my-service.service')
-await client.systemd.disable('my-service.service')
-
-// Get logs
-const logs = await client.systemd.getLogs('my-service.service', true, 100)
-```
-
 ### Search Resource
 
 ```typescript
 // Search by filename
-const results = await client.search.byName('/home', 'config')
+const { data: results } = await client.search.byName('/home', 'config')
 
 // Search in file contents
-const results = await client.search.byContent('/home', 'TODO')
+const { data: results } = await client.search.byContent('/home', 'TODO')
 
 // Full search options
-const results = await client.search.search({
+const { data: results } = await client.search.search({
   path: '/home',
   query: 'config',
   content: true,
@@ -268,27 +290,27 @@ console.log(term.isOpen) // true/false
 
 ```typescript
 // Get package manager info
-const info = await client.packages.info()
+const { data: info } = await client.packages.info()
 console.log(info.manager) // 'apt', 'dnf', etc.
 
 // List installed packages
-const packages = await client.packages.listInstalled()
+const { data: packages } = await client.packages.listInstalled()
 
 // Check for upgrades
-const upgrades = await client.packages.checkUpgrades()
+const { data: upgrades } = await client.packages.checkUpgrades()
 
 // Search packages
-const results = await client.packages.search('nginx')
+const { data: results } = await client.packages.search('nginx')
 
 // Get package details
-const pkg = await client.packages.get('nginx')
+const { data: pkg } = await client.packages.get('nginx')
 ```
 
 ### Cron Resource
 
 ```typescript
 // List cron jobs
-const jobs = await client.cron.list()
+const { data: jobs } = await client.cron.list()
 
 // Add job
 await client.cron.add({
@@ -296,35 +318,68 @@ await client.cron.add({
   command: '/usr/local/bin/backup.sh',
 })
 
-// Remove job
-await client.cron.remove('job-id')
+// Remove job (by schedule + command)
+await client.cron.remove('0 * * * *', '/usr/local/bin/backup.sh')
+```
+
+### Downloads Resource
+
+```typescript
+// List all downloads
+const { data: downloads } = await client.downloads.list()
+
+// Add a new download
+const { data: download } = await client.downloads.add(
+  'https://example.com/file.tar.gz',
+  '/home/user/downloads'
+)
+
+// Get download by ID
+const { data: dl } = await client.downloads.get('download-id')
+
+// Control downloads
+await client.downloads.pause('download-id')
+await client.downloads.resume('download-id')
+await client.downloads.cancel('download-id')
+await client.downloads.retry('download-id')
+
+// Delete download (optionally delete file too)
+await client.downloads.delete('download-id', true)
+
+// Get authenticated download URL (synchronous)
+const url = client.downloads.getDownloadUrl('download-id')
+
+// Share links
+const { data: link } = await client.downloads.createShareLink('download-id', {
+  expires_in: 3600, // seconds, or omit for no expiry
+})
+await client.downloads.revokeShareLink('download-id', link.token)
 ```
 
 ## Error Handling
 
+All resource methods return `Result<T>` — errors are returned, not thrown:
+
 ```typescript
-import { GloskiClient, GloskiError } from '@gloski/sdk'
+const { data, error } = await client.files.read('/etc/shadow')
 
-try {
-  await client.files.read('/etc/shadow')
-} catch (error) {
-  if (error instanceof GloskiError) {
-    console.log('Status:', error.status)
-    console.log('Message:', error.message)
+if (error) {
+  // error is a GloskiError instance
+  console.log('Status:', error.status)   // HTTP status (0 for network errors)
+  console.log('Message:', error.message)
 
-    if (error.isUnauthorized) {
-      // Handle 401
-    } else if (error.isForbidden) {
-      // Handle 403
-    } else if (error.isNotFound) {
-      // Handle 404
-    } else if (error.isNetworkError) {
-      // Handle network error (status 0)
-    } else if (error.isServerError) {
-      // Handle 5xx errors
-    }
-  }
+  // Convenience getters
+  if (error.isUnauthorized) { /* 401 */ }
+  if (error.isForbidden) { /* 403 */ }
+  if (error.isNotFound) { /* 404 */ }
+  if (error.isNetworkError) { /* status 0, server unreachable */ }
+  if (error.isServerError) { /* 5xx */ }
+  if (error.isClientError) { /* 4xx */ }
+  return
 }
+
+// data is typed and non-null here
+console.log(data.content)
 ```
 
 ## Static Methods
@@ -333,8 +388,6 @@ try {
 // Health check (no authentication required)
 const health = await GloskiClient.checkHealth('https://server.example.com')
 console.log(health.status) // 'ok'
-console.log(health.version) // '1.0.0'
-console.log(health.features) // { packages: true, cron: true, ... }
 ```
 
 ## TypeScript Types
@@ -345,55 +398,82 @@ All types are exported from the SDK:
 import type {
   // Client config
   GloskiClientConfig,
+  Result,
+  ApiResponseEnvelope,
 
   // System types
   SystemStats,
   CPUStats,
   MemoryStats,
+  SwapStats,
+  DiskStats,
+  NetworkStats,
+  LoadAvg,
   ProcessInfo,
   SystemInfo,
+  ServerHealthReport,
+  StatsSample,
+  StatsHistoryResponse,
 
   // File types
   FileEntry,
-  ListResponse,
-  ReadResponse,
-  SearchResult,
+  DirectoryListing,
+  FileContent,
+  FileSearchMatch,
+  FileSearchOptions,
+  FileSearchResponse,
   PinnedFolder,
   PinnedFoldersResponse,
+  ChunkedUploadInit,
+  ChunkedUploadInfo,
 
   // Job types
   Job,
   JobStatus,
 
-  // Systemd types
-  SystemdUnit,
-  SystemdAction,
-
   // Terminal types
   TerminalOptions,
-  TerminalState,
   TerminalEvents,
+
+  // WebSocket types
+  WebSocketConnectionOptions,
+  WebSocketConnectionState,
+  StatsConnectionEvents,
 
   // Download types
   Download,
   DownloadStatus,
-} from '@gloski/sdk'
+  NewDownloadRequest,
+  ShareLink,
+  CreateShareOptions,
+
+  // Package types
+  SystemPackage,
+  PackageManagerInfo,
+  InstalledPackagesResponse,
+  UpgradeInfo,
+
+  // Cron types
+  CronJob,
+  NewCronJob,
+  CronScope,
+} from '@/shared/api'
 ```
 
 ## Architecture
 
 ```
-@gloski/sdk
+web/src/shared/api
 ├── GloskiClient          # Main client class
 ├── GloskiError           # Error class
+├── safe()                # Wraps promises into Result<T>
 ├── EventEmitter          # Base class for events
 └── Resources
     ├── AuthResource
     ├── SystemResource
     ├── FilesResource
-    │   └── PinnedSubResource  # files.pinned.*
+    │   └── PinnedFoldersResource  # files.pinned.*
     ├── JobsResource
-    ├── SystemdResource
     ├── SearchResource
     ├── TerminalResource
     ├── PackagesResource
@@ -401,17 +481,17 @@ import type {
     └── DownloadsResource
 ```
 
-## Building the SDK
+## Type Checking and Tests
+
+The client is source-only and has no build step. It is consumed directly by the
+web app through the `@/shared/api` alias.
 
 ```bash
-cd js-sdk
+cd web
 
-# Type check
-bun run typecheck
+# Type check the frontend
+bun run type-check
+
+# Run the client tests
+bun test src/shared/api
 ```
-
-The build outputs:
-
-- `dist/index.js` - ESM bundle
-- `dist/index.cjs` - CommonJS bundle
-- `dist/index.d.ts` - TypeScript declarations

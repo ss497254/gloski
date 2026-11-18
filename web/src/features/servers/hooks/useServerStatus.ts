@@ -1,5 +1,5 @@
 import type { Server } from '@/shared/store/servers'
-import type { ServerHealthReport } from '@gloski/sdk'
+import { unwrap, type ServerHealthReport } from '@/shared/api'
 import { useCallback, useRef, useState } from 'react'
 
 interface UseServerStatusOptions {
@@ -41,7 +41,7 @@ export function useServerStatus(server: Server, options: UseServerStatusOptions 
       setError(null)
 
       const client = server.getClient()
-      const status = await client.system.getStatus()
+      const status = unwrap(await client.system.getStatus())
 
       setServerStatus(status)
       setError(null)

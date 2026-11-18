@@ -6,7 +6,7 @@ The Gloski server is a Go application that provides APIs for system management, 
 
 | Technology | Purpose |
 |------------|---------|
-| Go 1.22+ | Language (uses new router patterns) |
+| Go 1.24+ | Language (uses new router patterns) |
 | net/http | HTTP server |
 | gorilla/websocket | WebSocket for terminal |
 | golang-jwt/jwt | JWT token verification |
@@ -17,8 +17,10 @@ The Gloski server is a Go application that provides APIs for system management, 
 ```
 server/
 ├── cmd/
-│   └── gloski/
-│       └── main.go           # Entry point
+│   ├── gloski/
+│   │   └── main.go           # Standalone / master entry point
+│   └── gloski-agent/
+│       └── main.go           # Device agent entry point
 │
 └── internal/
     ├── app/
@@ -57,6 +59,23 @@ server/
     │
     ├── database/
     │   └── migrations.go     # SQLite migrations
+    │
+    ├── devices/
+    │   ├── service.go        # Enrollment, heartbeats, online status
+    │   ├── store.go          # Device registry (SQLite)
+    │   ├── hub.go            # Fleet WebSocket fan-out
+    │   └── types.go          # Device and protocol types
+    │
+    ├── master/
+    │   ├── server.go         # Control tower routes + SPA serving
+    │   ├── handlers.go       # Enrollment, heartbeat, fleet API
+    │   ├── proxy.go          # Device API reverse proxy
+    │   └── run.go            # Master HTTP server lifecycle
+    │
+    ├── agent/
+    │   ├── run.go            # Agent lifecycle, enrollment, heartbeat
+    │   ├── client.go         # Master registration/heartbeat client
+    │   └── state.go          # Persisted device credentials
     │
     ├── files/
     │   └── service.go        # File operations
@@ -130,7 +149,7 @@ func New(cfg *config.Config) (*App, error) {
     app.Auth = auth.NewService(cfg)
     app.Files = files.NewService(cfg)
     app.System = system.NewService(statsStore)
-    app.Tasks = tasks.NewService()
+    app.Jobs = jobs.NewService(cfg.DB)
     
     // 4. Initialize optional services (may fail gracefully)
     app.Packages, _ = packages.NewService()
@@ -226,6 +245,20 @@ Configuration is loaded from environment variables and/or config file.
 | `GLOSKI_SHELL` | `$SHELL` | Shell for terminal |
 | `GLOSKI_ALLOWED_ORIGINS` | `*` | CORS origins (comma-separated) |
 | `GLOSKI_ALLOWED_PATHS` | `/` | Allowed filesystem paths |
+| `GLOSKI_MODE` | `standalone` | `standalone`, `master`, or `agent` |
+| `GLOSKI_DATA_DIR` | `~/.gloski/data` | Database, job, download, and agent state |
+| `GLOSKI_MASTER_WEB_DIR` | `web/dist` | SPA directory served by the master |
+| `GLOSKI_MASTER_JOIN_TOKEN` | generated | Agent enrollment token |
+| `GLOSKI_MASTER_DEVICE_TIMEOUT` | `45` | Seconds before a device is offline |
+| `GLOSKI_MASTER_HEARTBEAT_INTERVAL` | `10` | Advertised heartbeat interval |
+| `GLOSKI_AGENT_MASTER_URL` | (required) | Master URL for `gloski-agent` |
+| `GLOSKI_AGENT_JOIN_TOKEN` | (none) | Enrollment token for first registration |
+| `GLOSKI_AGENT_NAME` | hostname | Device display name / registry key |
+| `GLOSKI_AGENT_ADVERTISE_URL` | derived | URL the master uses to reach the agent |
+| `GLOSKI_AGENT_HEARTBEAT_INTERVAL` | `10` | Agent heartbeat interval |
+| `GLOSKI_AGENT_STATE_FILE` | `<data_dir>/agent.json` | Device credential file |
+
+See [Control Tower](tower.md) for topology, Tailscale, and enrollment details.
 
 ### Config File
 
@@ -272,7 +305,7 @@ type Service struct {
 
 func (s *Service) GetStats() (*Stats, error)
 func (s *Service) GetHistory(duration time.Duration) ([]Sample, error)
-func (s *Service) GetProcesses(limit int) ([]ProcessInfo, error)
+func (s *Service) GetProcesses(limit int, sortBy string) ([]ProcessInfo, error)
 func (s *Service) GetInfo() (*SystemInfo, error)
 ```
 
@@ -398,7 +431,7 @@ func Success(w http.ResponseWriter, message string)
 
 ## Routes
 
-Routes are defined in `internal/api/routes/routes.go` using Go 1.22's enhanced router:
+Routes are defined in `internal/api/routes/routes.go` using Go 1.24's enhanced router:
 
 ```go
 func Setup(cfg Config) http.Handler {
@@ -413,8 +446,8 @@ func Setup(cfg Config) http.Handler {
     mux.Handle("POST /api/files/write", requireAuth(filesHandler.Write))
     
     // Routes with path parameters
-    mux.Handle("GET /api/tasks/{id}", requireAuth(tasksHandler.Get))
-    mux.Handle("DELETE /api/tasks/{id}", requireAuth(tasksHandler.Stop))
+    mux.Handle("GET /api/jobs/{id}", requireAuth(jobsHandler.Get))
+    mux.Handle("DELETE /api/jobs/{id}", requireAuth(jobsHandler.Stop))
     
     // Apply global middleware
     return middleware.Chain(
@@ -564,11 +597,13 @@ cd server
 # Development
 go run ./cmd/gloski
 
-# Build binary
+# Build binaries
 go build -o gloski ./cmd/gloski
+go build -o gloski-agent ./cmd/gloski-agent
 
 # Build for Linux (cross-compile)
 GOOS=linux GOARCH=amd64 go build -o gloski ./cmd/gloski
+GOOS=linux GOARCH=amd64 go build -o gloski-agent ./cmd/gloski-agent
 
 # Run tests
 go test ./...

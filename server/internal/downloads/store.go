@@ -255,4 +255,3 @@ func (s *Store) GetByShareToken(token string) (*Download, *ShareLink, error) {
 
 	return download, &link, nil
 }
-

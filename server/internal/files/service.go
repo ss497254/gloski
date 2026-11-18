@@ -109,17 +109,16 @@ func (s *Service) validatePath(path string) (string, error) {
 		return "", err
 	}
 
-	// Resolve symlinks to prevent traversal attacks
+	// Resolve symlinks to prevent traversal attacks. Paths that don't exist
+	// yet (writes and nested mkdir) still resolve their nearest existing
+	// ancestor, so a new directory tree cannot escape an allowed root.
 	resolved, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
-		// If the path doesn't exist yet (e.g., for writes), resolve the parent
-		if os.IsNotExist(err) {
-			parentResolved, parentErr := filepath.EvalSymlinks(filepath.Dir(absPath))
-			if parentErr != nil {
-				return "", parentErr
-			}
-			absPath = filepath.Join(parentResolved, filepath.Base(absPath))
-		} else {
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		absPath, err = resolveMissingPath(absPath)
+		if err != nil {
 			return "", err
 		}
 	} else {
@@ -132,6 +131,33 @@ func (s *Service) validatePath(path string) (string, error) {
 	}
 
 	return absPath, nil
+}
+
+// resolveMissingPath resolves the nearest existing ancestor and reapplies the
+// missing path segments. This keeps symlink validation effective while still
+// allowing files and nested directories to be created.
+func resolveMissingPath(absPath string) (string, error) {
+	var missing []string
+	current := absPath
+
+	for {
+		resolved, err := filepath.EvalSymlinks(current)
+		if err == nil {
+			for i := len(missing) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, missing[i])
+			}
+			return resolved, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", err
+		}
+		missing = append(missing, filepath.Base(current))
+		current = parent
+	}
 }
 
 func (s *Service) List(path string) (*ListResponse, error) {
@@ -263,10 +289,11 @@ func (s *Service) Delete(path string) error {
 		return ErrDangerousPath
 	}
 
-	// Don't allow deleting system directories
+	// Don't allow deleting system directories. /tmp itself is protected, but
+	// deleting individual files below it is a normal operation.
 	dangerousPaths := []string{"/etc", "/usr", "/bin", "/sbin", "/var", "/boot", "/lib", "/lib64", "/dev", "/proc", "/sys", "/run", "/tmp", "/root"}
 	for _, dp := range dangerousPaths {
-		if absPath == dp || strings.HasPrefix(absPath, dp+"/") {
+		if absPath == dp || (dp != "/tmp" && strings.HasPrefix(absPath, dp+"/")) {
 			return ErrDangerousPath
 		}
 	}

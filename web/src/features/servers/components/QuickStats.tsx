@@ -1,6 +1,6 @@
 import { StatCard } from '@/shared/components'
 import { formatUptime } from '@/shared/lib/utils'
-import type { SystemStats } from '@gloski/sdk'
+import type { SystemStats } from '@/shared/api'
 import { Activity, Clock, Cpu, Server } from 'lucide-react'
 
 interface QuickStatsProps {

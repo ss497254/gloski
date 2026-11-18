@@ -202,4 +202,3 @@ func (s *Store) GetOldestJobs(keepCount int) ([]*Job, error) {
 
 	return jobs, rows.Err()
 }
-

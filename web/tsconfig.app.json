@@ -19,8 +19,7 @@
     /* Path alias */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@gloski/sdk": ["../js-sdk/src/index.ts"]
+      "@/*": ["./src/*"]
     },
 
     /* Linting */
@@ -31,5 +30,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/shared/api/__tests__"]
 }

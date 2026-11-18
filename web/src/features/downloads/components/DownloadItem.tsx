@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
-import type { Download } from '@gloski/sdk'
+import type { Download } from '@/shared/api'
 import {
   AlertCircle,
   CheckCircle2,

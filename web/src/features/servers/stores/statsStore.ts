@@ -1,5 +1,5 @@
 import type { Server } from '@/shared/store/servers'
-import type { StatsConnection, SystemStats } from '@gloski/sdk'
+import type { StatsConnection, SystemStats } from '@/shared/api'
 import { createStore } from 'zustand/vanilla'
 
 interface StatsState {

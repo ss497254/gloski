@@ -3,4 +3,3 @@ dist
 web/dist
 web/node_modules
 *.lock
-package-lock.json

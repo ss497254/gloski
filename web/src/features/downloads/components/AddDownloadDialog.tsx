@@ -3,7 +3,7 @@ import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Input } from '@/ui/input'
-import type { FileEntry } from '@gloski/sdk'
+import { unwrap, type FileEntry } from '@/shared/api'
 import { ArrowLeft, ChevronRight, Download, Folder, FolderOpen, HardDrive, Home, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -34,7 +34,7 @@ export function AddDownloadDialog({ open, onOpenChange, onAdd, server }: AddDown
     async (path: string) => {
       setBrowserLoading(true)
       try {
-        const response = await server.getClient().files.list(path)
+        const response = unwrap(await server.getClient().files.list(path))
         setBrowserEntries(response.entries.filter((e) => e.type === 'directory'))
       } catch {
         setBrowserEntries([])

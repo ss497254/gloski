@@ -13,6 +13,7 @@ import (
 	"github.com/ss497254/gloski/internal/app"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/logger"
+	"github.com/ss497254/gloski/internal/master"
 )
 
 var (
@@ -21,51 +22,63 @@ var (
 )
 
 func main() {
-	// Command line flags
 	configPath := flag.String("c", "", "Path to config file")
+	mode := flag.String("mode", "", "Operating mode: standalone or master")
 	showVersion := flag.Bool("v", false, "Show version information")
 	flag.Parse()
 
-	// Show version
 	if *showVersion {
 		logger.Info("Gloski %s (built %s)", version, buildTime)
 		os.Exit(0)
 	}
 
-	// Load configuration
+	if *mode != "" {
+		os.Setenv("GLOSKI_MODE", *mode)
+	}
+
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		logger.Debug("Failed to load config.")
 		logger.Fatal("%v", err)
 	}
-
-	// Set log level
 	logger.SetLevel(logger.ParseLevel(cfg.LogLevel))
 
+	switch cfg.Mode {
+	case config.ModeMaster:
+		logger.Info("Gloski control tower %s starting...", version)
+		if err := master.Run(cfg, version); err != nil {
+			logger.Fatal("Control tower failed: %v", err)
+		}
+	case config.ModeAgent:
+		logger.Fatal("gloski no longer runs in agent mode; use the gloski-agent binary")
+	case config.ModeStandalone:
+		logger.Info("Gloski %s starting in standalone mode...", version)
+		runStandalone(cfg)
+	default:
+		logger.Fatal("Unknown mode %q", cfg.Mode)
+	}
+}
+
+func runStandalone(cfg *config.Config) {
 	logger.Info("Gloski %s starting...", version)
 	logger.Debug("Config loaded: host=%s port=%d", cfg.Host, cfg.Port)
 
-	// Initialize application with all services
 	application, err := app.New(cfg)
 	if err != nil {
 		logger.Fatal("Failed to initialize application: %v", err)
 	}
 
-	// Create API server
-	apiServer := api.NewServer(application, api.ServerOptions{
-		Version: version,
-	})
+	apiServer := api.NewServer(application, api.ServerOptions{Version: version})
 
-	// HTTP server setup
 	srv := &http.Server{
-		Addr:         cfg.Addr(),
-		Handler:      apiServer.Router(),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              cfg.Addr(),
+		Handler:           apiServer.Router(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
-	// Start server
 	go func() {
 		logger.Info("Server listening on http://%s%s", srv.Addr, cfg.APIPrefix)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -73,30 +86,23 @@ func main() {
 		}
 	}()
 
-	// Wait for shutdown signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
-
 	logger.Info("Received signal %v, shutting down...", sig)
 
-	// Get shutdown timeout
 	shutdownTimeout := cfg.ShutdownTimeout
 	if shutdownTimeout <= 0 {
 		shutdownTimeout = 5
 	}
 
-	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(shutdownTimeout)*time.Second)
 	defer cancel()
 
 	countdownDone := make(chan struct{})
-
-	// Start countdown in background (visual indicator during shutdown)
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
-
 		remaining := shutdownTimeout
 		for remaining > 0 {
 			select {
@@ -109,21 +115,13 @@ func main() {
 		}
 	}()
 
-	// Shutdown HTTP server
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Error("HTTP server forced to shutdown: %v", err)
 	}
-
-	// Shutdown API server resources (terminal sessions, etc.)
 	apiServer.Shutdown()
-
-	// Shutdown application services
 	if err := application.Shutdown(ctx); err != nil {
 		logger.Error("Application shutdown error: %v", err)
 	}
-
-	// Stop countdown and log appropriate message
 	close(countdownDone)
-
 	logger.Info("Shutdown complete")
 }

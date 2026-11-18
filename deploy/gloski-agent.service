@@ -1,0 +1,14 @@
+[Unit]
+Description=Gloski Device Agent
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=your-username
+ExecStart=%h/.local/bin/gloski-agent -c %h/.config/gloski/agent.json
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -55,23 +55,32 @@ Gloski is a control center for managing multiple Linux servers. This document de
 └───────────────────────┘  └───────────────────────┘  └───────────────────────┘
 ```
 
+The diagram above is the direct/standalone topology. In control tower mode the
+browser talks only to a master, which serves the SPA and proxies to
+`gloski-agent` processes on each device; see
+[Control Tower Mode](#3-control-tower-mode) below.
+
 ## Key Design Decisions
 
-### 1. Decentralized Architecture
+### 1. Flexible Topology
 
-Each server runs its own Gloski server instance. There is no central server - the frontend connects directly to each server.
+Each server can run its own standalone Gloski instance, and the frontend can
+connect directly to each server. For a managed fleet, one instance can instead
+run as a **control tower** (`master`) that serves the SPA and proxies requests
+to lightweight agents on each device. See [Control Tower](tower.md).
 
 **Benefits:**
 
-- No single point of failure
-- Servers work independently
-- No central database to maintain
-- Easy to add/remove servers
+- Standalone servers have no single point of failure
+- Servers work independently with no central database
+- A fleet gets one dashboard, one registry, and one access path
+- Easy to add/remove devices without browser-side credentials
 
 **Trade-offs:**
 
-- Workspace data (notes, bookmarks) stored in browser localStorage
+- Workspace data (notes, bookmarks) is stored in browser localStorage
 - No cross-device sync (yet)
+- The master is a control-plane dependency for fleet views
 
 ### 2. Frontend-Managed Server Registry
 
@@ -90,22 +99,41 @@ interface Server {
 }
 ```
 
-### 3. Stateless Server Design
+### 3. Control Tower Mode
 
-Gloski servers are stateless - they don't store any user data:
+```
+Browser ──HTTPS/WSS──▶ gloski master ──HTTP──▶ gloski-agent (device A)
+                         │      │      └─────▶ gloski-agent (device B)
+                         │      └────────────▶ gloski-agent (device N)
+                         └── SQLite device registry + SPA
+```
 
-- No database
-- No user accounts
-- No session storage
+- The master serves the built SPA from `web/dist`, so the dashboard is never
+  hosted separately.
+- Agents enroll with a join token and persist a per-device token locally.
+- Heartbeats carry a cached stats snapshot; the fleet WebSocket fans changes
+  out to browsers.
+- `/api/devices/{id}/...` is a reverse proxy to the agent. The master injects
+  the device token, so browser credentials never reach the agent.
+- If the app detects a master (`GET /api/tower/info`), it adds fleet routes and
+  virtual `tower-<id>` server entries that reuse the existing feature pages.
+- Standalone mode remains the default and continues to work without a master.
+
+### 4. Lightweight Server Design
+
+Gloski servers use a local SQLite database for operational state (jobs, downloads, pinned folders) but don't store any user account data:
+
+- No user accounts or session storage
 - Authentication via API key or JWT
+- SQLite database for job history, downloads, and pinned folders (auto-created)
 
 This means:
 
-- Easy deployment (single binary)
-- Easy scaling (just add more servers)
+- Easy deployment (single binary + auto-created SQLite file)
+- No external database to configure
 - No data migration concerns
 
-### 4. Authentication Model
+### 5. Authentication Model
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -430,6 +458,27 @@ Protocol:
 
 ## Deployment Patterns
 
+### Control Tower
+
+```
+┌────────────────────┐        ┌──────────────────────────┐
+│      Browser       │──WSS──▶│  gloski master (loopback) │
+└────────────────────┘        │  + tailscale serve HTTPS  │
+                              │  devices registry (SQLite)│
+                              └───────┬─────────┬────────┘
+                                      │         │
+                             HTTP+token│         │HTTP+token
+                                      ▼         ▼
+                              ┌────────────┐ ┌────────────┐
+                              │gloski-agent│ │gloski-agent│
+                              │  device A  │ │  device B  │
+                              └────────────┘ └────────────┘
+```
+
+The master and agents are separate binaries built from the same repository.
+`tailscale serve` supplies HTTPS and tailnet access control while the master
+stays bound to loopback. See [Control Tower](tower.md) for setup.
+
 ### Single Server
 
 ```
@@ -507,5 +556,5 @@ All servers share the same public key to verify tokens.
 ### Scalability Notes
 
 - Frontend: Static files, infinitely scalable via CDN
-- Backend: Stateless, scale by running more instances
+- Backend: Lightweight single binary, SQLite is local and auto-created
 - Data: Currently browser-local, could add optional sync

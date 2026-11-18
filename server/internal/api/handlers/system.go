@@ -163,7 +163,8 @@ func (h *SystemHandler) GetProcesses(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	processes, err := h.systemService.GetProcesses(limit)
+	sortBy := r.URL.Query().Get("sort")
+	processes, err := h.systemService.GetProcesses(limit, sortBy)
 	if err != nil {
 		InternalError(w, "failed to get processes", err.Error())
 		return
@@ -218,9 +219,9 @@ var statsUpgrader = websocket.Upgrader{
 // StatsWebSocket handles WebSocket connections for real-time stats streaming
 // GET /api/system/stats/ws
 func (h *SystemHandler) StatsWebSocket(w http.ResponseWriter, r *http.Request) {
-	// Auth via query param for WebSocket - try API key first, then JWT
-	apiKey := r.URL.Query().Get("api_key")
-	token := r.URL.Query().Get("token")
+	// Auth via headers or query params for WebSocket - try API key first,
+	// then JWT.
+	apiKey, token := websocketCredentials(r)
 
 	authenticated := false
 

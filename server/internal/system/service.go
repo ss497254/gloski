@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -16,7 +18,19 @@ import (
 type Service struct {
 	store *Store
 	hub   *Hub
+
+	procMu   sync.Mutex
+	prevProc map[int]procSample
 }
+
+type procSample struct {
+	ticks uint64
+	at    time.Time
+}
+
+const clockTicks = 100 // Linux USER_HZ
+
+var userCache sync.Map
 
 // NewService creates a new system service.
 func NewService(store *Store, hub *Hub) *Service {
@@ -180,13 +194,20 @@ type Process struct {
 	Command string  `json:"command"`
 }
 
-// GetProcesses returns a list of running processes sorted by memory usage (most useful first).
-func (s *Service) GetProcesses(limit int) ([]Process, error) {
+// GetProcesses returns a list of running processes. sortBy may be "cpu"
+// (default), "memory", or "pid".
+func (s *Service) GetProcesses(limit int, sortBy string) ([]Process, error) {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil, err
 	}
 
+	s.procMu.Lock()
+	defer s.procMu.Unlock()
+
+	now := time.Now()
+	prev := s.prevProc
+	next := make(map[int]procSample, len(entries))
 	var processes []Process
 
 	for _, entry := range entries {
@@ -199,18 +220,39 @@ func (s *Service) GetProcesses(limit int) ([]Process, error) {
 			continue
 		}
 
-		proc, err := s.readProcess(pid)
+		proc, ticks, err := s.readProcess(pid)
 		if err != nil {
 			continue
 		}
 
+		if old, ok := prev[pid]; ok && now.After(old.at) && ticks >= old.ticks {
+			elapsed := now.Sub(old.at).Seconds()
+			if elapsed > 0 {
+				proc.CPU = float64(ticks-old.ticks) / clockTicks / elapsed * 100
+				maxCPU := float64(runtime.NumCPU() * 100)
+				if proc.CPU > maxCPU {
+					proc.CPU = maxCPU
+				}
+			}
+		}
+		next[pid] = procSample{ticks: ticks, at: now}
 		processes = append(processes, proc)
 	}
+	s.prevProc = next
 
-	// Sort by RSS descending so most resource-consuming processes come first
-	sort.Slice(processes, func(i, j int) bool {
-		return processes[i].RSS > processes[j].RSS
-	})
+	switch sortBy {
+	case "memory", "rss", "mem":
+		sort.Slice(processes, func(i, j int) bool { return processes[i].RSS > processes[j].RSS })
+	case "pid":
+		sort.Slice(processes, func(i, j int) bool { return processes[i].PID < processes[j].PID })
+	default:
+		sort.Slice(processes, func(i, j int) bool {
+			if processes[i].CPU == processes[j].CPU {
+				return processes[i].RSS > processes[j].RSS
+			}
+			return processes[i].CPU > processes[j].CPU
+		})
+	}
 
 	if limit > 0 && len(processes) > limit {
 		processes = processes[:limit]
@@ -219,14 +261,14 @@ func (s *Service) GetProcesses(limit int) ([]Process, error) {
 	return processes, nil
 }
 
-func (s *Service) readProcess(pid int) (Process, error) {
+func (s *Service) readProcess(pid int) (Process, uint64, error) {
 	proc := Process{PID: pid}
 	procDir := filepath.Join("/proc", strconv.Itoa(pid))
 
 	// Read stat file
 	statData, err := os.ReadFile(filepath.Join(procDir, "stat"))
 	if err != nil {
-		return proc, err
+		return proc, 0, err
 	}
 
 	// Parse stat - format: pid (comm) state ...
@@ -245,6 +287,30 @@ func (s *Service) readProcess(pid int) (Process, error) {
 		proc.State = fields[0]
 	}
 
+	// utime and stime are fields 14 and 15 of /proc/<pid>/stat. After removing
+	// pid and comm they are indexes 11 and 12.
+	var ticks uint64
+	if len(fields) >= 13 {
+		utime, _ := strconv.ParseUint(fields[11], 10, 64)
+		stime, _ := strconv.ParseUint(fields[12], 10, 64)
+		ticks = utime + stime
+	}
+
+	// Resolve the owner from /proc/<pid>/status.
+	if status, err := os.ReadFile(filepath.Join(procDir, "status")); err == nil {
+		scanner := bufio.NewScanner(strings.NewReader(string(status)))
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "Uid:") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					proc.User = resolveUser(parts[1])
+				}
+				break
+			}
+		}
+	}
+
 	// Read RSS from statm
 	if statmData, err := os.ReadFile(filepath.Join(procDir, "statm")); err == nil {
 		statmFields := strings.Fields(string(statmData))
@@ -257,6 +323,10 @@ func (s *Service) readProcess(pid int) (Process, error) {
 		}
 	}
 
+	if total := s.totalMemory(); total > 0 {
+		proc.Memory = float64(proc.RSS) / float64(total) * 100
+	}
+
 	// Read cmdline
 	if cmdData, err := os.ReadFile(filepath.Join(procDir, "cmdline")); err == nil {
 		proc.Command = strings.ReplaceAll(string(cmdData), "\x00", " ")
@@ -266,5 +336,24 @@ func (s *Service) readProcess(pid int) (Process, error) {
 		}
 	}
 
-	return proc, nil
+	return proc, ticks, nil
+}
+
+func (s *Service) totalMemory() uint64 {
+	if stats := s.store.Get(); stats != nil {
+		return stats.Memory.Total
+	}
+	return 0
+}
+
+func resolveUser(uid string) string {
+	if cached, ok := userCache.Load(uid); ok {
+		return cached.(string)
+	}
+	name := uid
+	if u, err := user.LookupId(uid); err == nil && u.Username != "" {
+		name = u.Username
+	}
+	userCache.Store(uid, name)
+	return name
 }

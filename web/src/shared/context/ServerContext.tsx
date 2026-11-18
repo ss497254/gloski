@@ -1,4 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
+import { PageLoader } from '@/shared/components'
+import { useTower } from '@/shared/tower'
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { createStatsStore, type StatsStoreInstance } from '../../features/servers/stores/statsStore'
@@ -31,6 +33,7 @@ interface ServerProviderProps {
 export function ServerProvider({ children }: ServerProviderProps) {
   const { serverId } = useParams<{ serverId: string }>()
   const server = useServersStore((state) => (serverId ? state.servers.find((s) => s.id === serverId) : undefined))
+  const tower = useTower()
 
   // Create Zustand store instance once (stable reference)
   const statsStore = useMemo<StatsStoreInstance>(() => createStatsStore(), [])
@@ -52,7 +55,14 @@ export function ServerProvider({ children }: ServerProviderProps) {
     }),
     [server, serverId, statsStore]
   )
-  if (!serverId || !server) {
+  if (!serverId) {
+    return <Navigate to="/" replace />
+  }
+  if (!server) {
+    // Tower-managed devices are reconciled asynchronously after discovery.
+    if (tower.mode !== 'standalone') {
+      return <PageLoader />
+    }
     return <Navigate to="/" replace />
   }
 

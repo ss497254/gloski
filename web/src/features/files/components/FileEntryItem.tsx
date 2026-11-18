@@ -6,7 +6,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/ui/context-menu'
-import type { FileEntry } from '@gloski/sdk'
+import type { FileEntry } from '@/shared/api'
 import {
   CheckSquare,
   Code,

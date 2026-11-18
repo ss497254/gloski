@@ -1,4 +1,4 @@
-import type { SystemStats } from '@gloski/sdk'
+import type { SystemStats } from '@/shared/api'
 
 export interface ServerStats {
   status: ServerStatus
@@ -16,6 +16,10 @@ export interface ServerData {
   apiKey: string | null
   token: string | null
   status: ServerStatus
+  /** API path prefix, e.g. /api/devices/<id>/api when proxied by the tower */
+  apiPrefix?: string
+  /** Devices discovered through the control tower are rebuilt on each load */
+  managedBy?: 'tower'
 }
 
 export type ServerWithStats = ServerData & ServerStats

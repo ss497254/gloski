@@ -1,5 +1,6 @@
 import { AppLayout, ServerLayout } from '@/layouts'
 import { RouteErrorBoundary } from '@/shared/components'
+import { TowerProvider } from '@/shared/tower'
 import { Toaster } from '@/ui/sonner'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 
@@ -14,6 +15,19 @@ const router = createBrowserRouter([
         path: '/',
         lazy: {
           Component: async () => (await import('@/features/dashboard')).DashboardPage,
+        },
+      },
+      // Fleet (control tower)
+      {
+        path: '/fleet',
+        lazy: {
+          Component: async () => (await import('@/features/fleet')).FleetPage,
+        },
+      },
+      {
+        path: '/fleet/:deviceId',
+        lazy: {
+          Component: async () => (await import('@/features/fleet')).DevicePage,
         },
       },
       // Settings
@@ -106,10 +120,10 @@ const router = createBrowserRouter([
 
 function App() {
   return (
-    <>
+    <TowerProvider>
       <RouterProvider router={router} />
       <Toaster position="bottom-right" richColors />
-    </>
+    </TowerProvider>
   )
 }
 

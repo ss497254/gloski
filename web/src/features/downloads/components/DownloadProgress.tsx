@@ -1,5 +1,5 @@
 import { formatBytes } from '@/shared/lib/utils'
-import type { DownloadStatus } from '@gloski/sdk'
+import type { DownloadStatus } from '@/shared/api'
 
 interface DownloadProgressProps {
   progress: number

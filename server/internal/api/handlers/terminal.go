@@ -56,9 +56,9 @@ func (h *TerminalHandler) ActiveSessions() int {
 
 // Handle handles GET /api/terminal (WebSocket upgrade)
 func (h *TerminalHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	// Auth via query param for WebSocket - try API key first, then JWT
-	apiKey := r.URL.Query().Get("api_key")
-	token := r.URL.Query().Get("token")
+	// Auth via headers or query params for WebSocket - try API key first,
+	// then JWT.
+	apiKey, token := websocketCredentials(r)
 
 	authenticated := false
 

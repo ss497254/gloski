@@ -1,12 +1,14 @@
 import type { ServerData, ServerStats, ServerStatus } from '@/shared/lib/types'
-import { GloskiClient } from '@gloski/sdk'
-import type { RequestOptions } from '../../../../js-sdk/src/http'
+import { GloskiClient, unwrap } from '@/shared/api'
+import type { RequestOptions } from '@/shared/api'
 
 // Single instance per server — created once, mutated in place via valtio proxy
 export class Server {
   id: string
   url: string
   name: string
+  apiPrefix?: string
+  managedBy?: 'tower'
   private apiKey: string | null
   private token: string | null
   private status: ServerStatus
@@ -16,12 +18,15 @@ export class Server {
     this.id = data.id
     this.url = data.url
     this.name = data.name
+    this.apiPrefix = data.apiPrefix
+    this.managedBy = data.managedBy
     this.apiKey = data.apiKey
     this.token = data.token
     this.status = data.status
 
     this.client = new GloskiClient({
       url: this.url,
+      apiPrefix: this.apiPrefix,
       apiKey: this.apiKey ?? undefined,
       token: this.token ?? undefined,
       onUnauthorized: () => {
@@ -41,11 +46,16 @@ export class Server {
   }
 
   isAuthenticated(): boolean {
-    return !!(this.apiKey || this.token)
+    // Tower-managed devices are authenticated by the master proxy.
+    return this.managedBy === 'tower' || !!(this.apiKey || this.token)
   }
 
   getStatus(): ServerStatus {
     return this.status
+  }
+
+  setStatus(status: ServerStatus): void {
+    this.status = status
   }
 
   async getStats(requestOptions?: RequestOptions): Promise<ServerStats> {
@@ -55,7 +65,7 @@ export class Server {
     }
 
     try {
-      const stats = await this.client.system.getStats(requestOptions)
+      const stats = unwrap(await this.client.system.getStats(requestOptions))
       // If the call succeeded but status is not online, update it to online
       if (this.getStatus() !== 'online') this.status = 'online'
 

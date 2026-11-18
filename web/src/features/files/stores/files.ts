@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { PinnedFolder } from '@gloski/sdk'
+import type { PinnedFolder } from '@/shared/api'
 
 type ViewMode = 'list' | 'grid'
 type SortBy = 'name' | 'size' | 'modified'

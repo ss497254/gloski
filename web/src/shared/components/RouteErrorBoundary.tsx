@@ -53,9 +53,7 @@ export function RouteErrorBoundary() {
                 <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
                   Show error details
                 </summary>
-                <pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto max-h-40">
-                  {details}
-                </pre>
+                <pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto max-h-40">{details}</pre>
               </details>
             )}
 

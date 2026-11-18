@@ -1,7 +1,8 @@
+import { useTower } from '@/shared/tower'
 import { Button } from '@/ui/button'
 import { Card, CardContent } from '@/ui/card'
 import { Activity, Plus, Server as ServerIcon, Wifi } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { ServerCard } from '@/features/servers'
 import { DashboardProvider, useDashboard } from '../context'
 import { PageLayout } from '@/layouts'
@@ -112,6 +113,10 @@ function DashboardContent() {
 }
 
 export function DashboardPage() {
+  const { mode } = useTower()
+  if (mode === 'tower') {
+    return <Navigate to="/fleet" replace />
+  }
   return (
     <DashboardProvider>
       <DashboardContent />

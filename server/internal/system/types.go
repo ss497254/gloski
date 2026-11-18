@@ -18,13 +18,14 @@ type Stats struct {
 
 // CPUStats represents CPU usage statistics.
 type CPUStats struct {
-	Cores        int     `json:"cores"`
-	ModelName    string  `json:"model_name"`
-	UsagePercent float64 `json:"usage_percent"`
-	User         float64 `json:"user"`
-	System       float64 `json:"system"`
-	Idle         float64 `json:"idle"`
-	IOWait       float64 `json:"iowait"`
+	Cores        int       `json:"cores"`
+	ModelName    string    `json:"model_name"`
+	UsagePercent float64   `json:"usage_percent"`
+	User         float64   `json:"user"`
+	System       float64   `json:"system"`
+	Idle         float64   `json:"idle"`
+	IOWait       float64   `json:"iowait"`
+	PerCore      []float64 `json:"per_core,omitempty"`
 }
 
 // CPUTimes represents raw CPU time values for delta calculation.
@@ -75,16 +76,20 @@ type NetStats struct {
 	Interfaces []NetInterface `json:"interfaces"`
 	TotalRx    uint64         `json:"total_rx"`
 	TotalTx    uint64         `json:"total_tx"`
+	RxRate     float64        `json:"rx_rate"` // bytes per second
+	TxRate     float64        `json:"tx_rate"` // bytes per second
 }
 
 // NetInterface represents a network interface.
 type NetInterface struct {
-	Name    string `json:"name"`
-	RxBytes uint64 `json:"rx_bytes"`
-	TxBytes uint64 `json:"tx_bytes"`
-	RxPkts  uint64 `json:"rx_packets"`
-	TxPkts  uint64 `json:"tx_packets"`
-	Up      bool   `json:"up"`
+	Name    string  `json:"name"`
+	RxBytes uint64  `json:"rx_bytes"`
+	TxBytes uint64  `json:"tx_bytes"`
+	RxPkts  uint64  `json:"rx_packets"`
+	TxPkts  uint64  `json:"tx_packets"`
+	RxRate  float64 `json:"rx_rate"`
+	TxRate  float64 `json:"tx_rate"`
+	Up      bool    `json:"up"`
 }
 
 // LoadAvg represents system load averages.

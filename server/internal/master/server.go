@@ -1,0 +1,275 @@
+// Package master implements the Gloski control tower: the fleet registry,
+// device proxy, embedded dashboard, and agent enrollment API.
+package master
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/ss497254/gloski/internal/api/handlers"
+	"github.com/ss497254/gloski/internal/api/middleware"
+	"github.com/ss497254/gloski/internal/auth"
+	"github.com/ss497254/gloski/internal/config"
+	"github.com/ss497254/gloski/internal/database"
+	"github.com/ss497254/gloski/internal/devices"
+	"github.com/ss497254/gloski/internal/logger"
+)
+
+// Server is the master control tower.
+type Server struct {
+	cfg       *config.Config
+	db        *database.Database
+	devices   *devices.Service
+	hub       *devices.Hub
+	auth      *auth.Service
+	transport *http.Transport
+	router    http.Handler
+	version   string
+	name      string
+	startedAt time.Time
+	webDir    string
+	indexHTML []byte
+	stop      chan struct{}
+	done      chan struct{}
+}
+
+// New creates a master server and opens its database.
+func New(cfg *config.Config, version string) (*Server, error) {
+	db, err := database.Open(cfg.MasterDBPath())
+	if err != nil {
+		return nil, fmt.Errorf("failed to open master database: %w", err)
+	}
+
+	devicesSvc, err := devices.NewService(db, cfg.Master, version, cfg.DataDir)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to initialize device registry: %w", err)
+	}
+
+	authSvc, err := auth.NewService(cfg)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to initialize auth service: %w", err)
+	}
+
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "gloski-tower"
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = 30 * time.Second
+	transport.MaxIdleConnsPerHost = 8
+
+	s := &Server{
+		cfg:       cfg,
+		db:        db,
+		devices:   devicesSvc,
+		hub:       devices.NewHub(),
+		auth:      authSvc,
+		transport: transport,
+		version:   version,
+		name:      hostname,
+		startedAt: time.Now().UTC(),
+		stop:      make(chan struct{}),
+		done:      make(chan struct{}),
+	}
+
+	devicesSvc.SetOnChange(func() {
+		list, err := devicesSvc.List()
+		if err != nil {
+			return
+		}
+		s.hub.Broadcast(devices.Event{Type: "devices", Devices: list})
+	})
+
+	s.webDir = resolveWebDir(cfg.Master.WebDir)
+	if s.webDir != "" {
+		if data, err := os.ReadFile(filepath.Join(s.webDir, "index.html")); err == nil {
+			s.indexHTML = data
+		}
+	}
+
+	go s.fleetLoop()
+	s.router = s.routes()
+	logger.Info("Control tower initialized (db=%s, web=%s)", cfg.MasterDBPath(), displayPath(s.webDir))
+	return s, nil
+}
+
+// Router returns the master HTTP handler.
+func (s *Server) Router() http.Handler {
+	return s.router
+}
+
+// JoinToken returns the token agents use to enroll.
+func (s *Server) JoinToken() string {
+	return s.devices.JoinToken()
+}
+
+// Close releases master resources.
+func (s *Server) Close() error {
+	close(s.stop)
+	<-s.done
+	return s.db.Close()
+}
+
+// fleetLoop keeps online/offline status fresh for dashboards. Heartbeats also
+// trigger broadcasts, but a quiet or dead agent would otherwise leave the
+// fleet showing a stale status indefinitely.
+func (s *Server) fleetLoop() {
+	defer close(s.done)
+
+	interval := time.Duration(s.devices.HeartbeatInterval()) * time.Second
+	if interval < 5*time.Second {
+		interval = 5 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.stop:
+			return
+		case <-ticker.C:
+			list, err := s.devices.List()
+			if err != nil {
+				logger.Warn("Failed to refresh fleet status: %v", err)
+				continue
+			}
+			s.hub.Broadcast(devices.Event{Type: "devices", Devices: list})
+		}
+	}
+}
+
+func (s *Server) routes() http.Handler {
+	mux := http.NewServeMux()
+
+	// Public control-plane endpoints. Agents authenticate with a join token or
+	// their device token; the dashboard is protected by tailnet access and,
+	// optionally, the configured API key / JWT.
+	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
+		handlers.Success(w, map[string]string{"status": "ok"})
+	})
+	mux.HandleFunc("GET /api/tower/info", s.handleTowerInfo)
+	mux.HandleFunc("POST /api/agents/register", s.handleRegister)
+	mux.HandleFunc("POST /api/agents/heartbeat", s.handleHeartbeat)
+	mux.HandleFunc("GET /api/fleet/ws", s.handleFleetWS)
+
+	// Fleet API. If the operator configured an API key or JWT, require it.
+	mux.Handle("GET /api/devices", s.userAuth(http.HandlerFunc(s.handleListDevices)))
+	mux.Handle("GET /api/devices/{id}", s.userAuth(http.HandlerFunc(s.handleGetDevice)))
+	mux.Handle("DELETE /api/devices/{id}", s.userAuth(http.HandlerFunc(s.handleDeleteDevice)))
+	mux.Handle("/api/devices/{id}/", s.userAuth(http.HandlerFunc(s.handleDeviceProxy)))
+
+	// Dashboard static assets and SPA fallback.
+	mux.HandleFunc("/", s.serveSPA)
+
+	return middleware.Logging(securityHeaders(mux))
+}
+
+func (s *Server) userAuth(next http.Handler) http.Handler {
+	if s.cfg.APIKey == "" && s.cfg.JWTPublicKey == "" {
+		return next
+	}
+	return middleware.Auth(s.auth)(next)
+}
+
+func (s *Server) serveSPA(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		handlers.NotFound(w, "endpoint not found")
+		return
+	}
+
+	clean := path.Clean("/" + r.URL.Path)
+	if clean == "/" {
+		s.writeIndex(w)
+		return
+	}
+
+	if s.webDir != "" {
+		file := filepath.Join(s.webDir, filepath.FromSlash(strings.TrimPrefix(clean, "/")))
+		if info, err := os.Stat(file); err == nil && !info.IsDir() {
+			if strings.HasPrefix(clean, "/assets/") {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			}
+			http.ServeFile(w, r, file)
+			return
+		}
+	}
+
+	// Client-side routes fall back to index.html; missing assets return 404.
+	if path.Ext(clean) != "" {
+		http.NotFound(w, r)
+		return
+	}
+	s.writeIndex(w)
+}
+
+func (s *Server) writeIndex(w http.ResponseWriter) {
+	if len(s.indexHTML) == 0 {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, placeholderHTML)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Write(s.indexHTML)
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "same-origin")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func resolveWebDir(configured string) string {
+	candidates := []string{configured}
+	if configured == "" || configured == "web/dist" {
+		if exe, err := os.Executable(); err == nil {
+			candidates = append(candidates,
+				filepath.Join(filepath.Dir(exe), "web", "dist"),
+				filepath.Join(filepath.Dir(exe), "dist"),
+			)
+		}
+		candidates = append(candidates, "web/dist", "../web/dist", "../../web/dist")
+	}
+
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		if info, err := os.Stat(filepath.Join(candidate, "index.html")); err == nil && !info.IsDir() {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func displayPath(dir string) string {
+	if dir == "" {
+		return "(dashboard not bundled; run make build-web)"
+	}
+	return dir
+}
+
+const placeholderHTML = `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Gloski Tower</title>
+<style>
+body{font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;background:#0b0f14;color:#c9d1d9;display:grid;place-items:center;height:100vh;margin:0}
+main{max-width:42rem;padding:2rem}
+h1{color:#7ee787;font-size:1.2rem}code{color:#79c0ff}
+</style></head>
+<body><main>
+<h1>Gloski control tower is running</h1>
+<p>The API is online, but the dashboard bundle was not found.</p>
+<p>Build it with <code>make build-web</code> (or <code>cd web &amp;&amp; bun run build</code>) and restart the master, or point <code>master.web_dir</code> at <code>web/dist</code>.</p>
+<p>API: <code>/api/tower/info</code> · <code>/api/devices</code></p>
+</main></body></html>`

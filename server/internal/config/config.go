@@ -8,7 +8,16 @@ import (
 	"strings"
 )
 
+const (
+	ModeStandalone = "standalone"
+	ModeMaster     = "master"
+	ModeAgent      = "agent"
+)
+
 type Config struct {
+	// Operating mode: standalone (default), master, or agent
+	Mode string `json:"mode"`
+
 	// Server settings
 	Host            string `json:"host"`
 	Port            int    `json:"port"`
@@ -45,6 +54,41 @@ type Config struct {
 
 	// Jobs
 	Jobs JobsConfig `json:"jobs"`
+
+	// Control tower (master) settings
+	Master MasterConfig `json:"master"`
+
+	// Device agent settings
+	Agent AgentConfig `json:"agent"`
+}
+
+// MasterConfig holds settings for the control tower.
+type MasterConfig struct {
+	// WebDir is the directory containing the built SPA (default: web/dist)
+	WebDir string `json:"web_dir"`
+	// JoinToken is the one-time token agents use to enroll. If empty, one is generated.
+	JoinToken string `json:"join_token"`
+	// DeviceTimeout is how long without a heartbeat before a device is shown offline (seconds).
+	DeviceTimeout int `json:"device_timeout"`
+	// HeartbeatInterval is the interval advertised to agents (seconds).
+	HeartbeatInterval int `json:"heartbeat_interval"`
+}
+
+// AgentConfig holds settings for a device agent.
+type AgentConfig struct {
+	// MasterURL is the base URL of the control tower (e.g. https://gloski.tailnet.ts.net).
+	MasterURL string `json:"master_url"`
+	// JoinToken is the enrollment token issued by the master.
+	JoinToken string `json:"join_token"`
+	// Name is the display name for this device (default: hostname).
+	Name string `json:"name"`
+	// AdvertiseURL is the URL the master should use to reach this agent.
+	// If empty, the master derives it from the connection and the listen port.
+	AdvertiseURL string `json:"advertise_url"`
+	// HeartbeatInterval is how often to report to the master (seconds).
+	HeartbeatInterval int `json:"heartbeat_interval"`
+	// StateFile stores the device credentials (default: <data_dir>/agent.json).
+	StateFile string `json:"state_file"`
 }
 
 // DownloadsConfig holds configuration for the download manager
@@ -65,6 +109,7 @@ func DefaultConfig() *Config {
 	dataDir := filepath.Join(homeDir, ".gloski", "data")
 
 	return &Config{
+		Mode:            ModeStandalone,
 		Host:            "127.0.0.1",
 		Port:            8080,
 		ShutdownTimeout: 5,
@@ -82,7 +127,28 @@ func DefaultConfig() *Config {
 			Enabled: true,
 			MaxJobs: 100,
 		},
+		Master: MasterConfig{
+			WebDir:            "web/dist",
+			DeviceTimeout:     45,
+			HeartbeatInterval: 10,
+		},
+		Agent: AgentConfig{
+			HeartbeatInterval: 10,
+		},
 	}
+}
+
+// MasterDBPath returns the path to the master's SQLite database.
+func (c *Config) MasterDBPath() string {
+	return filepath.Join(c.DataDir, "master.db")
+}
+
+// AgentStatePath returns the path to the agent credential file.
+func (c *Config) AgentStatePath() string {
+	if c.Agent.StateFile != "" {
+		return c.Agent.StateFile
+	}
+	return filepath.Join(c.DataDir, "agent.json")
 }
 
 // DatabasePath returns the path to the SQLite database
@@ -123,6 +189,9 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) loadFromEnv() {
+	if v := os.Getenv("GLOSKI_MODE"); v != "" {
+		c.Mode = v
+	}
 	if v := os.Getenv("GLOSKI_HOST"); v != "" {
 		c.Host = v
 	}
@@ -184,6 +253,42 @@ func (c *Config) loadFromEnv() {
 			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_MAX_JSON_BODY_SIZE value %q: %v\n", v, err)
 		}
 	}
+	if v := os.Getenv("GLOSKI_MASTER_WEB_DIR"); v != "" {
+		c.Master.WebDir = v
+	}
+	if v := os.Getenv("GLOSKI_MASTER_JOIN_TOKEN"); v != "" {
+		c.Master.JoinToken = v
+	}
+	if v := os.Getenv("GLOSKI_MASTER_DEVICE_TIMEOUT"); v != "" {
+		if _, err := fmt.Sscanf(v, "%d", &c.Master.DeviceTimeout); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_MASTER_DEVICE_TIMEOUT value %q: %v\n", v, err)
+		}
+	}
+	if v := os.Getenv("GLOSKI_MASTER_HEARTBEAT_INTERVAL"); v != "" {
+		if _, err := fmt.Sscanf(v, "%d", &c.Master.HeartbeatInterval); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_MASTER_HEARTBEAT_INTERVAL value %q: %v\n", v, err)
+		}
+	}
+	if v := os.Getenv("GLOSKI_AGENT_MASTER_URL"); v != "" {
+		c.Agent.MasterURL = v
+	}
+	if v := os.Getenv("GLOSKI_AGENT_JOIN_TOKEN"); v != "" {
+		c.Agent.JoinToken = v
+	}
+	if v := os.Getenv("GLOSKI_AGENT_NAME"); v != "" {
+		c.Agent.Name = v
+	}
+	if v := os.Getenv("GLOSKI_AGENT_ADVERTISE_URL"); v != "" {
+		c.Agent.AdvertiseURL = v
+	}
+	if v := os.Getenv("GLOSKI_AGENT_HEARTBEAT_INTERVAL"); v != "" {
+		if _, err := fmt.Sscanf(v, "%d", &c.Agent.HeartbeatInterval); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid GLOSKI_AGENT_HEARTBEAT_INTERVAL value %q: %v\n", v, err)
+		}
+	}
+	if v := os.Getenv("GLOSKI_AGENT_STATE_FILE"); v != "" {
+		c.Agent.StateFile = v
+	}
 }
 
 func (c *Config) validate() error {
@@ -191,12 +296,31 @@ func (c *Config) validate() error {
 		return fmt.Errorf("invalid port: %d", c.Port)
 	}
 
-	// At least one auth method is required
-	hasAPIKey := c.APIKey != ""
-	hasJWT := c.JWTPublicKey != "" || c.JWTPublicKeyFile != ""
+	switch c.Mode {
+	case ModeMaster:
+		// Master user auth is optional. Agent endpoints use per-device tokens.
+		if c.Master.DeviceTimeout <= 0 {
+			c.Master.DeviceTimeout = 45
+		}
+		if c.Master.HeartbeatInterval <= 0 {
+			c.Master.HeartbeatInterval = 10
+		}
+	case ModeAgent:
+		// The device token is assigned during enrollment, so API auth is not
+		// required in the local config.
+		if c.Agent.HeartbeatInterval <= 0 {
+			c.Agent.HeartbeatInterval = 10
+		}
+	case ModeStandalone:
+		// At least one auth method is required
+		hasAPIKey := c.APIKey != ""
+		hasJWT := c.JWTPublicKey != "" || c.JWTPublicKeyFile != ""
 
-	if !hasAPIKey && !hasJWT {
-		return fmt.Errorf("at least one authentication method is required (set GLOSKI_API_KEY or GLOSKI_JWT_PUBLIC_KEY)")
+		if !hasAPIKey && !hasJWT {
+			return fmt.Errorf("at least one authentication method is required (set GLOSKI_API_KEY or GLOSKI_JWT_PUBLIC_KEY)")
+		}
+	default:
+		return fmt.Errorf("invalid mode %q (expected standalone, master, or agent)", c.Mode)
 	}
 
 	// Load JWT public key from file if specified

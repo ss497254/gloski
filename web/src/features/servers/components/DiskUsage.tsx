@@ -1,6 +1,6 @@
 import { ProgressBar } from '@/shared/components'
 import { formatBytes } from '@/shared/lib/utils'
-import type { DiskStats } from '@gloski/sdk'
+import type { DiskStats } from '@/shared/api'
 import { HardDrive } from 'lucide-react'
 
 interface DiskUsageProps {

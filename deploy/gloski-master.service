@@ -1,0 +1,14 @@
+[Unit]
+Description=Gloski Control Tower
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=your-username
+ExecStart=%h/.local/bin/gloski --mode master -c %h/.config/gloski/master.json
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

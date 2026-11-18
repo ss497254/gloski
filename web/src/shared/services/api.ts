@@ -1,4 +1,4 @@
-import { GloskiClient } from '@gloski/sdk'
+import { GloskiClient } from '@/shared/api'
 
 /**
  * Check server health (static, no auth required)
@@ -8,5 +8,5 @@ export async function checkServerHealth(serverUrl: string): Promise<{ status: st
 }
 
 // Re-export SDK types and classes
-export { GloskiClient, GloskiError } from '@gloski/sdk'
-export type { TerminalConnection } from '@gloski/sdk'
+export { GloskiClient, GloskiError } from '@/shared/api'
+export type { TerminalConnection } from '@/shared/api'

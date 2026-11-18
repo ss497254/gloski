@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useServer } from '@/shared/context'
-import type { Job } from '@gloski/sdk'
+import { jobId as toJobId, unwrap, type Job } from '@/shared/api'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ export function JobsProvider({ children }: JobsProviderProps) {
 
   const fetchJobs = useCallback(async () => {
     try {
-      const result = await server.getClient().jobs.list()
+      const result = unwrap(await server.getClient().jobs.list())
       setJobs(result || [])
       setError('') // Clear error on successful fetch
     } catch {
@@ -96,7 +96,7 @@ export function JobsProvider({ children }: JobsProviderProps) {
   const stopJob = useCallback(
     async (id: string) => {
       try {
-        await server.getClient().jobs.stop(id)
+        await server.getClient().jobs.stop(toJobId(id))
         setError('') // Clear error on success
         fetchJobs()
       } catch {
@@ -109,7 +109,7 @@ export function JobsProvider({ children }: JobsProviderProps) {
   const fetchJobLogs = useCallback(
     async (id: string) => {
       try {
-        const logs = await server.getClient().jobs.getLogs(id)
+        const logs = unwrap(await server.getClient().jobs.getLogs(toJobId(id)))
         setJobLogs(logs || [])
         setSelectedJob(id)
         setError('') // Clear error on success

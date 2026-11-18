@@ -1,7 +1,7 @@
 import { useServer } from '@/shared/context'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
-import type { TerminalConnection } from '@gloski/sdk'
+import type { TerminalConnection } from '@/shared/api'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal, type ITerminalInitOnlyOptions, type ITerminalOptions } from '@xterm/xterm'

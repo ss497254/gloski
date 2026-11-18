@@ -209,43 +209,40 @@ const content = await api.readFile('/etc/hosts')
 
 ### SDK Client Usage
 
-The frontend uses `@gloski/sdk` client stored per-server:
+The frontend uses the shared `@/shared/api` client stored per-server:
 
 ```typescript
 // Get client for current server
 const client = server.getClient()
 
-// System
-const stats = await client.system.getStats()
-const processes = await client.system.getProcesses(100)
+// Most methods return Result<T> = { data, error }.
+const { data: stats } = await client.system.getStats()
+const { data: processes } = await client.system.getProcesses(100)
 
 // Files
-const { path, entries } = await client.files.list('/home/user')
-const { content } = await client.files.read('/etc/hosts')
+const { data: listing } = await client.files.list('/home/user')
+const { data: file } = await client.files.read('/etc/hosts')
 await client.files.write('/tmp/test.txt', 'content')
 await client.files.mkdir('/tmp/folder')
 await client.files.delete('/tmp/test.txt')
 await client.files.rename('/tmp/old.txt', '/tmp/new.txt')
-await client.files.upload('/tmp', file)
+await client.files.upload('/tmp', fileInput) // fileInput is a File/Blob
 const url = client.files.getDownloadUrl('/tmp/file.zip')
 
 // Pinned folders (server-synced)
-const { folders, home_dir } = await client.files.pinned.list()
-const pinned = await client.files.pinned.pin('/home/user/projects', 'Projects')
-await client.files.pinned.unpin(pinned.id)
+const { data: pinnedList } = await client.files.pinned.list()
+const { data: pinned } = await client.files.pinned.pin('/home/user/projects', 'Projects')
+if (pinned) await client.files.pinned.unpin(pinned.id)
 
 // Jobs
-const jobs = await client.jobs.list()
-const job = await client.jobs.start('bun run build', '/home/user/project')
-const logs = await client.jobs.getLogs(job.id)
-await client.jobs.stop(job.id)
+const { data: jobs } = await client.jobs.list()
+const { data: job } = await client.jobs.start('bun run build', '/home/user/project')
+if (job) {
+  const { data: logs } = await client.jobs.getLogs(job.id)
+  await client.jobs.stop(job.id)
+}
 
-// Systemd
-const units = await client.systemd.list(true) // user mode
-await client.systemd.start('my-service.service')
-const logs = await client.systemd.getLogs('my-service.service')
-
-// Terminal
+// Terminal (WebSocket, not wrapped in Result)
 const term = client.terminal.connect({ cwd: '/home/user' })
 ```
 

@@ -1,6 +1,6 @@
 import { ProgressRing } from '@/shared/components'
 import { formatBytes } from '@/shared/lib/utils'
-import type { SystemStats } from '@gloski/sdk'
+import type { SystemStats } from '@/shared/api'
 import { Activity, Cpu, HardDrive, MemoryStick } from 'lucide-react'
 
 interface SystemOverviewProps {

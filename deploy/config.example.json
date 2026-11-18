@@ -1,4 +1,5 @@
 {
+  "mode": "standalone",
   "host": "127.0.0.1",
   "port": 8080,
 
@@ -7,5 +8,21 @@
   "allowed_paths": [],
   "shell": "/bin/bash",
 
-  "log_level": "info"
+  "log_level": "info",
+
+  "master": {
+    "web_dir": "web/dist",
+    "join_token": "",
+    "device_timeout": 45,
+    "heartbeat_interval": 10
+  },
+
+  "agent": {
+    "master_url": "",
+    "join_token": "",
+    "name": "",
+    "advertise_url": "",
+    "heartbeat_interval": 10,
+    "state_file": ""
+  }
 }

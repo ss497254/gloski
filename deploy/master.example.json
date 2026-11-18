@@ -1,0 +1,13 @@
+{
+  "mode": "master",
+  "host": "127.0.0.1",
+  "port": 8080,
+  "data_dir": "/home/you/.gloski/master",
+  "log_level": "info",
+  "master": {
+    "web_dir": "/opt/gloski/web/dist",
+    "join_token": "",
+    "device_timeout": 45,
+    "heartbeat_interval": 10
+  }
+}

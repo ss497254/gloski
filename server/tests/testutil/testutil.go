@@ -46,9 +46,9 @@ func TestTempDir(t *testing.T) string {
 
 	// Create some test files and directories
 	testFiles := map[string]string{
-		"test.txt":           "test content",
-		"dir1/file1.txt":     "file1 content",
-		"dir1/file2.txt":     "file2 content",
+		"test.txt":            "test content",
+		"dir1/file1.txt":      "file1 content",
+		"dir1/file2.txt":      "file2 content",
 		"dir2/nested/test.md": "# Test\nmarkdown content",
 	}
 
