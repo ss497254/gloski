@@ -6,10 +6,12 @@ import { NavSection } from './NavSection'
 
 interface ServerNavProps {
   collapsed?: boolean
+  serverId?: string
 }
 
-export function ServerNav({ collapsed }: ServerNavProps) {
-  const { serverId } = useParams()
+export function ServerNav({ collapsed, serverId: serverIdProp }: ServerNavProps) {
+  const params = useParams()
+  const serverId = serverIdProp ?? params.serverId
   const servers = useServersStore((s) => s.servers)
   const server = servers.find((srv) => srv.id === serverId)
 

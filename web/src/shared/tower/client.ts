@@ -1,4 +1,12 @@
-import type { Deployment, DeployRequest, FleetDevice, FleetEvent, TailnetResponse, TowerInfo } from './types'
+import type {
+  DashboardSummary,
+  Deployment,
+  DeployRequest,
+  FleetDevice,
+  FleetEvent,
+  TailnetResponse,
+  TowerInfo,
+} from './types'
 
 interface Envelope<T> {
   success: boolean
@@ -32,6 +40,10 @@ export async function detectTower(): Promise<TowerInfo | null> {
   } catch {
     return null
   }
+}
+
+export async function getDashboard(): Promise<DashboardSummary> {
+  return request<DashboardSummary>('/api/dashboard')
 }
 
 export async function listDevices(): Promise<FleetDevice[]> {

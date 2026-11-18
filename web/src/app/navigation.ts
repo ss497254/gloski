@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { FolderOpen, ListTodo, Radar, Settings, Terminal } from 'lucide-react'
+import { FolderOpen, LayoutDashboard, ListTodo, Radar, Settings, Terminal } from 'lucide-react'
 
 export type NavSection = 'main' | 'server'
 
@@ -15,8 +15,16 @@ export interface NavItem {
 
 export const mainNavItems: NavItem[] = [
   {
+    id: 'dashboard',
+    name: 'Dashboard',
+    icon: LayoutDashboard,
+    path: '/',
+    section: 'main',
+    shortcut: 'g d',
+  },
+  {
     id: 'fleet',
-    name: 'Fleet',
+    name: 'Devices',
     icon: Radar,
     path: '/fleet',
     section: 'main',

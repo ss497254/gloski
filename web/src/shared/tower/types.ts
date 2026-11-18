@@ -76,6 +76,29 @@ export interface DeployRequest {
   master_url: string
 }
 
+export interface DashboardIssue {
+  id: string
+  severity: 'error' | 'warning' | 'info'
+  title: string
+  detail: string
+  device_id?: string
+}
+
+export interface DashboardSummary {
+  devices: number
+  online: number
+  offline: number
+  issues: DashboardIssue[]
+  recent_jobs: Array<{
+    id: string
+    device_id: string
+    command: string
+    status: string
+    created_at: string
+  }>
+  generated_at: string
+}
+
 export interface FleetEvent {
   type: 'snapshot' | 'devices' | 'device.updated' | 'device.removed'
   device?: FleetDevice

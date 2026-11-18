@@ -86,11 +86,12 @@ interface SidebarContentProps {
 }
 
 function SidebarContent({ collapsed }: SidebarContentProps) {
-  const { serverId } = useParams()
+  const { serverId, deviceId } = useParams()
+  const effectiveServerId = serverId ?? (deviceId ? `tower-${deviceId}` : undefined)
   const servers = useServersStore((s) => s.servers)
-  const currentServer = servers.find((s) => s.id === serverId)
+  const currentServer = servers.find((s) => s.id === effectiveServerId)
 
-  const navItems = mainNavItems.filter((item) => item.id === 'fleet')
+  const navItems = mainNavItems.filter((item) => item.id === 'dashboard' || item.id === 'fleet')
   const settingsItem = mainNavItems.find((item) => item.id === 'settings')!
 
   return (
@@ -120,7 +121,7 @@ function SidebarContent({ collapsed }: SidebarContentProps) {
               </div>
             )}
             {collapsed && <div className="border-t my-3" />}
-            <ServerNav collapsed={collapsed} />
+            <ServerNav collapsed={collapsed} serverId={effectiveServerId} />
           </div>
         )}
 

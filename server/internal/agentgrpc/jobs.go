@@ -206,6 +206,69 @@ func (s *JobStore) Get(id string) (*Job, error) {
 	return &job, nil
 }
 
+// Recent returns the newest jobs across all devices.
+func (s *JobStore) Recent(limit int) ([]Job, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := s.db.Query(`
+		SELECT id, device_id, command, COALESCE(cwd, ''), status, exit_code,
+		       COALESCE(error, ''), created_at, COALESCE(started_at, created_at),
+		       COALESCE(finished_at, created_at)
+		FROM agent_jobs ORDER BY created_at DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	jobs := []Job{}
+	for rows.Next() {
+		var job Job
+		var created, started, finished interface{}
+		if err := rows.Scan(&job.ID, &job.DeviceID, &job.Command, &job.CWD, &job.Status,
+			&job.ExitCode, &job.Error, &created, &started, &finished); err != nil {
+			return nil, err
+		}
+		job.CreatedAt = scanJobTime(created)
+		job.StartedAt = scanJobTime(started)
+		job.FinishedAt = scanJobTime(finished)
+		jobs = append(jobs, job)
+	}
+	return jobs, rows.Err()
+}
+
+// ProblemJobs returns failed or abandoned jobs across all devices.
+func (s *JobStore) ProblemJobs(limit int) ([]Job, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := s.db.Query(`
+		SELECT id, device_id, command, COALESCE(cwd, ''), status, exit_code,
+		       COALESCE(error, ''), created_at, COALESCE(started_at, created_at),
+		       COALESCE(finished_at, created_at)
+		FROM agent_jobs WHERE status IN (?, ?) ORDER BY created_at DESC LIMIT ?`,
+		JobFailed, JobAbandoned, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	jobs := []Job{}
+	for rows.Next() {
+		var job Job
+		var created, started, finished interface{}
+		if err := rows.Scan(&job.ID, &job.DeviceID, &job.Command, &job.CWD, &job.Status,
+			&job.ExitCode, &job.Error, &created, &started, &finished); err != nil {
+			return nil, err
+		}
+		job.CreatedAt = scanJobTime(created)
+		job.StartedAt = scanJobTime(started)
+		job.FinishedAt = scanJobTime(finished)
+		jobs = append(jobs, job)
+	}
+	return jobs, rows.Err()
+}
+
 // Delete removes a job and its logs.
 func (s *JobStore) Delete(id string) error {
 	if _, err := s.db.Exec(`DELETE FROM agent_job_logs WHERE job_id = ?`, id); err != nil {

@@ -13,7 +13,9 @@ const router = createBrowserRouter([
     children: [
       {
         path: '/',
-        element: <Navigate to="/fleet" replace />,
+        lazy: {
+          Component: async () => (await import('@/features/dashboard')).DashboardPage,
+        },
       },
       {
         path: '/fleet',

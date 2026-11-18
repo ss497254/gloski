@@ -197,6 +197,7 @@ func (s *Server) routes() http.Handler {
 		handlers.Success(w, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /api/tower/info", s.handleTowerInfo)
+	mux.Handle("GET /api/dashboard", s.userAuth(http.HandlerFunc(s.handleDashboard)))
 	mux.HandleFunc("POST /api/agents/register", s.handleRegister)
 	mux.HandleFunc("POST /api/agents/heartbeat", s.handleHeartbeat)
 	mux.HandleFunc("GET /api/fleet/ws", s.handleFleetWS)

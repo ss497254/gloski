@@ -247,6 +247,12 @@ func (s *Server) GetJob(id string) (*Job, error) { return s.jobs.Get(id) }
 // JobLogs returns a job's streamed output.
 func (s *Server) JobLogs(id string) ([]string, error) { return s.jobs.Logs(id) }
 
+// RecentJobs returns the latest jobs across all devices.
+func (s *Server) RecentJobs(limit int) ([]Job, error) { return s.jobs.Recent(limit) }
+
+// ProblemJobs returns failed or abandoned jobs across all devices.
+func (s *Server) ProblemJobs(limit int) ([]Job, error) { return s.jobs.ProblemJobs(limit) }
+
 // DeleteJob removes a job and its logs.
 func (s *Server) DeleteJob(id string) error { return s.jobs.Delete(id) }
 
