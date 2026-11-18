@@ -27,8 +27,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// Run starts a stateless device agent. The agent keeps everything in memory,
-// connects to the master over one gRPC stream, and exits when asked or on SIGTERM.
+// Run starts a stateless device agent. It keeps nothing durable and
+// reconnects to the master whenever the stream drops.
 func Run(cfg *config.Config, version string) error {
 	if cfg.Agent.MasterURL == "" {
 		return fmt.Errorf("agent.master_url is required (set GLOSKI_AGENT_MASTER_URL)")
@@ -48,6 +48,42 @@ func Run(cfg *config.Config, version string) error {
 		name = "gloski-agent"
 	}
 
+	statsStore := system.NewStore(300)
+	statsHub := system.NewHub(statsStore)
+	collector := system.NewCollector(statsStore, statsHub, 2*time.Second)
+	collector.Start()
+	defer collector.Stop()
+	statsService := system.NewService(statsStore, statsHub)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	backoff := time.Second
+	for {
+		select {
+		case <-quit:
+			logger.Info("Agent stopped")
+			return nil
+		default:
+		}
+
+		if err := runSession(cfg, version, name, statsService, quit); err != nil {
+			logger.Warn("Agent session ended: %v", err)
+		}
+
+		select {
+		case <-quit:
+			logger.Info("Agent stopped")
+			return nil
+		case <-time.After(backoff):
+		}
+		if backoff < 30*time.Second {
+			backoff *= 2
+		}
+	}
+}
+
+func runSession(cfg *config.Config, version, name string, statsService *system.Service, quit <-chan os.Signal) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	conn, err := dialMaster(ctx, cfg.Agent.MasterURL)
 	cancel()
@@ -56,18 +92,10 @@ func Run(cfg *config.Config, version string) error {
 	}
 	defer conn.Close()
 
-	client := agentv1.NewAgentClient(conn)
-	stream, err := client.Connect(context.Background())
+	stream, err := agentv1.NewAgentClient(conn).Connect(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to open agent stream: %w", err)
 	}
-
-	statsStore := system.NewStore(300)
-	statsHub := system.NewHub(statsStore)
-	collector := system.NewCollector(statsStore, statsHub, 2*time.Second)
-	collector.Start()
-	defer collector.Stop()
-	statsService := system.NewService(statsStore, statsHub)
 
 	agent := &agentRuntime{
 		cfg:     cfg,
@@ -79,6 +107,8 @@ func Run(cfg *config.Config, version string) error {
 		jobs:    make(map[string]context.CancelFunc),
 		terms:   make(map[string]*ptySession),
 	}
+	defer agent.cleanup()
+	defer func() { _ = stream.CloseSend() }()
 
 	hostname, _ := os.Hostname()
 	stats, _ := statsService.GetStats()
@@ -120,32 +150,20 @@ func Run(cfg *config.Config, version string) error {
 	if interval <= 0 {
 		interval = 10
 	}
-
 	logger.Info("Agent %s (%s) registered with master", name, agent.deviceID)
 
-	done := make(chan struct{})
-	go agent.heartbeatLoop(done, interval)
-	go agent.receiveLoop(done)
+	sessionDone := make(chan struct{})
+	var once sync.Once
+	finish := func() { once.Do(func() { close(sessionDone) }) }
+	go agent.heartbeatLoop(sessionDone, interval, finish)
+	go agent.receiveLoop(sessionDone, finish)
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-quit
-	logger.Info("Received %v, stopping agent...", sig)
-
-	close(done)
-	agent.mu.Lock()
-	for id, cancel := range agent.jobs {
-		cancel()
-		delete(agent.jobs, id)
+	select {
+	case <-quit:
+		return nil
+	case <-sessionDone:
+		return errors.New("master stream closed")
 	}
-	for id, session := range agent.terms {
-		session.close()
-		delete(agent.terms, id)
-	}
-	agent.mu.Unlock()
-	_ = stream.CloseSend()
-	logger.Info("Agent stopped")
-	return nil
 }
 
 type agentRuntime struct {
@@ -170,7 +188,21 @@ func (a *agentRuntime) send(message *agentv1.AgentMessage) error {
 	return a.stream.Send(message)
 }
 
-func (a *agentRuntime) heartbeatLoop(done <-chan struct{}, interval int) {
+func (a *agentRuntime) cleanup() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for id, cancel := range a.jobs {
+		cancel()
+		delete(a.jobs, id)
+	}
+	for id, session := range a.terms {
+		session.close()
+		delete(a.terms, id)
+	}
+}
+
+func (a *agentRuntime) heartbeatLoop(done <-chan struct{}, interval int, finish func()) {
+	defer finish()
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
 	for {
@@ -197,7 +229,8 @@ func (a *agentRuntime) heartbeatLoop(done <-chan struct{}, interval int) {
 	}
 }
 
-func (a *agentRuntime) receiveLoop(done <-chan struct{}) {
+func (a *agentRuntime) receiveLoop(done <-chan struct{}, finish func()) {
+	defer finish()
 	for {
 		message, err := a.stream.Recv()
 		if err != nil {
