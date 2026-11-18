@@ -1,4 +1,5 @@
 import type { ProcessInfo, SystemStats } from '@/shared/api'
+import { ProgressBar } from '@/shared/components'
 import { cn, formatBytes, formatUptime } from '@/shared/lib/utils'
 import type { FleetDevice } from '@/shared/tower'
 import { Activity, Cpu, HardDrive, MemoryStick, Network } from 'lucide-react'
@@ -143,12 +144,7 @@ export function BtopView({ device, stats, processes, connected }: BtopViewProps)
           {stats.disks.slice(0, 6).map((disk) => (
             <div key={disk.mount_point} className="flex items-center gap-4 px-4 py-2.5 text-xs">
               <span className="w-32 shrink-0 truncate font-mono text-foreground/80">{disk.mount_point}</span>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={cn('h-full rounded-full', disk.used_percent > 85 ? 'bg-destructive' : 'bg-success')}
-                  style={{ width: `${Math.min(100, disk.used_percent)}%` }}
-                />
-              </div>
+              <ProgressBar value={disk.used_percent} size="sm" variant="auto" className="flex-1" />
               <span className="w-10 shrink-0 text-right font-mono tabular-nums text-muted-foreground">
                 {disk.used_percent.toFixed(0)}%
               </span>

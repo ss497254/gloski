@@ -1,4 +1,4 @@
-import { deviceNavItems } from '@/app/navigation'
+import { deviceNavItems, devicePath } from '@/app/navigation'
 import { useParams } from 'react-router-dom'
 import { NavItem } from './NavItem'
 
@@ -11,7 +11,7 @@ export function DeviceNav({ collapsed }: { collapsed?: boolean }) {
       {deviceNavItems.map((item) => (
         <NavItem
           key={item.id}
-          to={item.path.replace(':deviceId', deviceId)}
+          to={devicePath(deviceId, item.id)}
           icon={item.icon}
           label={item.name}
           end={item.id === 'overview'}

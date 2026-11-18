@@ -23,6 +23,13 @@ export const mainNavItems: NavItem[] = [
   },
 ]
 
+export type DeviceTab = 'overview' | 'files' | 'terminal' | 'jobs'
+
+export function devicePath(deviceId: string, tab: DeviceTab = 'overview'): string {
+  const base = `/devices/${deviceId}`
+  return tab === 'overview' ? base : `${base}/${tab}`
+}
+
 export const settingsNavItem: NavItem = {
   id: 'settings',
   name: 'Settings',
@@ -30,29 +37,9 @@ export const settingsNavItem: NavItem = {
   path: '/settings',
 }
 
-export const deviceNavItems: NavItem[] = [
-  {
-    id: 'overview',
-    name: 'Overview',
-    icon: Radar,
-    path: '/devices/:deviceId',
-  },
-  {
-    id: 'files',
-    name: 'Files',
-    icon: FolderOpen,
-    path: '/devices/:deviceId/files',
-  },
-  {
-    id: 'terminal',
-    name: 'Terminal',
-    icon: Terminal,
-    path: '/devices/:deviceId/terminal',
-  },
-  {
-    id: 'jobs',
-    name: 'Jobs',
-    icon: ListTodo,
-    path: '/devices/:deviceId/jobs',
-  },
+export const deviceNavItems: Array<{ id: DeviceTab; name: string; icon: LucideIcon }> = [
+  { id: 'overview', name: 'Overview', icon: Radar },
+  { id: 'files', name: 'Files', icon: FolderOpen },
+  { id: 'terminal', name: 'Terminal', icon: Terminal },
+  { id: 'jobs', name: 'Jobs', icon: ListTodo },
 ]

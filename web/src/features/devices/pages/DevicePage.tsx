@@ -3,19 +3,18 @@ import { useTower } from '@/shared/tower'
 import type { FleetDevice } from '@/shared/tower/types'
 import { Button } from '@/ui/button'
 import { ArrowLeft, Loader2, Play, Square, Trash2 } from 'lucide-react'
-import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { toast } from 'sonner'
 import { BtopView } from '../components/BtopView'
+import { useDeviceActions } from '../hooks/useDeviceActions'
 import { useDeviceStats } from '../hooks/useDeviceStats'
 
 export function DevicePage() {
   const { deviceId } = useParams<{ deviceId: string }>()
-  const { mode, devices, startDevice, stopDevice, removeDevice } = useTower()
+  const { mode, devices } = useTower()
   const navigate = useNavigate()
   const device = devices.find((item) => item.id === deviceId)
   const live = useDeviceStats(device?.id, mode === 'tower' && device?.status === 'online')
-  const [busy, setBusy] = useState(false)
+  const { run, busy } = useDeviceActions(device, () => navigate('/devices'))
 
   if (mode === 'standalone' || !device) {
     return (
@@ -35,27 +34,6 @@ export function DevicePage() {
 
   const managedDevice: FleetDevice = device
   const online = managedDevice.status === 'online'
-
-  const run = async (action: 'start' | 'stop' | 'remove') => {
-    if (action === 'stop' && !window.confirm(`Stop the agent on "${managedDevice.name}"?`)) return
-    if (action === 'remove' && !window.confirm(`Remove "${managedDevice.name}" from the fleet?`)) return
-    setBusy(true)
-    try {
-      if (action === 'start') await startDevice(managedDevice.id)
-      if (action === 'stop') await stopDevice(managedDevice.id)
-      if (action === 'remove') {
-        await removeDevice(managedDevice.id)
-        navigate('/devices')
-      }
-      toast.success(
-        action === 'start' ? 'Agent start requested' : action === 'stop' ? 'Agent stopped' : 'Device removed'
-      )
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : `Failed to ${action} device`)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <PageLayout

@@ -367,43 +367,49 @@ func (a *agentRuntime) sendResult(id string, code int, message string) {
 	})
 }
 
+const fileErrorCode = 1
+
+func fileError(err error) *agentv1.FileResult {
+	return &agentv1.FileResult{Code: fileErrorCode, Message: err.Error()}
+}
+
 func (a *agentRuntime) handleFile(id string, request *agentv1.FileRequest) {
 	result := &agentv1.FileResult{}
 	switch request.GetOp() {
 	case agentv1.FileOp_FILE_OP_LIST:
 		listing, err := a.files.List(request.GetPath())
 		if err != nil {
-			result.Code, result.Message = 1, err.Error()
+			result = fileError(err)
 			break
 		}
 		raw, err := json.Marshal(listing)
 		if err != nil {
-			result.Code, result.Message = 1, err.Error()
+			result = fileError(err)
 			break
 		}
 		result.EntriesJson = string(raw)
 	case agentv1.FileOp_FILE_OP_READ:
 		content, err := a.files.Read(request.GetPath())
 		if err != nil {
-			result.Code, result.Message = 1, err.Error()
+			result = fileError(err)
 			break
 		}
 		result.Content = []byte(content)
 	case agentv1.FileOp_FILE_OP_WRITE:
 		if err := a.files.Write(request.GetPath(), string(request.GetContent())); err != nil {
-			result.Code, result.Message = 1, err.Error()
+			result = fileError(err)
 		}
 	case agentv1.FileOp_FILE_OP_DELETE:
 		if err := a.files.Delete(request.GetPath()); err != nil {
-			result.Code, result.Message = 1, err.Error()
+			result = fileError(err)
 		}
 	case agentv1.FileOp_FILE_OP_MKDIR:
 		if err := a.files.Mkdir(request.GetPath()); err != nil {
-			result.Code, result.Message = 1, err.Error()
+			result = fileError(err)
 		}
 	case agentv1.FileOp_FILE_OP_RENAME:
 		if err := a.files.Rename(request.GetPath(), request.GetNewPath()); err != nil {
-			result.Code, result.Message = 1, err.Error()
+			result = fileError(err)
 		}
 	default:
 		result.Code, result.Message = 1, "unsupported file operation"

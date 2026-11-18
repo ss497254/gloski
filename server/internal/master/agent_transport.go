@@ -34,13 +34,7 @@ func (s *Server) startAgentTransport(cfg *config.Config) {
 	}
 
 	if listener, err := net.Listen("unix", s.agentSock); err == nil {
-		s.listeners = append(s.listeners, listener)
-		go func() {
-			if err := s.agentGRPC.Serve(listener); err != nil {
-				logger.Warn("Local agent gRPC server stopped: %v", err)
-			}
-		}()
-		logger.Info("Agent gRPC listening on unix://%s", s.agentSock)
+		s.serveGRPC(listener, "unix://"+s.agentSock)
 	} else {
 		logger.Error("Failed to listen on agent socket %s: %v", s.agentSock, err)
 	}
@@ -55,16 +49,20 @@ func (s *Server) startAgentTransport(cfg *config.Config) {
 	}
 	address := net.JoinHostPort(host, strconv.Itoa(port))
 	if listener, err := net.Listen("tcp", address); err == nil {
-		s.listeners = append(s.listeners, listener)
-		go func() {
-			if err := s.agentGRPC.Serve(listener); err != nil {
-				logger.Warn("Remote agent gRPC server stopped: %v", err)
-			}
-		}()
-		logger.Info("Agent gRPC listening on %s", address)
+		s.serveGRPC(listener, address)
 	} else {
 		logger.Warn("Remote agent gRPC unavailable on %s: %v", address, err)
 	}
+}
+
+func (s *Server) serveGRPC(listener net.Listener, label string) {
+	s.listeners = append(s.listeners, listener)
+	go func() {
+		if err := s.agentGRPC.Serve(listener); err != nil {
+			logger.Warn("Agent gRPC server %s stopped: %v", label, err)
+		}
+	}()
+	logger.Info("Agent gRPC listening on %s", label)
 }
 
 func (s *Server) startLocalAgent(cfg *config.Config, version string) {

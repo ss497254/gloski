@@ -1,5 +1,5 @@
-import { mainNavItems, settingsNavItem } from '@/app/navigation'
-import { useSettingsStore } from '@/features/dashboard/stores/settings'
+import { devicePath, mainNavItems, settingsNavItem } from '@/app/navigation'
+import { isDarkTheme, useSettingsStore } from '@/features/dashboard/stores/settings'
 import type { DeviceClient } from '@/shared/lib/device'
 import { cn } from '@/shared/lib/utils'
 import { useTower } from '@/shared/tower'
@@ -29,7 +29,7 @@ function getStatusColor(status: string) {
 function SidebarDeviceLink({ device, collapsed }: { device: DeviceClient; collapsed: boolean }) {
   const snap = useSnapshot(device)
   return (
-    <NavLink to={`/devices/${snap.id}`}>
+    <NavLink to={devicePath(snap.id)}>
       {({ isActive }) => (
         <div
           className={cn(
@@ -50,7 +50,7 @@ function SidebarDeviceLink({ device, collapsed }: { device: DeviceClient; collap
 function ThemeToggle({ collapsed }: { collapsed: boolean }) {
   const theme = useSettingsStore((s) => s.theme)
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
-  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const isDark = isDarkTheme(theme)
 
   return (
     <button
@@ -186,7 +186,7 @@ export function Sidebar({ className }: { className?: string }) {
       {sidebarCollapsed && (
         <button
           onClick={toggleSidebar}
-          className="absolute -right-3 top-17 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-accent transition-colors"
+          className="absolute -right-3 top-6 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-accent transition-colors"
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>

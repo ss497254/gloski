@@ -1,3 +1,4 @@
+import { devicePath } from '@/app/navigation'
 import { cn } from '@/shared/lib/utils'
 import { useDevice } from '@/shared/context'
 import {
@@ -183,7 +184,7 @@ export function FileEntryItem({
         {entry.type === 'directory' && (
           <>
             <ContextMenuItem asChild>
-              <Link to={`/devices/${deviceId}/terminal?cwd=${encodeURIComponent(entry.path)}`}>
+              <Link to={`${devicePath(deviceId, 'terminal')}?cwd=${encodeURIComponent(entry.path)}`}>
                 <Terminal className="h-4 w-4 mr-2" />
                 Open in Terminal
               </Link>

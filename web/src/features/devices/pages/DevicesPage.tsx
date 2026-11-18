@@ -3,56 +3,25 @@ import { cn, formatBytes, formatRelativeTime, formatUptime } from '@/shared/lib/
 import { useTower } from '@/shared/tower'
 import type { FleetDevice } from '@/shared/tower/types'
 import { Button } from '@/ui/button'
-import { EmptyState } from '@/shared/components'
+import { EmptyState, UsageBar } from '@/shared/components'
 import { Skeleton } from '@/ui/skeleton'
 import { Activity, ArrowUpRight, Circle, Play, Plus, Radar, RefreshCw, Square, Trash2, Wifi } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
+import { devicePath } from '@/app/navigation'
 import { DeployDeviceDialog } from '../components/DeployDeviceDialog'
-
-function Usage({ label, value }: { label: string; value: number }) {
-  const tone = value > 85 ? 'bg-destructive' : value > 65 ? 'bg-warning' : 'bg-success'
-  return (
-    <div className="flex min-w-24 items-center gap-2">
-      <span className="w-7 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-        <div className={cn('h-full rounded-full', tone)} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
-      </div>
-      <span className="w-9 text-right font-mono text-xs tabular-nums text-foreground">{value.toFixed(0)}%</span>
-    </div>
-  )
-}
+import { useDeviceActions } from '../hooks/useDeviceActions'
 
 function DeviceRow({ device }: { device: FleetDevice }) {
-  const { startDevice, stopDevice, removeDevice } = useTower()
   const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
+  const { run, busy } = useDeviceActions(device)
   const online = device.status === 'online'
   const stats = device.stats
-
-  const run = async (action: 'start' | 'stop' | 'remove') => {
-    if (action === 'stop' && !window.confirm(`Stop the agent on "${device.name}"?`)) return
-    if (action === 'remove' && !window.confirm(`Remove "${device.name}" from the fleet?`)) return
-    setBusy(true)
-    try {
-      if (action === 'start') await startDevice(device.id)
-      if (action === 'stop') await stopDevice(device.id)
-      if (action === 'remove') await removeDevice(device.id)
-      toast.success(
-        action === 'start' ? 'Agent start requested' : action === 'stop' ? 'Agent stopped' : 'Device removed'
-      )
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : `Failed to ${action} device`)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <tr
       className="cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40"
-      onClick={() => navigate(`/devices/${device.id}`)}
+      onClick={() => navigate(devicePath(device.id))}
     >
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
@@ -83,8 +52,8 @@ function DeviceRow({ device }: { device: FleetDevice }) {
       </td>
       <td className="px-4 py-3">
         <div className="space-y-1.5">
-          <Usage label="cpu" value={stats?.cpu.usage_percent ?? 0} />
-          <Usage label="mem" value={stats?.memory.used_percent ?? 0} />
+          <UsageBar label="cpu" value={stats?.cpu.usage_percent ?? 0} />
+          <UsageBar label="mem" value={stats?.memory.used_percent ?? 0} />
         </div>
       </td>
       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
@@ -121,7 +90,7 @@ function DeviceRow({ device }: { device: FleetDevice }) {
           >
             <Trash2 className="h-3.5 w-3.5 text-destructive" />
           </Button>
-          <Button variant="ghost" size="icon-sm" title="Open device" onClick={() => navigate(`/devices/${device.id}`)}>
+          <Button variant="ghost" size="icon-sm" title="Open device" onClick={() => navigate(devicePath(device.id))}>
             <ArrowUpRight className="h-4 w-4" />
           </Button>
         </div>

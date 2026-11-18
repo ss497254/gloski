@@ -23,7 +23,7 @@ export const useSettingsStore = create<SettingsState>()(
         applyTheme(theme)
       },
       toggleTheme: () => {
-        const next = isDark(get().theme) ? 'light' : 'dark'
+        const next = isDarkTheme(get().theme) ? 'light' : 'dark'
         set({ theme: next })
         applyTheme(next)
       },
@@ -39,7 +39,7 @@ export const useSettingsStore = create<SettingsState>()(
   )
 )
 
-function isDark(theme: Theme): boolean {
+export function isDarkTheme(theme: Theme): boolean {
   if (theme === 'system') {
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   }
@@ -47,7 +47,7 @@ function isDark(theme: Theme): boolean {
 }
 
 function applyTheme(theme: Theme) {
-  document.documentElement.classList.toggle('dark', isDark(theme))
+  document.documentElement.classList.toggle('dark', isDarkTheme(theme))
 }
 
 // Initialize theme on load

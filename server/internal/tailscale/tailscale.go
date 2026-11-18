@@ -112,7 +112,7 @@ func (c *Client) Socket() string {
 
 // Status fetches the current tailnet status.
 func (c *Client) Status(ctx context.Context) (*Status, error) {
-	if c == nil || (!c.Available()) {
+	if c == nil || !c.Available() {
 		return nil, ErrUnavailable
 	}
 

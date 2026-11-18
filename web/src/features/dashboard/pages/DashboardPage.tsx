@@ -1,10 +1,11 @@
 import { PageLayout } from '@/layouts'
-import { cn, formatRelativeTime, formatUptime } from '@/shared/lib/utils'
+import { devicePath } from '@/app/navigation'
+import { cn, formatBytes, formatRelativeTime, formatUptime } from '@/shared/lib/utils'
 import { getDashboard } from '@/shared/tower/client'
 import type { DashboardSummary, FleetDevice } from '@/shared/tower/types'
 import { useTower } from '@/shared/tower'
 import { Button } from '@/ui/button'
-import { EmptyState } from '@/shared/components'
+import { EmptyState, UsageBar } from '@/shared/components'
 import { Skeleton } from '@/ui/skeleton'
 import {
   Activity,
@@ -35,25 +36,12 @@ function Metric({ icon: Icon, label, value, tone }: { icon: typeof Cpu; label: s
   )
 }
 
-function UsageBar({ label, value }: { label: string; value: number }) {
-  const tone = value > 85 ? 'bg-destructive' : value > 65 ? 'bg-warning' : 'bg-success'
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-8 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-        <div className={cn('h-full rounded-full', tone)} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
-      </div>
-      <span className="w-9 text-right font-mono text-xs tabular-nums text-foreground">{value.toFixed(0)}%</span>
-    </div>
-  )
-}
-
 function DeviceCard({ device }: { device: FleetDevice }) {
   const online = device.status === 'online'
   const stats = device.stats
   return (
     <Link
-      to={`/devices/${device.id}`}
+      to={devicePath(device.id)}
       className="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50"
     >
       <div className="flex items-start justify-between gap-2">
@@ -81,18 +69,12 @@ function DeviceCard({ device }: { device: FleetDevice }) {
 
       <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
         <span className="font-mono">
-          ↓ {formatBytesShort(stats?.network.rx_rate ?? 0)}/s · ↑ {formatBytesShort(stats?.network.tx_rate ?? 0)}/s
+          ↓ {formatBytes(stats?.network.rx_rate ?? 0)}/s · ↑ {formatBytes(stats?.network.tx_rate ?? 0)}/s
         </span>
         <span>{stats ? formatUptime(stats.uptime) : formatRelativeTime(device.last_seen)}</span>
       </div>
     </Link>
   )
-}
-
-function formatBytesShort(bytes: number): string {
-  if (bytes < 1024) return `${Math.round(bytes)} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
 export function DashboardPage() {
@@ -187,7 +169,7 @@ export function DashboardPage() {
             {issues.slice(0, 8).map((issue) => (
               <Link
                 key={issue.id}
-                to={issue.device_id ? `/devices/${issue.device_id}` : '/devices'}
+                to={issue.device_id ? devicePath(issue.device_id) : '/devices'}
                 className="flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/40"
               >
                 <Circle
