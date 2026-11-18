@@ -1,3 +1,5 @@
+// SSH deployment and device lifecycle endpoints. Remote agents are installed to /tmp and connect back over gRPC.
+
 package master
 
 import (

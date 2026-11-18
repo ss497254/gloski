@@ -41,6 +41,7 @@ type Server struct {
 	sessions map[string]*session
 }
 
+// New creates the agent service backed by master-owned job storage.
 func New(db *database.Database, devicesSvc *devices.Service, version string, interval int) (*Server, error) {
 	jobs, err := NewJobStore(db)
 	if err != nil {

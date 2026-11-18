@@ -1,3 +1,5 @@
+// Per-agent stream state. Sends are serialized because gRPC streams must not be written concurrently.
+
 package agentgrpc
 
 import (

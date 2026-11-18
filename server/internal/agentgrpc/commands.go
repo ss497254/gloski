@@ -1,3 +1,5 @@
+// Commands the master sends to an agent over its Connect stream.
+
 package agentgrpc
 
 import (
@@ -9,6 +11,7 @@ import (
 	"github.com/ss497254/gloski/proto/agentv1"
 )
 
+// RunJob records a new job and sends it to the target agent over its stream.
 func (s *Server) RunJob(deviceID, command, cwd string) (*Job, error) {
 	sess, err := s.session(deviceID)
 	if err != nil {

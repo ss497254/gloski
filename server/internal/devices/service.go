@@ -1,3 +1,5 @@
+// Device registry and enrollment. This is the master source of truth for fleet membership and liveness.
+
 package devices
 
 import (
@@ -181,6 +183,7 @@ func (s *Service) Delete(id string) error {
 }
 
 // MarkOffline forces a device to show as offline until its next heartbeat.
+// MarkOffline forces a device to appear offline until its next heartbeat.
 func (s *Service) MarkOffline(id string) error {
 	if err := s.store.MarkOffline(id, time.Now().UTC().Add(-time.Hour)); err != nil {
 		return err

@@ -1,3 +1,5 @@
+// PTY sessions used by the device terminal feature.
+
 package agent
 
 import (

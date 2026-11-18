@@ -1,3 +1,5 @@
+// Master-owned job records and streamed output chunks.
+
 package agentgrpc
 
 import (

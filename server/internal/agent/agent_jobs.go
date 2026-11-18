@@ -1,3 +1,5 @@
+// Job execution and file operations requested by the master.
+
 package agent
 
 import (

@@ -181,6 +181,7 @@ func (s *Server) fleetLoop() {
 	}
 }
 
+// routes registers browser endpoints. Agent traffic never arrives here.
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 

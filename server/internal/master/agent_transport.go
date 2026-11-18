@@ -1,3 +1,5 @@
+// gRPC listeners and the supervised local agent. The child process is restarted when its gRPC session disappears.
+
 package master
 
 import (

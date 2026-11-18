@@ -1,3 +1,5 @@
+// Environment overrides, grouped by area and applied on top of the config file.
+
 package config
 
 import (

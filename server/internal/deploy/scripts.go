@@ -1,3 +1,5 @@
+// Remote shell scripts used to install and control the agent binary under /tmp.
+
 package deploy
 
 import (

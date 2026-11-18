@@ -1,3 +1,5 @@
+// SSH transport: key or agent authentication, host-key trust on first use, and remote command execution.
+
 package deploy
 
 import (

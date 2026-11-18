@@ -1,3 +1,5 @@
+// Browser-facing device API. Every request is translated into a gRPC command on the target agent stream.
+
 package master
 
 import (

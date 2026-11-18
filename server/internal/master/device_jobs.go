@@ -1,3 +1,5 @@
+// Ad-hoc job endpoints. Jobs and logs live in the master database, not on the device.
+
 package master
 
 import (

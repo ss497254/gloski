@@ -1,3 +1,5 @@
+// Fan-out of fleet snapshots to browser WebSocket subscribers.
+
 package devices
 
 import (
