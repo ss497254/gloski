@@ -4,9 +4,9 @@ import (
 	"flag"
 	"os"
 
-	"github.com/ss497254/gloski/internal/agent"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/logger"
+	"github.com/ss497254/gloski/internal/worker"
 )
 
 var (
@@ -34,7 +34,7 @@ func main() {
 	logger.SetLevel(logger.ParseLevel(cfg.LogLevel))
 
 	logger.Info("Gloski agent %s starting...", version)
-	if err := agent.Run(cfg, version); err != nil {
+	if err := worker.Run(cfg, version); err != nil {
 		logger.Fatal("Agent failed: %v", err)
 	}
 }

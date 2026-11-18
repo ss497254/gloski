@@ -12,8 +12,8 @@ import (
 	"github.com/ss497254/gloski/internal/api"
 	"github.com/ss497254/gloski/internal/app"
 	"github.com/ss497254/gloski/internal/config"
+	"github.com/ss497254/gloski/internal/controltower"
 	"github.com/ss497254/gloski/internal/logger"
-	"github.com/ss497254/gloski/internal/master"
 )
 
 var (
@@ -46,7 +46,7 @@ func main() {
 	switch cfg.Mode {
 	case config.ModeMaster:
 		logger.Info("Gloski control tower %s starting...", version)
-		if err := master.Run(cfg, version); err != nil {
+		if err := controltower.Run(cfg, version); err != nil {
 			logger.Fatal("Control tower failed: %v", err)
 		}
 	case config.ModeAgent:

@@ -1,0 +1,198 @@
+package agents
+
+import (
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/ss497254/gloski/proto/agentv1"
+)
+
+func (svc *Service) RunJob(deviceID, command, cwd string) (*Job, error) {
+	conn, err := svc.connection(deviceID)
+	if err != nil {
+		return nil, err
+	}
+	job, err := svc.jobs.Create(deviceID, command, cwd)
+	if err != nil {
+		return nil, err
+	}
+	if err := svc.jobs.MarkRunning(job.ID); err != nil {
+		return nil, err
+	}
+	message := &agentv1.MasterMessage{
+		RequestId: job.ID,
+		Payload: &agentv1.MasterMessage_RunJob{
+			RunJob: &agentv1.RunJob{Command: command, Cwd: cwd},
+		},
+	}
+	if err := conn.send(message); err != nil {
+		_ = svc.jobs.Finish(job.ID, -1, err.Error())
+		return nil, err
+	}
+	return job, nil
+}
+
+// CancelJob asks the agent to stop a running job.
+func (svc *Service) CancelJob(deviceID, jobID, reason string) error {
+	conn, err := svc.connection(deviceID)
+	if err != nil {
+		return err
+	}
+	return conn.send(&agentv1.MasterMessage{
+		RequestId: jobID,
+		Payload: &agentv1.MasterMessage_Cancel{
+			Cancel: &agentv1.CancelRequest{Reason: reason},
+		},
+	})
+}
+
+// ListJobs returns a device's jobs from the master database.
+func (svc *Service) ListJobs(deviceID string) ([]Job, error) { return svc.jobs.List(deviceID) }
+
+// GetJob returns one job.
+func (svc *Service) GetJob(id string) (*Job, error) { return svc.jobs.Get(id) }
+
+// JobLogs returns a job's streamed output.
+func (svc *Service) JobLogs(id string) ([]string, error) { return svc.jobs.Logs(id) }
+
+// RecentJobs returns the latest jobs across all fleet.
+func (svc *Service) RecentJobs(limit int) ([]Job, error) { return svc.jobs.Recent(limit) }
+
+// ProblemJobs returns failed or abandoned jobs across all fleet.
+func (svc *Service) ProblemJobs(limit int) ([]Job, error) { return svc.jobs.ProblemJobs(limit) }
+
+// DeleteJob removes a job and its logs.
+func (svc *Service) DeleteJob(id string) error { return svc.jobs.Delete(id) }
+
+// File performs a file operation on an agent and waits for its result.
+func (svc *Service) File(deviceID string, request *agentv1.FileRequest) (*agentv1.FileResult, error) {
+	reply, err := svc.request(deviceID, &agentv1.MasterMessage{
+		Payload: &agentv1.MasterMessage_FileRequest{FileRequest: request},
+	}, fileRequestTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return reply.GetFileResult(), nil
+}
+
+// Processes asks an agent for its current process table.
+func (svc *Service) Processes(deviceID string, limit int, sortBy string) ([]byte, error) {
+	reply, err := svc.request(deviceID, &agentv1.MasterMessage{
+		Payload: &agentv1.MasterMessage_ProcessRequest{
+			ProcessRequest: &agentv1.ProcessRequest{Limit: int32(limit), Sort: sortBy},
+		},
+	}, processRequestTimeout)
+	if err != nil {
+		return nil, err
+	}
+	result := reply.GetProcessResult()
+	if result == nil {
+		return nil, errors.New("agent returned no process result")
+	}
+	return []byte(result.GetJson()), nil
+}
+
+// OpenTerminal starts a PTY connection on an agent and returns its output channel.
+func (svc *Service) OpenTerminal(deviceID, cwd string, cols, rows uint32) (<-chan []byte, string, error) {
+	conn, err := svc.connection(deviceID)
+	if err != nil {
+		return nil, "", err
+	}
+	id := uuid.NewString()
+	channel := make(chan []byte, 256)
+	conn.mu.Lock()
+	conn.terms[id] = channel
+	conn.mu.Unlock()
+
+	message := &agentv1.MasterMessage{
+		RequestId: id,
+		Payload: &agentv1.MasterMessage_TerminalOpen{
+			TerminalOpen: &agentv1.TerminalOpen{Cwd: cwd, Cols: cols, Rows: rows},
+		},
+	}
+	if err := conn.send(message); err != nil {
+		conn.mu.Lock()
+		delete(conn.terms, id)
+		conn.mu.Unlock()
+		return nil, "", err
+	}
+	return channel, id, nil
+}
+
+// TerminalInput forwards keystrokes to an agent PTY.
+func (svc *Service) TerminalInput(deviceID, id string, data []byte) error {
+	conn, err := svc.connection(deviceID)
+	if err != nil {
+		return err
+	}
+	return conn.send(&agentv1.MasterMessage{
+		RequestId: id,
+		Payload: &agentv1.MasterMessage_TerminalInput{
+			TerminalInput: &agentv1.TerminalInput{Data: data},
+		},
+	})
+}
+
+// CloseTerminal closes an agent PTY connection.
+func (svc *Service) CloseTerminal(deviceID, id string) error {
+	conn, err := svc.connection(deviceID)
+	if err != nil {
+		return err
+	}
+	return conn.send(&agentv1.MasterMessage{
+		RequestId: id,
+		Payload:   &agentv1.MasterMessage_TerminalClose{TerminalClose: &agentv1.TerminalClose{}},
+	})
+}
+
+// Shutdown asks an agent to stop itself.
+func (svc *Service) Shutdown(deviceID string) error {
+	conn, err := svc.connection(deviceID)
+	if err != nil {
+		return err
+	}
+	return conn.send(&agentv1.MasterMessage{
+		Payload: &agentv1.MasterMessage_Shutdown{Shutdown: &agentv1.Shutdown{}},
+	})
+}
+
+// Connected reports whether an agent stream is live.
+func (svc *Service) Connected(deviceID string) bool {
+	_, err := svc.connection(deviceID)
+	return err == nil
+}
+
+func (svc *Service) request(deviceID string, message *agentv1.MasterMessage, timeout time.Duration) (*agentv1.AgentMessage, error) {
+	conn, err := svc.connection(deviceID)
+	if err != nil {
+		return nil, err
+	}
+	id := uuid.NewString()
+	message.RequestId = id
+	channel := make(chan *agentv1.AgentMessage, 1)
+	conn.mu.Lock()
+	conn.pending[id] = channel
+	conn.mu.Unlock()
+	defer func() {
+		conn.mu.Lock()
+		delete(conn.pending, id)
+		conn.mu.Unlock()
+	}()
+
+	if err := conn.send(message); err != nil {
+		return nil, err
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case reply := <-channel:
+		if reply == nil {
+			return nil, ErrNoAgent
+		}
+		return reply, nil
+	case <-timer.C:
+		return nil, fmt.Errorf("agent %s did not respond in time", deviceID)
+	}
+}
