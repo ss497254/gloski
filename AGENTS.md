@@ -43,6 +43,9 @@ These came from the owner directly. Follow them unless told otherwise.
 - **Installing agents under `/tmp` is deliberate.** Agents are installed and
   deleted often while the code changes. Do not flag it as a defect or push
   systemd; the owner will move to systemd when ready.
+- **Keep it simple.** The owner pushed back when a plan grew a mechanism per
+  failure case. Prefer one general repair (restart, reinstall) over many
+  special ones, and leave rare cases out until they actually happen.
 - **The owner wants decisions made, not menus.** When a design question comes
   up, pick the simplest approach that covers the failure cases, explain it
   briefly and build it ("use your brain"). Ask only when the answer cannot be
