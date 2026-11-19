@@ -1,150 +1,71 @@
 # Reliability Plan
 
 Goal: when you want to do something on a device, it works, and when it cannot,
-you are told exactly why. Security hardening is out of scope for now.
+you are told why. Security hardening is out of scope for now.
 
-## The design in three rules
+**Keep it simple.** The agent is stateless, so there are only two repairs:
+restart it, or reinstall it. Every failure is handled by one of those two, done
+automatically where that is cheap and by one button where it is not. Do not add
+a separate mechanism per failure.
 
-The first version of this plan had the master chase dead agents over SSH. That
-made the master's SSH access a second thing that can break (changed host keys,
-no ssh-agent, devices installed by hand that the master cannot reach). This
-version turns it around.
+## Design
 
-**1. Each device keeps its own agent alive.**
+1. **Each device keeps its own agent alive.** A supervisor inside the agent
+   binary restarts it after a crash. A crontab line starts it every 5 minutes if
+   it is not running, and reinstalls it from the master if its files are gone.
+2. **The master is the source of truth.** It serves one install script, one
+   uninstall script and the agent builds (embedded in the master binary) on
+   port 9090. An agent whose binary differs from the master's replaces itself.
+3. **Every action ends in a definite outcome.** It runs, or it fails with a
+   reason a person can act on.
 
-- The agent binary supervises itself: a small parent process starts the real
-  agent, restarts it within seconds if it dies, caps the log size, and holds a
-  lock so two agents can never run on one device.
-- Install adds one crontab line. Every 5 minutes, and at boot, it starts the
-  agent if it is not running, and if the files are gone (reboot wiped `/tmp`) it
-  downloads the install script from the master and runs it again.
-- So a device heals itself after a crash, a reboot or a wiped `/tmp`, and it
-  does not matter whether it was installed from the dashboard or by `curl`.
-- The master's SSH is a convenience and a backstop: it runs the same install
-  script for the first install, and re-runs it for a device that has saved SSH
-  details and has been offline for 10 minutes (this covers devices without
-  cron).
+## What handles what
 
-**2. The master is the only source of truth, and agents converge on it.**
+| Problem | Handled by |
+|---|---|
+| Agent crashes, or is killed for using too much memory | Supervisor restarts it (done) |
+| Device reboots, or `/tmp` is wiped | Crontab line reinstalls it (done) |
+| Two agents on one device | Lock; the second exits (done) |
+| Wrong architecture, or `noexec` directory | Install fails with a clear message (done) |
+| Agent log fills the disk | Supervisor caps it (done) |
+| Master down, however long | Agents keep retrying and reconnect (done) |
+| Master restarts mid-job | Job keeps running, output is replayed (done) |
+| Agent is frozen or otherwise misbehaving | **Restart** button; if it ignores that, **Reinstall**, which force-kills |
+| Agent is older than the master | Updates itself at connect, after running jobs finish |
+| Job sent to an offline device | Fails at once with "offline since …", no queue |
+| Job logs piling up | Deleted after 30 days; 10 MB kept per job |
+| "Offline" with no explanation | Device shows why: never connected, wrong token, last seen, last restart reason |
 
-- One install script and one uninstall script, served by the master on port
-  9090 next to gRPC. Install is safe to run any number of times.
-- Agent builds for amd64, arm64 and arm are embedded in the master binary, so
-  the master always serves agents that match itself.
-- At connect, the agent reports the hash of its binary. If it differs from the
-  master's build, the agent downloads the new one, verifies it and restarts,
-  waiting for running jobs to finish first.
-- An agent never stops just because the master is unreachable; it keeps
-  retrying, which costs nothing. It removes itself completely (process, files,
-  crontab line) in two cases: the master says the device was deleted, or the
-  master has been unreachable for 7 days in a row.
+Deliberately left out, because each adds a mechanism for a rare case: master-side
+SSH revive loop, agent self-removal timers, remembering deleted devices, memory
+and heartbeat watchdogs, job queueing, per-job timeouts. If one of these cases
+actually bites, add it then.
 
-**3. Every action ends in a definite outcome.**
-
-- An action sent while a device is reconnecting waits a few seconds for it.
-- A job sent to an offline device is queued, runs when the device returns, and
-  expires after 1 hour. It can be cancelled while queued.
-- Every failure carries a reason a person can act on: "offline since 14:02,
-  last error: join token rejected", not "offline".
-- Finished jobs are deleted after 30 days. Each job keeps at most its most
-  recent 10 MB of output.
-
-### What changed from the earlier decisions, and why
-
-- **"Stop after 30 minutes" became "remove itself after 7 days".** A stopped
-  agent would be restarted by its own crontab line 5 minutes later, so stopping
-  has no meaning any more. The purpose of that rule was to avoid leftover agents
-  when a master is gone for good; a full self-removal after 7 days does that,
-  and a short master outage no longer takes the fleet down with it.
-- **The revive loop moved from the master to the device.** The master-side
-  version stays only as a backstop.
-- Unchanged: no SSH fallback for actions, agents stay in `/tmp`, no offline
-  alerts, systemd later.
-
-## Failure scenarios
-
-| # | Scenario | What handles it |
-|---|---|---|
-| A1 | Agent process crashes | Supervisor restarts it in seconds |
-| A2 | Device reboots, `/tmp` is wiped | Crontab line reinstalls from the master |
-| A3 | A `/tmp` cleaner deletes the binary | Same as A2 within 5 minutes |
-| A4 | `/tmp` is `noexec`, or wrong architecture | Install runs the binary once, fails with a clear message, accepts another directory |
-| A5 | Two agents on one device | Lock held by the supervisor; a second start exits quietly |
-| A6 | Agent alive but its connection is stuck | Keepalive drops the stream and the agent reconnects |
-| A7 | A heavy job gets the agent killed | Supervisor restarts it and reports why the last run ended; the job is marked abandoned with that reason |
-| A8 | Agent log fills the disk | Supervisor caps the log |
-| A9 | Master down for hours or days | Agents keep retrying and reconnect when it returns |
-| N1 | Master restarts | Agents reconnect in seconds; actions wait briefly |
-| N2 | Master's name does not resolve on the device | Agent is given the name and the IPs and tries each |
-| N3 | Tailscale comes up after the master | Already handled: the master retries binding |
-| N4 | Half-dead connection | Already handled: keepalives |
-| N5 | Join token changed | Master records the rejection; the device shows "rejected: bad token" |
-| N6 | Old agent, new master | Hash check at connect, agent updates itself |
-| R1 | Device without cron | Install reports it; the master's SSH backstop covers it if SSH details are saved |
-| R2 | SSH backstop cannot log in (changed host key, no key) | Only matters for R1 devices; the device page shows the SSH error |
-| R3 | You stopped an agent on purpose | Stop removes the crontab line and is recorded, so nothing restarts it |
-| R4 | Device deleted in the dashboard while offline | When it next connects it is told to remove itself |
-| T1 | Job sent to an offline device | Queued, expires after 1 hour |
-| T3 | Huge output, or logs piling up for months | 10 MB per job, 30 days |
-| T6 | Upload interrupted | Stale partial files cleaned up |
-| T7 | Permission denied | Error names the user the agent runs as |
-| U2 | Update download cut off or corrupt | Hash verified before the swap; the old binary keeps running |
-| U3 | Update needed while jobs run | Waits for jobs to finish |
-| U4 | Update loop | Impossible: binaries are embedded in the master, hashes match after one update |
-
-### An agent that misbehaves
-
-Rule: nothing that controls an agent may depend on that agent cooperating. The
-supervisor is a separate, tiny process, so it is the one that judges and kills.
-
-| # | Scenario | What handles it |
-|---|---|---|
-| G1 | Connected but frozen: commands time out | Agent writes a heartbeat file; supervisor kills and restarts it after 2 minutes of silence. Master drops a stream whose heartbeats stop |
-| G2 | Agent itself leaks memory or spins CPU | Supervisor restarts it above a memory limit (jobs not counted) |
-| G3 | Ignores stop or uninstall | Supervisor and uninstall script use SIGKILL after a grace period; on its next connect the master answers "stop" or "remove yourself" before anything else runs |
-| G4 | Crash loop | Backoff up to 30 s; restart count and last exit reason shown on the device |
-| G5 | Runaway jobs | Cancel kills the whole process group; "stop all jobs" per device |
-| G6 | Floods the master with output | 10 MB per job, bounded terminal buffer |
-| G7 | Deleted device keeps coming back | Master remembers deleted devices and tells them to remove themselves |
-| G8 | Update keeps failing | One attempt per connect, failure reason shown, old binary keeps working |
-
-G1 to G3, G7 and G8 are built in phase 2; G4 and G5 are shown in phase 4.
-
-Later, on request: resumable terminals, per-job timeouts, editor "changed on
-disk" check, one command on many devices with per-device results, dashboard
-reconnect banner.
+A device without `crontab` restarts after a crash but not after a reboot; the
+fix is to press Reinstall or paste the install command again.
 
 ## Build order
 
-Each phase is committed to `main` and tested against a live master and agents.
-
-1. **Self-supervising agent and install scripts.** Supervisor with lock and log
-   cap; `install-agent.sh` and `uninstall-agent.sh`; builds for three
-   architectures embedded in the master and served on 9090; crontab self-heal;
-   dashboard deploy uses the same script; everything under one directory
-   (`/tmp/gloski`). Covers A1 to A5, A8, A9, R1, R3.
-2. **Convergence.** Hash-based self-update, removal on device delete, 7-day
-   self-removal, master SSH backstop. Covers N6, R4, U2 to U4.
-3. **Definite outcomes.** Short wait for reconnecting devices, queued jobs,
-   failure reasons, log cap and pruning, stale upload cleanup. Covers N1, N5,
-   T1, T3, T6, T7.
-4. **Device health view.** Per device: why offline and since when, agent user,
-   version, architecture, how it self-heals (cron, SSH backstop or none), why
-   the agent last restarted, and the tail of its log.
-5. **Break-it test.** A script that kills the master, the agent and the
-   connection mid-job, wipes the install directory, and checks recovery.
+1. **Self-healing install.** Done.
+2. **Restart, Reinstall and self-update.** Two buttons per device. Restart asks
+   the agent to exit so the supervisor starts it again. Reinstall runs the
+   install script over SSH when the master has SSH details, and otherwise shows
+   the one-line command. Self-update compares binary hashes at connect.
+3. **Clear reasons.** Actions on an offline device fail immediately with the
+   reason; the device shows why it is offline; job log limits.
+4. **Break-it test.** One script that kills the master and the agent mid-job,
+   wipes the install directory, and checks recovery.
 
 ## Status
 
 - Phase 1: done. Verified live: install by curl, agent crash, supervisor killed,
-  double start, repeated install, wiped directory, stop and remove from the
-  API, wrong-architecture message. Not yet exercised: the SSH path (waits for
-  the in-process SSH test server in phase 2) and a real cron daemon (the
-  crontab line was run by hand).
+  double start, repeated install, wiped directory, stop and remove from the API,
+  wrong-architecture message. Not yet exercised: the SSH install path and a real
+  cron daemon (the crontab line was run by hand).
 - Phase 2: next.
 
 ## Testing notes
 
-The development machine has cron, so the self-heal path can be tested for real.
-It has no SSH server; the SSH backstop is tested against an in-process SSH
-server written with `golang.org/x/crypto/ssh`, which the project already uses.
+The development machine has `crontab` but no cron daemon and no SSH server. Run
+the crontab line by hand to test self-heal. Test the SSH path against an
+in-process SSH server written with `golang.org/x/crypto/ssh`.
