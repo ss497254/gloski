@@ -95,6 +95,10 @@ File contents no longer travel on the gRPC stream. A download or upload sends a
 reinstalled by the lifecycle. Listing, stat, rename, delete and the editor's
 small text reads stay on gRPC.
 
+Job logs are capped at 10 MB each and a daily maintenance pass in
+`controltower/maintenance.go` deletes finished jobs older than 30 days
+(`agents.JobRetention`).
+
 The master-owned agent lifecycle is built (`7b936a3`), and the protocol changes
 from `7f86d0a` and `ab0abad` are in. Agents built before those commits must be
 reinstalled; the install script removes an old `/tmp/gloski-agent` install by

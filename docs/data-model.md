@@ -36,9 +36,10 @@ Migrations live in `server/internal/database/migrations.go`.
 
 The job tables are **not** migrations. `agents.NewJobStore` creates
 `agent_jobs` and `agent_job_logs` with `CREATE TABLE IF NOT EXISTS` and adds
-`agent_jobs.last_seq` with a runtime `ALTER TABLE`. A schema change to jobs must
-be added there as well as to the startup path; a new migration alone will not
-create the tables on an empty database.
+`agent_jobs.last_seq`, `log_bytes` and `log_truncated` with runtime
+`ALTER TABLE` statements. A schema change to jobs must be added there as well
+as to the startup path; a new migration alone will not create the tables on an
+empty database.
 
 ## Tables in use
 
@@ -96,6 +97,8 @@ A command the master owns.
 | `error` | Failure text, if any |
 | `created_at`, `started_at`, `finished_at` | Timestamps |
 | `last_seq` | Newest output sequence stored; used to drop replays and mark gaps |
+| `log_bytes` | Bytes of log stored so far; the cap is 10 MB per job |
+| `log_truncated` | `1` once the truncation notice has been written |
 
 ### `agent_job_logs`
 
@@ -106,7 +109,7 @@ One row per streamed output chunk.
 | `id` | Autoincrement, orders chunks |
 | `job_id` | Owning job |
 | `chunk` | Raw bytes, stdout or stderr |
-| `stderr` | `1` for stderr and for the synthetic gap notice |
+| `stderr` | `1` for stderr and for the synthetic gap and truncation notices |
 | `created_at` | Timestamp |
 
 Indexes: `agent_jobs(device_id)`, `agent_job_logs(job_id)`.
@@ -125,7 +128,9 @@ pending/running ──────▶ abandoned    (agent no longer holds it aft
 
 `Finish` only moves a job out of `pending` or `running`, so a late result cannot
 overwrite a terminal state. Deleting a device deletes its jobs and logs.
-Finished jobs are kept until deleted; there is no age or size limit yet.
+Each job keeps at most 10 MB of log; the chunk that crosses the limit is
+replaced by a truncation notice. A daily maintenance pass deletes terminal jobs
+(and their logs) finished more than 30 days ago.
 
 **Deployment**
 

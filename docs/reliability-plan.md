@@ -36,7 +36,7 @@ add a separate mechanism per failure.
 | SSH to the device fails | Reason shown on the device; changed host key has a "Trust new key" button (done) |
 | Job sent to an offline device | Fails at once with the reason, no queue |
 | A big download or upload delays commands | Contents use one HTTP request per transfer on the agent port, not the gRPC stream (done) |
-| Job logs piling up | Deleted after 30 days; 10 MB kept per job |
+| Job logs piling up | Deleted after 30 days; 10 MB kept per job (done) |
 
 Recovery takes about a minute: 45 seconds of grace so reconnecting agents are
 left alone, plus up to 15 seconds for the next look.

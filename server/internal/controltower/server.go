@@ -143,6 +143,7 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 	}
 
 	go t.fleetLoop()
+	go t.maintenanceLoop()
 	t.lifecycle = newLifecycle(t)
 	go t.lifecycle.loop()
 	t.router = t.routes()

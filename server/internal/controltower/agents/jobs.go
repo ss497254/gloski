@@ -20,6 +20,15 @@ const (
 	JobAbandoned = "abandoned"
 )
 
+// Job log limits. A chatty job must not fill the master's disk, so each job
+// keeps at most 10 MB and finished jobs are removed after 30 days.
+const (
+	maxJobLogBytes = 10 << 20
+	JobRetention   = 30 * 24 * time.Hour
+)
+
+const truncationNotice = "\n[gloski: job log truncated after 10 MB]\n"
+
 // Job is a master-owned task executed by an agent.
 type Job struct {
 	ID         string    `json:"id"`
@@ -80,6 +89,31 @@ func NewJobStore(db *database.Database) (*JobStore, error) {
 			return nil, err
 		}
 	}
+	// log_bytes tracks the stored log size so the cap does not need a SUM per
+	// chunk; log_truncated remembers that the notice was already written.
+	for _, column := range []struct{ name, definition string }{
+		{"log_bytes", "INTEGER NOT NULL DEFAULT 0"},
+		{"log_truncated", "INTEGER NOT NULL DEFAULT 0"},
+	} {
+		var count int
+		if err := store.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('agent_jobs') WHERE name = ?`, column.name).Scan(&count); err != nil {
+			return nil, err
+		}
+		if count == 0 {
+			if _, err := store.db.Exec(`ALTER TABLE agent_jobs ADD COLUMN ` + column.name + ` ` + column.definition); err != nil {
+				return nil, err
+			}
+			if column.name == "log_bytes" {
+				// Count logs stored before the cap existed.
+				if _, err := store.db.Exec(`
+					UPDATE agent_jobs SET log_bytes = (
+						SELECT COALESCE(SUM(LENGTH(chunk)), 0)
+						FROM agent_job_logs WHERE job_id = agent_jobs.id)`); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	return store, nil
 }
 
@@ -125,7 +159,9 @@ func (t *JobStore) AppendLog(id string, seq uint64, chunk []byte, stderr bool) e
 	defer tx.Rollback()
 
 	var last uint64
-	if err := tx.QueryRow(`SELECT last_seq FROM agent_jobs WHERE id = ?`, id).Scan(&last); err != nil {
+	var logBytes int64
+	var truncated bool
+	if err := tx.QueryRow(`SELECT last_seq, log_bytes, log_truncated FROM agent_jobs WHERE id = ?`, id).Scan(&last, &logBytes, &truncated); err != nil {
 		if err == sql.ErrNoRows {
 			return nil // job was deleted; discard its output
 		}
@@ -137,22 +173,46 @@ func (t *JobStore) AppendLog(id string, seq uint64, chunk []byte, stderr bool) e
 			return nil
 		}
 		if seq > last+1 {
-			if _, err := tx.Exec(`
-				INSERT INTO agent_job_logs (job_id, chunk, stderr, created_at) VALUES (?, ?, 1, ?)`,
-				id, []byte(gapNotice), now); err != nil {
+			if err := appendChunk(tx, id, []byte(gapNotice), true, now, &logBytes, &truncated); err != nil {
 				return err
 			}
 		}
+		// last_seq advances even when the cap drops the chunk, so a reconnect
+		// does not replay output the master has already decided to discard.
 		if _, err := tx.Exec(`UPDATE agent_jobs SET last_seq = ? WHERE id = ?`, seq, id); err != nil {
 			return err
 		}
+	}
+	if err := appendChunk(tx, id, chunk, stderr, now, &logBytes, &truncated); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// appendChunk stores one log chunk unless the job is already at its limit. The
+// chunk that crosses the limit is replaced by a single truncation notice.
+func appendChunk(tx *sql.Tx, id string, chunk []byte, stderr bool, now time.Time, logBytes *int64, truncated *bool) error {
+	if *truncated {
+		return nil
+	}
+	if *logBytes+int64(len(chunk)) > maxJobLogBytes {
+		if _, err := tx.Exec(`
+			INSERT INTO agent_job_logs (job_id, chunk, stderr, created_at) VALUES (?, ?, 1, ?)`,
+			id, []byte(truncationNotice), now); err != nil {
+			return err
+		}
+		*truncated = true
+		_, err := tx.Exec(`UPDATE agent_jobs SET log_truncated = 1 WHERE id = ?`, id)
+		return err
 	}
 	if _, err := tx.Exec(`
 		INSERT INTO agent_job_logs (job_id, chunk, stderr, created_at) VALUES (?, ?, ?, ?)`,
 		id, chunk, stderr, now); err != nil {
 		return err
 	}
-	return tx.Commit()
+	*logBytes += int64(len(chunk))
+	_, err := tx.Exec(`UPDATE agent_jobs SET log_bytes = ? WHERE id = ?`, *logBytes, id)
+	return err
 }
 
 // Resume reports how to pick up a job an agent says it still holds: the
@@ -253,6 +313,26 @@ func (t *JobStore) Finish(id string, exitCode int, errMsg string, stopped bool) 
 		WHERE id = ? AND status IN (?, ?)`,
 		status, exitCode, nullable(errMsg), time.Now().UTC(), id, JobPending, JobRunning)
 	return err
+}
+
+// PruneFinished deletes terminal jobs older than cutoff along with their
+// logs. Running and pending jobs are never touched.
+func (t *JobStore) PruneFinished(cutoff time.Time) (int64, error) {
+	if _, err := t.db.Exec(`
+		DELETE FROM agent_job_logs WHERE job_id IN (
+			SELECT id FROM agent_jobs
+			WHERE status NOT IN (?, ?) AND COALESCE(finished_at, created_at) < ?)`,
+		JobPending, JobRunning, cutoff); err != nil {
+		return 0, err
+	}
+	result, err := t.db.Exec(`
+		DELETE FROM agent_jobs
+		WHERE status NOT IN (?, ?) AND COALESCE(finished_at, created_at) < ?`,
+		JobPending, JobRunning, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 // DeleteDevice removes every job and log belonging to a device.

@@ -11,7 +11,7 @@ it simple, and prefer one general building block over many special features.
 3. **Smarter heartbeats** (design C below).
 4. **Clear reasons.** An action on an offline device fails at once and says
    why. Each device shows: connected or not, since when, and the reason.
-5. **Job log limits.** Finished jobs deleted after 30 days; 10 MB kept per job.
+5. ~~Job log limits.~~ Finished jobs deleted after 30 days; 10 MB kept per job (done).
 6. **Protect the master.** It is the single point of failure.
    - Document running it under systemd with automatic restart (the unit file is
      in `deploy/`).

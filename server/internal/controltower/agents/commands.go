@@ -79,6 +79,11 @@ func (svc *Service) ProblemJobs(limit int) ([]Job, error) { return svc.jobs.Prob
 // DeleteJob removes a job and its logs.
 func (svc *Service) DeleteJob(id string) error { return svc.jobs.Delete(id) }
 
+// PruneJobs deletes terminal jobs finished longer ago than olderThan.
+func (svc *Service) PruneJobs(olderThan time.Duration) (int64, error) {
+	return svc.jobs.PruneFinished(time.Now().UTC().Add(-olderThan))
+}
+
 // StartTransfer asks an agent to move file contents over HTTP and reports the
 // outcome when it finishes. Only the request and the result travel on the
 // stream; the bytes use the agent HTTP port, so a big transfer cannot delay

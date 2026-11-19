@@ -1,9 +1,11 @@
 package agents
 
 import (
+	"bytes"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ss497254/gloski/internal/database"
 )
@@ -134,6 +136,127 @@ func TestJobStoreTerminalStates(t *testing.T) {
 	if got := status(other); got != JobRunning {
 		t.Fatalf("device-2 job status = %s, want %s", got, JobRunning)
 	}
+}
+
+func TestJobStoreLogCap(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "master.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store, err := NewJobStore(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	job, err := store.Create("device-1", "chatty task", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.MarkRunning(job.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	chunk := bytes.Repeat([]byte("x"), 6<<20)
+	if err := store.AppendLog(job.ID, 1, chunk, false); err != nil {
+		t.Fatal(err)
+	}
+	// This chunk crosses the limit and is replaced by one notice.
+	if err := store.AppendLog(job.ID, 2, chunk, false); err != nil {
+		t.Fatal(err)
+	}
+	// Further output is dropped, but its sequence still advances.
+	if err := store.AppendLog(job.ID, 3, []byte("after the cap\n"), false); err != nil {
+		t.Fatal(err)
+	}
+
+	combined := strings.Join(mustLogs(t, store, job.ID), "|")
+	if count := strings.Count(combined, "truncated after 10 MB"); count != 1 {
+		t.Errorf("truncation notice appears %d times, want once", count)
+	}
+	if strings.Contains(combined, "after the cap") {
+		t.Error("output after the cap was stored")
+	}
+
+	var total int64
+	if err := store.db.QueryRow(`SELECT COALESCE(SUM(LENGTH(chunk)), 0) FROM agent_job_logs WHERE job_id = ?`, job.ID).Scan(&total); err != nil {
+		t.Fatal(err)
+	}
+	if total > maxJobLogBytes+int64(len(truncationNotice)) {
+		t.Errorf("stored %d log bytes, want at most %d", total, maxJobLogBytes+int64(len(truncationNotice)))
+	}
+	if acked, _ := store.Resume("device-1", job.ID); acked != 3 {
+		t.Errorf("resume sequence = %d, want 3", acked)
+	}
+}
+
+func TestJobStorePruneFinished(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "master.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store, err := NewJobStore(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	create := func(command string, finish bool) *Job {
+		t.Helper()
+		job, err := store.Create("device-1", command, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.MarkRunning(job.ID); err != nil {
+			t.Fatal(err)
+		}
+		if finish {
+			if err := store.AppendLog(job.ID, 1, []byte("output\n"), false); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Finish(job.ID, 0, "", false); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return job
+	}
+
+	old := create("old", true)
+	recent := create("recent", true)
+	running := create("running", false)
+
+	cutoff := time.Now().Add(-JobRetention)
+	if _, err := store.db.Exec(`UPDATE agent_jobs SET finished_at = ? WHERE id = ?`, cutoff.Add(-24*time.Hour), old.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := store.PruneFinished(cutoff)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 1 {
+		t.Fatalf("removed %d jobs, want 1", removed)
+	}
+	if _, err := store.Get(old.ID); err == nil {
+		t.Error("old job survived the prune")
+	}
+	if logs := mustLogs(t, store, old.ID); len(logs) != 0 {
+		t.Errorf("old job logs survived: %v", logs)
+	}
+	if _, err := store.Get(recent.ID); err != nil {
+		t.Errorf("recent job was removed: %v", err)
+	}
+	if _, err := store.Get(running.ID); err != nil {
+		t.Errorf("running job was removed: %v", err)
+	}
+}
+
+func mustLogs(t *testing.T, store *JobStore, id string) []string {
+	t.Helper()
+	logs, err := store.Logs(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return logs
 }
 
 func TestJobStoreOutputSequencing(t *testing.T) {
