@@ -79,32 +79,37 @@ These came from the owner directly. Follow them unless told otherwise.
 
 ## Current state (2026-11-19)
 
-`main` holds five commits that are not yet pushed to `origin`:
+`main` is two commits ahead of `origin/main`:
 
-1. `59d6c6a` removed the legacy standalone mode (master mode only).
-2. `0adf0c1` origin check, Tailscale-only agent port, JSON content-type check.
-3. `fbe2fdc` reliable shutdown, working SQLite pragmas, device lifecycle fixes.
-4. `7f86d0a` jobs survive disconnects and master restarts (sequence-numbered
-   output, 4 MB replay buffer on the agent, reconciliation at register).
-5. `ab0abad` bounded terminal output with resize, streamed ranged file
-   download and chunked upload.
+1. `19f3769` docs map: glossary, HTTP API reference, data model,
+   where-to-change-what, and CONTRIBUTING now matches the main-only workflow.
+2. `8fc397f` the files service is split by operation and worker file handling
+   lives in `agent_files.go`; delete and rename share one protected-path policy.
 
-Agents built before these commits must be reinstalled; the protocol changed.
-The install script removes an old `/tmp/gloski-agent` install by itself.
+The master-owned agent lifecycle is built (`7b936a3`), and the protocol changes
+from `7f86d0a` and `ab0abad` are in. Agents built before those commits must be
+reinstalled; the install script removes an old `/tmp/gloski-agent` install by
+itself.
 
-**What to build next is in `docs/roadmap.md`**, in order; start at the first
-unfinished item of step 1.
+**Code readability work is in `docs/code-quality-plan.md`.** Batches 1 and 2
+are done; batch 3 (shrink `Tower`) is next when quality work resumes.
+
+**Features are in `docs/roadmap.md`**, in order; start at the first unfinished
+item of step 1.
 
 **The reliability design is in `docs/reliability-plan.md`**: the master owns
 the agent lifecycle and reinstalls over SSH whatever is disconnected or
 outdated. Its Status section says what is verified and how to test it here.
 
-Known gaps not covered by the plan:
+Known gaps not covered by either plan:
 
 - The dashboard's master client does not send the API key.
 - Device identity is still keyed by name; a machine-id guard only blocks
   duplicates.
 - Legacy database tables and config fields from standalone mode remain.
+- The files package still carries unused chunked-upload and search code.
+- `Tower` and `FilesContext` are still the god objects described in the
+  readability plan.
 
 ## Working on the code
 

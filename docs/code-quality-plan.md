@@ -1,6 +1,6 @@
 # Code readability and documentation plan
 
-Status: proposed, 2026-11-19. Nothing here is built yet.
+Status: in progress, 2026-11-19. Batches 1 and 2 are done.
 
 ## Why
 
@@ -134,8 +134,8 @@ immediate relief. Batches 3 to 5 are separate commits. Renaming is last.
 
 ## Progress
 
-- [ ] Batch 1: docs map
-- [ ] Batch 2: files split
+- [x] Batch 1: docs map (`19f3769`)
+- [x] Batch 2: files split (`8fc397f`)
 - [ ] Batch 3: shrink `Tower`
 - [ ] Batch 4: files feature split
 - [ ] Batch 5: errors and renames
