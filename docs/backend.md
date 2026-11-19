@@ -69,7 +69,9 @@ server/
 | `fleet.Registry` | Source of truth for enrolled devices, heartbeats, and online status |
 | `agents.Service` | Master-side stream registry; sends commands to a specific device |
 | `agents.connection` | One device's gRPC stream with serialized sends and pending request channels |
-| `provisioning.Installer` | Copies `gloski-agent` to `/tmp` over SSH and controls it by PID |
+| `provisioning.Installer` | Runs the install and uninstall scripts on a device over SSH |
+| `agentdist.Dist` | Agent builds per architecture and the install and uninstall scripts the master serves |
+| `supervisor` | Runs inside `gloski-agent` on a device: restarts the agent, holds the single-instance lock, caps the log |
 | `worker.Runtime` | Device-side executor: handles jobs, files, terminal, and heartbeats |
 | `tailnet.Client` | Reads tailnet peers from tailscaled's LocalAPI socket |
 
@@ -80,7 +82,7 @@ the former runs in the master, the latter on each device.
 
 1. Master starts gRPC listeners: a Unix socket for its own agent and TCP h2c for remote agents.
 2. Master starts `gloski-agent` as a supervised child process pointed at the Unix socket.
-3. Remote agents are installed to `/tmp` by `provisioning.Installer` and pointed at the TCP listener.
+3. Remote agents are installed by the script from `agentdist` and pointed at the TCP listener, which also serves that script and the agent builds over plain HTTP.
 4. The agent opens `Agent.Connect` and sends `RegisterRequest` with the join token.
 5. Master registers the device, issues a device token, and stores the stream under that device ID.
 6. Agent sends heartbeats with cached stats; master stores them and broadcasts fleet updates.
@@ -134,7 +136,7 @@ Configuration comes from an optional JSON file, then environment overrides
 | `GLOSKI_MASTER_WEB_DIR` | `web/dist` | SPA directory |
 | `GLOSKI_MASTER_AGENT_GRPC_HOST` / `_PORT` | Tailscale IPs, `9090` | Remote agent listener |
 | `GLOSKI_ALLOWED_ORIGINS` | none | Extra browser origins allowed to call the API |
-| `GLOSKI_MASTER_AGENT_BINARY` | next to master | Binary used for deployments |
+| `GLOSKI_MASTER_AGENT_BINARY` | next to master | Used only when the master was built without embedded agents |
 | `GLOSKI_MASTER_LOCAL_AGENT` | `true` | Run the master's own agent |
 | `GLOSKI_TAILSCALE_SOCKET` | auto | tailscaled LocalAPI socket |
 | `GLOSKI_API_KEY` | none | Optional browser API auth |
@@ -147,9 +149,12 @@ See [Control Tower](tower.md) for the full list.
 cd server
 go test ./...
 go vet ./...
-CGO_ENABLED=0 go build -o ../bin/gloski ./cmd/gloski
-CGO_ENABLED=0 go build -o ../bin/gloski-agent ./cmd/gloski-agent
 ```
+
+Build with `make build-server` from the repository root. It first cross-builds
+the agents into `internal/agentdist/builds/` and then embeds them in the
+master. A plain `go build ./cmd/gloski` works too, but that master can only
+install agents if a `gloski-agent` binary sits next to it.
 
 Both binaries stay under 30 MB. Generated protobuf code is checked in, so
 `protoc` is not required to build. After editing `agent.proto`, run `make proto`

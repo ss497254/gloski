@@ -40,9 +40,13 @@ These came from the owner directly. Follow them unless told otherwise.
   without asking.
 - **Commit straight to `main`.** No per-feature or per-batch branches. Do not
   push unless asked.
-- **The `/tmp` + `nohup` agent install is deliberate.** Agents are installed and
+- **Installing agents under `/tmp` is deliberate.** Agents are installed and
   deleted often while the code changes. Do not flag it as a defect or push
   systemd; the owner will move to systemd when ready.
+- **The owner wants decisions made, not menus.** When a design question comes
+  up, pick the simplest approach that covers the failure cases, explain it
+  briefly and build it ("use your brain"). Ask only when the answer cannot be
+  worked out.
 - **No SSH fallback for actions.** If an agent is down the master should revive
   it, not run the task over SSH instead.
 - **No offline alerts** for now.
@@ -76,11 +80,13 @@ These came from the owner directly. Follow them unless told otherwise.
 5. `ab0abad` bounded terminal output with resize, streamed ranged file
    download and chunked upload.
 
-Agents built before these commits must be redeployed; the protocol changed.
+Agents built before these commits must be reinstalled; the protocol changed.
+The install script removes an old `/tmp/gloski-agent` install by itself.
 
-**Next work is `docs/reliability-plan.md`.** It lists the failure scenarios, the
-intended behaviour for each, the build order and the open questions. Nothing in
-it is built yet. Update that file as phases land.
+**Current work is `docs/reliability-plan.md`.** It holds the design (each device
+keeps its own agent alive; the master is the source of truth; every action has
+a definite outcome), the failure scenarios, the build order and a Status
+section saying which phases are done. Update it as phases land.
 
 Known gaps not covered by the plan:
 
@@ -92,7 +98,7 @@ Known gaps not covered by the plan:
 ## Working on the code
 
 ```bash
-make build            # master, agent and frontend
+make build            # master (agents for 3 architectures embedded) and frontend
 make proto            # regenerate server/proto/agentv1/*.pb.go
 cd server && go test ./...
 cd server && go test -race ./internal/...
@@ -128,5 +134,7 @@ These are facts about one machine, not requirements of the project.
   generated code byte for byte:
   `PATH=/root/.local/share/gloski-tools/bin:/root/.local/share/gloski-tools/protoc/bin:$PATH make proto`
 - `python3` is not installed; script with awk, perl or bun.
-- There is no SSH server and Tailscale is not running, so SSH deploy and revive
-  cannot be tested live here without installing one.
+- There is no SSH server and Tailscale is not running, so the SSH install path
+  cannot be tested live here.
+- `crontab` exists but no cron daemon runs. To test self-heal, run the crontab
+  line by hand (replace `\%` with `%` first, as cron would).

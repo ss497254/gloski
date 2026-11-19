@@ -1,9 +1,6 @@
 package provisioning
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func validTarget() Target {
 	return Target{
@@ -23,8 +20,8 @@ func TestTargetValidate(t *testing.T) {
 	if err := target.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	if target.RemoteBase != "/tmp" {
-		t.Fatalf("RemoteBase = %q, want /tmp", target.RemoteBase)
+	if target.RemoteBase != "/tmp/gloski" {
+		t.Fatalf("RemoteBase = %q, want /tmp/gloski", target.RemoteBase)
 	}
 
 	bad := validTarget()
@@ -46,46 +43,15 @@ func TestTargetValidate(t *testing.T) {
 	}
 }
 
-func TestStartScriptContainsEnvironment(t *testing.T) {
-	target := validTarget()
-	script := startScript(target)
-	for _, want := range []string{
-		"GLOSKI_MODE='agent'",
-		"GLOSKI_AGENT_MASTER_URL='https://tower.tailnet.ts.net'",
-		"GLOSKI_AGENT_JOIN_TOKEN='join-token'",
-		"GLOSKI_AGENT_DEPLOY_ID='deploy-id'",
-		"/tmp/gloski-agent",
-		"/tmp/gloski-agent.pid",
-	} {
-		if !strings.Contains(script, want) {
-			t.Fatalf("start script missing %q:\n%s", want, script)
-		}
+func TestField(t *testing.T) {
+	output := "warning: something\nGLOSKI_INSTALLED pid=1234 arch=arm64 selfheal=cron dir=/tmp/gloski\n"
+	if got := field(output, "GLOSKI_INSTALLED", "arch"); got != "arm64" {
+		t.Fatalf("arch = %q", got)
 	}
-}
-
-func TestStartScriptQuotesName(t *testing.T) {
-	target := validTarget()
-	target.Name = `worker's "box"`
-	script := startScript(target)
-	if !strings.Contains(script, `GLOSKI_AGENT_NAME='worker'\''s "box"'`) {
-		t.Fatalf("name was not shell-quoted:\n%s", script)
+	if got := field(output, "GLOSKI_INSTALLED", "missing"); got != "" {
+		t.Fatalf("missing = %q", got)
 	}
-}
-
-func TestStopScriptUsesPidFile(t *testing.T) {
-	script := stopScript(validTarget())
-	for _, want := range []string{"/tmp/gloski-agent.pid", "echo stopped", "echo not-running"} {
-		if !strings.Contains(script, want) {
-			t.Fatalf("stop script missing %q:\n%s", want, script)
-		}
-	}
-}
-
-func TestLastLine(t *testing.T) {
-	if got := lastLine("starting\n1234\n\n"); got != "1234" {
-		t.Fatalf("lastLine() = %q", got)
-	}
-	if got := lastLine(""); got != "" {
-		t.Fatalf("lastLine() = %q", got)
+	if got := field(output, "GLOSKI_NEED_UPLOAD", "arch"); got != "" {
+		t.Fatalf("absent marker = %q", got)
 	}
 }

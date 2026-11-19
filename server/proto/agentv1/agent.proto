@@ -188,4 +188,8 @@ message TerminalOutput {
 
 message Shutdown {
   bool restart = 1;
+  // uninstall removes the agent, its files and its self-heal from the device.
+  bool uninstall = 2;
+  // stop keeps the files but makes sure nothing starts the agent again.
+  bool stop = 3;
 }

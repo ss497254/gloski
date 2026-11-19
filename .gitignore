@@ -38,3 +38,6 @@ config.json
 *.log
 logs/
 .opencode
+
+# Agent builds embedded into the master
+server/internal/agentdist/builds/gloski-agent-*

@@ -64,9 +64,11 @@ keeps running them, buffers their output, and replays it on reconnect.
 - **Master device:** the master starts `gloski-agent` as a supervised child
   process. It checks the gRPC session every 5 seconds; if no session exists for
   20 seconds, it kills the process and starts a new one.
-- **Remote devices:** the master copies the agent binary to `/tmp` over SSH,
-  starts it, and can stop or restart it from the dashboard. Remote agents
-  reconnect to the master on their own if the stream drops.
+- **Remote devices:** an install script served by the master sets the agent up,
+  run over SSH from the dashboard or by hand on the device. Each device keeps
+  its own agent alive with a supervisor process and a crontab line, and
+  reinstalls it from the master if its files disappear. Agents reconnect on
+  their own if the stream drops. See [tower.md](tower.md).
 
 ## Data flows
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -95,7 +96,12 @@ func (t *Tower) listenAgentTCP(host string, port int) bool {
 		logger.Warn("Remote agent gRPC unavailable on %s: %v", address, err)
 		return false
 	}
-	t.serveGRPC(listener, address)
+	grpcSide, httpSide := splitListener(listener)
+	t.serveGRPC(grpcSide, address)
+	go func() {
+		server := &http.Server{Handler: t.agentHTTPHandler(), ReadHeaderTimeout: 10 * time.Second}
+		_ = server.Serve(httpSide)
+	}()
 	return true
 }
 

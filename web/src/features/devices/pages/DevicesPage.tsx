@@ -64,7 +64,7 @@ function DeviceRow({ device }: { device: FleetDevice }) {
       <td className="px-4 py-3 text-xs text-muted-foreground">{formatRelativeTime(device.last_seen)}</td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
-          {device.managed && (
+          {(device.managed || (online && !device.master)) && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -160,7 +160,7 @@ export function DevicesPage() {
             size="sm"
             onClick={() => setDeployOpen(true)}
             disabled={deployDisabled}
-            title={deployDisabled ? 'Agent binary not found next to the master' : undefined}
+            title={deployDisabled ? "The master has no agent builds; run 'make build'" : undefined}
           >
             <Plus className="mr-2 h-4 w-4" />
             Deploy agent
@@ -179,7 +179,7 @@ export function DevicesPage() {
           <EmptyState
             icon={Wifi}
             title="No devices yet"
-            description="Deploy gloski-agent to a machine on your tailnet. The master copies the binary over SSH to /tmp and starts it as an agent service."
+            description="Deploy gloski-agent to a machine on your tailnet. The master installs it over SSH, or you can run a one-line command on the device. Either way the device keeps the agent running by itself."
             action={
               <Button onClick={() => setDeployOpen(true)} disabled={deployDisabled}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -222,7 +222,12 @@ export function DevicesPage() {
         </span>
       </div>
 
-      <DeployDeviceDialog open={deployOpen} onOpenChange={setDeployOpen} onDeployed={() => void refresh()} />
+      <DeployDeviceDialog
+        open={deployOpen}
+        onOpenChange={setDeployOpen}
+        onDeployed={() => void refresh()}
+        installCommand={info?.install_command}
+      />
     </PageLayout>
   )
 }

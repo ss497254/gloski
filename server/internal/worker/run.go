@@ -312,7 +312,10 @@ func (w *Runtime) handle(message *agentv1.MasterMessage) {
 		w.closeTerminal(message.RequestId)
 	case *agentv1.MasterMessage_Shutdown:
 		// Cancel rather than exit so running jobs and terminals are cleaned up.
-		logger.Info("Master requested agent shutdown")
+		logger.Info("Master requested agent shutdown (stop=%v uninstall=%v)", payload.Shutdown.GetStop(), payload.Shutdown.GetUninstall())
+		if payload.Shutdown.GetStop() || payload.Shutdown.GetUninstall() {
+			removeInstall(payload.Shutdown.GetStop())
+		}
 		w.shutdown()
 	}
 }

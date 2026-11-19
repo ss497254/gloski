@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ss497254/gloski/internal/agentdist"
+	"github.com/ss497254/gloski/internal/agentdist/builds"
 	"github.com/ss497254/gloski/internal/auth"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/controltower/agents"
@@ -33,6 +35,8 @@ type Tower struct {
 	fleetEvents   *fleet.EventHub
 	auth          *auth.Service
 	installer     *provisioning.Installer
+	dist          *agentdist.Dist
+	agentBinary   string // agent binary beside the master, if any
 	tailnetClient *tailnet.Client
 	router        http.Handler
 	version       string
@@ -95,13 +99,18 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 	)
 	agentv1.RegisterAgentServer(grpcServer, agentService)
 
+	agentBinary := resolveAgentBinary(cfg.Master.AgentBinary)
+	dist := agentdist.New(builds.FS, agentBinary)
+
 	t := &Tower{
+		dist:            dist,
+		agentBinary:     agentBinary,
 		cfg:             cfg,
 		db:              db,
 		fleetSvc:        fleetSvc,
 		fleetEvents:     fleet.NewEventHub(),
 		auth:            authSvc,
-		installer:       provisioning.NewInstaller(resolveAgentBinary(cfg.Master.AgentBinary), cfg.Master.SSHKeyFile, tailnet.KnownHostsPath(cfg.DataDir)),
+		installer:       provisioning.NewInstaller(dist, cfg.Master.SSHKeyFile, tailnet.KnownHostsPath(cfg.DataDir)),
 		tailnetClient:   tailnet.New(cfg.Tailscale.Socket),
 		version:         version,
 		name:            hostname,

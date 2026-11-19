@@ -1,9 +1,12 @@
 package controltower
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"time"
 
+	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/fleet"
 	"github.com/ss497254/gloski/internal/httpapi"
 	"github.com/ss497254/gloski/internal/logger"
@@ -31,7 +34,8 @@ func (t *Tower) handleTowerInfo(w http.ResponseWriter, r *http.Request) {
 		"heartbeat_interval":  t.fleetSvc.HeartbeatInterval(),
 		"port":                t.cfg.Port,
 		"deploy_available":    t.installer.Available(),
-		"agent_binary":        t.installer.Binary(),
+		"agent_builds":        t.dist.Builds(),
+		"install_command":     t.installCommand(),
 		"tailscale_available": t.tailnetClient.Available(),
 		"tailscale_socket":    t.tailnetClient.Socket(),
 	})
@@ -71,8 +75,17 @@ func (t *Tower) handleDeleteDevice(w http.ResponseWriter, r *http.Request) {
 		}
 		// Stop the agent before forgetting it. A removed device whose agent
 		// kept running would simply enrol again on its next reconnect.
-		if err := t.agentService.Shutdown(deviceID); err == nil {
+		if err := t.agentService.Shutdown(deviceID, agents.ShutdownUninstall); err == nil {
 			t.agentService.Disconnect(deviceID)
+		} else if target, err := t.deviceTarget(deviceID); err == nil {
+			// Offline, but installed over SSH: clean it up from this side.
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+				defer cancel()
+				if _, err := t.installer.Remove(ctx, target); err != nil {
+					logger.Warn("Could not uninstall the agent on %s over SSH: %v", target.Host, err)
+				}
+			}()
 		}
 		if device.DeployID != "" {
 			if err := t.fleetSvc.DeleteDeployment(device.DeployID); err != nil {

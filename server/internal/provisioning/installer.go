@@ -9,15 +9,16 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
+	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/ss497254/gloski/internal/agentdist"
 )
 
 const (
-	defaultRemoteDir = "/tmp"
+	defaultRemoteDir = agentdist.DefaultDir
 	defaultAgentPort = 18081
 )
 
@@ -86,135 +87,114 @@ func (t *Target) Validate() error {
 	return nil
 }
 
-// Manager performs deployments with SSH keys from the environment.
+// Installer installs and controls agents over SSH. It runs the same install
+// and uninstall scripts the master serves over HTTP.
 type Installer struct {
-	BinaryPath    string
+	Dist          *agentdist.Dist
 	KeyFile       string
 	KeyPassphrase string
 	KnownHosts    string
-	RemoteBase    string
 
-	mu sync.Mutex
+	mu sync.Mutex // guards writes to the known-hosts file
 }
 
 // NewInstaller creates an agent installer. knownHosts should be a writable file that
 // the master owns; unknown hosts are trusted on first use.
-func NewInstaller(binaryPath, keyFile, knownHosts string) *Installer {
-	return &Installer{
-		BinaryPath: binaryPath,
-		KeyFile:    keyFile,
-		KnownHosts: knownHosts,
-		RemoteBase: defaultRemoteDir,
-	}
+func NewInstaller(dist *agentdist.Dist, keyFile, knownHosts string) *Installer {
+	return &Installer{Dist: dist, KeyFile: keyFile, KnownHosts: knownHosts}
 }
 
-// DefaultRemoteBase returns the default remote directory used for agents.
-func DefaultRemoteBase() string {
-	return defaultRemoteDir
-}
-
-// Available reports whether the agent binary can be found.
+// Available reports whether there is an agent build to install.
 func (i *Installer) Available() bool {
-	if i == nil || i.BinaryPath == "" {
-		return false
-	}
-	info, err := os.Stat(i.BinaryPath)
-	return err == nil && !info.IsDir()
+	return i != nil && i.Dist != nil && i.Dist.Available()
 }
 
-// Binary returns the configured agent binary path.
-func (i *Installer) Binary() string {
-	if i == nil {
-		return ""
-	}
-	return i.BinaryPath
+// Result describes a finished install.
+type Result struct {
+	PID  string
+	Arch string
+	// SelfHeal is "cron" when the device will restart and reinstall the agent
+	// by itself, "none" when it has no crontab.
+	SelfHeal string
 }
 
-// Deploy stops any running agent, uploads the current binary, and starts it.
-func (i *Installer) Deploy(ctx context.Context, target Target) (string, error) {
+// Install makes sure the agent is installed, current and running. It is safe
+// to call on a device that already has a healthy agent.
+func (i *Installer) Install(ctx context.Context, target Target) (Result, error) {
 	if !i.Available() {
-		return "", fmt.Errorf("agent binary not found at %q", i.BinaryPath)
+		return Result{}, errors.New("the master has no agent builds to install (run 'make build')")
 	}
-	i.prepare(&target)
 	if err := target.Validate(); err != nil {
-		return "", err
+		return Result{}, err
 	}
+	script := i.Dist.InstallScript(agentdist.InstallParams{
+		Dir:        target.RemoteBase,
+		MasterHTTP: target.MasterURL,
+		MasterURL:  target.MasterURL,
+		JoinToken:  target.JoinToken,
+		Name:       target.Name,
+		DeployID:   target.DeployID,
+	})
 
-	if _, err := i.Stop(ctx, target); err != nil {
-		return "", fmt.Errorf("failed to stop existing agent: %w", err)
+	output, err := i.runScript(ctx, target, script)
+	if arch := field(output, "GLOSKI_NEED_UPLOAD", "arch"); err != nil && arch != "" {
+		// The device has no curl or wget. Copy the agent over SSH and retry.
+		build := i.Dist.Build(arch)
+		if build == nil {
+			return Result{}, fmt.Errorf("the master has no agent build for linux/%s", arch)
+		}
+		if err := i.upload(ctx, target, build.Data); err != nil {
+			return Result{}, err
+		}
+		output, err = i.runScript(ctx, target, script)
 	}
-	if err := i.upload(ctx, target); err != nil {
-		return "", err
-	}
-	return i.Start(ctx, target)
-}
-
-// Start launches the already-uploaded agent and returns its remote PID.
-func (i *Installer) Start(ctx context.Context, target Target) (string, error) {
-	i.prepare(&target)
-	if err := target.Validate(); err != nil {
-		return "", err
-	}
-
-	output, err := i.runScript(ctx, target, startScript(target))
 	if err != nil {
-		return "", err
+		return Result{}, err
 	}
-	pid := lastLine(output)
-	if pid == "" {
-		return "", errors.New("remote agent did not return a pid")
+	result := Result{
+		PID:      field(output, "GLOSKI_INSTALLED", "pid"),
+		Arch:     field(output, "GLOSKI_INSTALLED", "arch"),
+		SelfHeal: field(output, "GLOSKI_INSTALLED", "selfheal"),
 	}
-	if _, err := strconv.Atoi(pid); err != nil {
-		return "", fmt.Errorf("unexpected remote agent output %q", pid)
+	if result.PID == "" {
+		return Result{}, fmt.Errorf("unexpected installer output %q", output)
 	}
-	return pid, nil
+	return result, nil
 }
 
-// Stop terminates the remote agent. The boolean reports whether a process was
-// actually stopped.
+// Stop stops the remote agent and its self-heal but leaves it installed. The
+// boolean reports whether a process was actually stopped.
 func (i *Installer) Stop(ctx context.Context, target Target) (bool, error) {
-	i.prepare(&target)
+	return i.uninstall(ctx, target, true, "GLOSKI_STOPPED")
+}
+
+// Remove stops the remote agent and deletes everything it installed.
+func (i *Installer) Remove(ctx context.Context, target Target) (bool, error) {
+	return i.uninstall(ctx, target, false, "GLOSKI_UNINSTALLED")
+}
+
+func (i *Installer) uninstall(ctx context.Context, target Target, stopOnly bool, marker string) (bool, error) {
 	if err := target.Validate(); err != nil {
 		return false, err
 	}
-	output, err := i.runScript(ctx, target, stopScript(target))
+	output, err := i.runScript(ctx, target, agentdist.UninstallScript(target.RemoteBase, stopOnly))
 	if err != nil {
 		return false, err
 	}
-	switch lastLine(output) {
+	switch field(output, marker, "state") {
 	case "stopped":
 		return true, nil
 	case "not-running":
 		return false, nil
 	default:
-		return false, fmt.Errorf("unexpected remote stop output %q", output)
+		return false, fmt.Errorf("unexpected uninstaller output %q", output)
 	}
 }
 
-func (i *Installer) upload(ctx context.Context, target Target) error {
-	file, err := os.Open(i.BinaryPath)
-	if err != nil {
-		return fmt.Errorf("failed to open agent binary: %w", err)
-	}
-	defer file.Close()
-
-	info, err := file.Stat()
-	if err != nil {
-		return err
-	}
-	if info.IsDir() {
-		return fmt.Errorf("agent binary %q is a directory", i.BinaryPath)
-	}
-
-	paths := targetPaths(target)
-	script := fmt.Sprintf(`set -eu
-mkdir -p %s
-cat > %s
-chmod 755 %s
-mv %s %s
-`, quote(paths.dataDir), quote(paths.upload), quote(paths.upload), quote(paths.upload), quote(paths.binary))
-
-	if _, err := i.runCommand(ctx, target, script, file); err != nil {
+func (i *Installer) upload(ctx context.Context, target Target, binary []byte) error {
+	destination := path.Join(target.RemoteBase, "gloski-agent.upload")
+	command := fmt.Sprintf("mkdir -p %s && cat > %s", quote(target.RemoteBase), quote(destination))
+	if _, err := i.runCommand(ctx, target, command, bytes.NewReader(binary)); err != nil {
 		return fmt.Errorf("failed to copy agent binary: %w", err)
 	}
 	return nil

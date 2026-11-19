@@ -13,9 +13,9 @@ make build
 GLOSKI_MASTER_WEB_DIR="$PWD/web/dist" bin/gloski
 ```
 
-Open the dashboard, then use **Deploy agent** to copy `gloski-agent` to a
-Tailnet device over SSH and start it from `/tmp`. The master supplies the
-agent's configuration and gRPC endpoint; no manual agent setup is needed.
+Open the dashboard, then use **Deploy agent** to install the agent on a Tailnet
+device over SSH, or paste the one-line install command it shows on the device
+itself. The device then keeps its agent running, including after a reboot.
 
 See [Control Tower](docs/tower.md) for setup and configuration.
 
@@ -48,7 +48,7 @@ installation in `server/internal/provisioning`. See
 | `GLOSKI_HOST` / `GLOSKI_PORT` | `127.0.0.1:8080` | Dashboard listener |
 | `GLOSKI_DATA_DIR` | `~/.gloski/data` | Database, tokens, socket, known_hosts |
 | `GLOSKI_MASTER_WEB_DIR` | `web/dist` | Built SPA |
-| `GLOSKI_MASTER_AGENT_BINARY` | next to master | Agent binary for deployments |
+| `GLOSKI_MASTER_AGENT_BINARY` | next to master | Agent binary used only when the master was built without embedded agents |
 | `GLOSKI_MASTER_AGENT_GRPC_PORT` | `9090` | Remote agent gRPC port |
 | `GLOSKI_API_KEY` | (none) | Optional dashboard API auth |
 

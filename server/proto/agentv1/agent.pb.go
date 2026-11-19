@@ -1657,8 +1657,12 @@ func (x *TerminalOutput) GetClosed() bool {
 }
 
 type Shutdown struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Restart       bool                   `protobuf:"varint,1,opt,name=restart,proto3" json:"restart,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Restart bool                   `protobuf:"varint,1,opt,name=restart,proto3" json:"restart,omitempty"`
+	// uninstall removes the agent, its files and its self-heal from the device.
+	Uninstall bool `protobuf:"varint,2,opt,name=uninstall,proto3" json:"uninstall,omitempty"`
+	// stop keeps the files but makes sure nothing starts the agent again.
+	Stop          bool `protobuf:"varint,3,opt,name=stop,proto3" json:"stop,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1696,6 +1700,20 @@ func (*Shutdown) Descriptor() ([]byte, []int) {
 func (x *Shutdown) GetRestart() bool {
 	if x != nil {
 		return x.Restart
+	}
+	return false
+}
+
+func (x *Shutdown) GetUninstall() bool {
+	if x != nil {
+		return x.Uninstall
+	}
+	return false
+}
+
+func (x *Shutdown) GetStop() bool {
+	if x != nil {
+		return x.Stop
 	}
 	return false
 }
@@ -1816,9 +1834,11 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\x04rows\x18\x02 \x01(\rR\x04rows\"<\n" +
 	"\x0eTerminalOutput\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\fR\x04data\x12\x16\n" +
-	"\x06closed\x18\x02 \x01(\bR\x06closed\"$\n" +
+	"\x06closed\x18\x02 \x01(\bR\x06closed\"V\n" +
 	"\bShutdown\x12\x18\n" +
-	"\arestart\x18\x01 \x01(\bR\arestart*\xd0\x01\n" +
+	"\arestart\x18\x01 \x01(\bR\arestart\x12\x1c\n" +
+	"\tuninstall\x18\x02 \x01(\bR\tuninstall\x12\x12\n" +
+	"\x04stop\x18\x03 \x01(\bR\x04stop*\xd0\x01\n" +
 	"\x06FileOp\x12\x17\n" +
 	"\x13FILE_OP_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fFILE_OP_LIST\x10\x01\x12\x10\n" +

@@ -3,8 +3,12 @@ FROM golang:1.24-alpine AS backend-builder
 
 WORKDIR /build
 COPY server/ .
-RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o gloski ./cmd/gloski \
-    && CGO_ENABLED=0 go build -ldflags "-s -w" -o gloski-agent ./cmd/gloski-agent
+# Agents for every supported architecture are embedded in the master.
+RUN for arch in amd64 arm64 arm; do \
+      CGO_ENABLED=0 GOOS=linux GOARCH=$arch GOARM=6 go build -trimpath -ldflags "-s -w" \
+        -o internal/agentdist/builds/gloski-agent-linux-$arch ./cmd/gloski-agent || exit 1; \
+    done \
+    && CGO_ENABLED=0 go build -ldflags "-s -w" -o gloski ./cmd/gloski
 
 # Build stage for frontend
 FROM oven/bun:1-alpine AS frontend-builder
@@ -22,9 +26,8 @@ RUN apk add --no-cache bash git
 
 WORKDIR /app
 
-# Copy backend binaries
+# Copy the master (agents are embedded in it)
 COPY --from=backend-builder /build/gloski /usr/local/bin/
-COPY --from=backend-builder /build/gloski-agent /usr/local/bin/
 
 # Copy frontend build
 COPY --from=frontend-builder /build/dist /app/web

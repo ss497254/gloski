@@ -3,12 +3,12 @@ package controltower
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/fleet"
 	"github.com/ss497254/gloski/internal/httpapi"
 	"github.com/ss497254/gloski/internal/logger"
@@ -57,7 +57,7 @@ func (t *Tower) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
 
 func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 	if !t.installer.Available() {
-		httpapi.BadRequest(w, fmt.Sprintf("gloski-agent binary not found at %q", t.installer.Binary()))
+		httpapi.BadRequest(w, "the master has no agent builds to install; run 'make build' on the master")
 		return
 	}
 
@@ -119,7 +119,7 @@ func (t *Tower) runDeployment(deployment *fleet.Deployment, target provisioning.
 		logger.Warn("Failed to update deployment %s: %v", deployment.ID, err)
 	}
 
-	pid, err := t.installer.Deploy(ctx, target)
+	result, err := t.installer.Install(ctx, target)
 	if err != nil {
 		logger.Error("Deployment %s failed: %v", deployment.ID, err)
 		if statusErr := t.fleetSvc.SetDeploymentStatus(deployment.ID, fleet.DeployFailed, err.Error()); statusErr != nil {
@@ -128,10 +128,10 @@ func (t *Tower) runDeployment(deployment *fleet.Deployment, target provisioning.
 		return
 	}
 
-	if err := t.fleetSvc.SetDeploymentRunning(deployment.ID, pid); err != nil {
+	if err := t.fleetSvc.SetDeploymentRunning(deployment.ID, result.PID); err != nil {
 		logger.Warn("Failed to mark deployment %s as running: %v", deployment.ID, err)
 	}
-	logger.Info("Agent %s deployed to %s (pid %s)", deployment.Name, deployment.Host, pid)
+	logger.Info("Agent %s installed on %s (pid %s, %s, self-heal: %s)", deployment.Name, deployment.Host, result.PID, result.Arch, result.SelfHeal)
 }
 
 func (t *Tower) handleListDeployments(w http.ResponseWriter, r *http.Request) {
@@ -169,16 +169,16 @@ func (t *Tower) handleStartDevice(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
-	pid, err := t.installer.Start(ctx, target)
+	result, err := t.installer.Install(ctx, target)
 	if err != nil {
 		_ = t.fleetSvc.SetDeploymentStatus(target.DeployID, fleet.DeployFailed, err.Error())
 		httpapi.InternalError(w, "failed to start agent", err.Error())
 		return
 	}
-	if err := t.fleetSvc.SetDeploymentRunning(target.DeployID, pid); err != nil {
+	if err := t.fleetSvc.SetDeploymentRunning(target.DeployID, result.PID); err != nil {
 		logger.Warn("Failed to update deployment %s: %v", target.DeployID, err)
 	}
-	httpapi.SuccessWithMessage(w, map[string]interface{}{"pid": pid, "status": fleet.DeployRunning})
+	httpapi.SuccessWithMessage(w, map[string]interface{}{"pid": result.PID, "status": fleet.DeployRunning})
 }
 
 func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
@@ -187,23 +187,30 @@ func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 		httpapi.NotFound(w, "device not found")
 		return
 	}
-	target, err := t.deviceTarget(device.ID)
-	if err != nil {
-		httpapi.BadRequest(w, err.Error())
-		return
-	}
+	target, targetErr := t.deviceTarget(device.ID)
 
-	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
-	defer cancel()
-
-	stopped, err := t.installer.Stop(ctx, target)
-	if err != nil {
-		_ = t.fleetSvc.SetDeploymentStatus(target.DeployID, fleet.DeployFailed, err.Error())
-		httpapi.InternalError(w, "failed to stop agent", err.Error())
+	// A connected agent stops itself, which needs no SSH and also works for
+	// devices installed by hand. SSH is the way in when it is not connected.
+	stopped := false
+	if err := t.agentService.Shutdown(device.ID, agents.ShutdownStop); err == nil {
+		stopped = true
+	} else if targetErr != nil {
+		httpapi.BadRequest(w, "the device is offline and was not installed over SSH, so the master cannot reach it")
 		return
+	} else {
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+		stopped, err = t.installer.Stop(ctx, target)
+		if err != nil {
+			_ = t.fleetSvc.SetDeploymentStatus(target.DeployID, fleet.DeployFailed, err.Error())
+			httpapi.InternalError(w, "failed to stop agent", err.Error())
+			return
+		}
 	}
-	if err := t.fleetSvc.SetDeploymentStopped(target.DeployID); err != nil {
-		logger.Warn("Failed to update deployment %s: %v", target.DeployID, err)
+	if targetErr == nil {
+		if err := t.fleetSvc.SetDeploymentStopped(target.DeployID); err != nil {
+			logger.Warn("Failed to update deployment %s: %v", target.DeployID, err)
+		}
 	}
 	// The agent is gone; drop its stream now instead of waiting for TCP to notice.
 	t.agentService.Disconnect(device.ID)
@@ -221,14 +228,13 @@ func (t *Tower) deviceTarget(deviceID string) (provisioning.Target, error) {
 
 	deployment := device.Deploy
 	return provisioning.Target{
-		Name:       device.Name,
-		Host:       deployment.Host,
-		User:       deployment.User,
-		SSHPort:    deployment.SSHPort,
-		AgentPort:  deployment.AgentPort,
-		MasterURL:  deployment.MasterURL,
-		JoinToken:  t.fleetSvc.JoinToken(),
-		DeployID:   deployment.ID,
-		RemoteBase: provisioning.DefaultRemoteBase(),
+		Name:      device.Name,
+		Host:      deployment.Host,
+		User:      deployment.User,
+		SSHPort:   deployment.SSHPort,
+		AgentPort: deployment.AgentPort,
+		MasterURL: deployment.MasterURL,
+		JoinToken: t.fleetSvc.JoinToken(),
+		DeployID:  deployment.ID,
 	}, nil
 }

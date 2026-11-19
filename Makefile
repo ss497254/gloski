@@ -1,4 +1,4 @@
-.PHONY: proto dev-server dev-web dev-agent build-server build-agent build-web build clean install install-agent test lint format format-check help
+.PHONY: proto dev-server dev-web dev-agent build-server build-agent build-agents build-web build clean install install-agent test lint format format-check help
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
@@ -25,12 +25,23 @@ dev: ## Run both backend and frontend (requires tmux)
 	@tmux new-session -d -s gloski 'make dev-server' \; split-window -h 'make dev-web' \; attach
 
 # Build
-build-server: ## Build master binary
+AGENT_BUILDS := server/internal/agentdist/builds
+# No build time here: an agent updates itself whenever its binary differs from
+# the master's copy, so identical source must give an identical binary.
+AGENT_LDFLAGS := -trimpath -ldflags "-s -w -X main.version=$(VERSION)"
+
+build-agents: ## Build the agents the master hands to devices (amd64, arm64, arm)
+	cd server && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(AGENT_LDFLAGS) -o ../$(AGENT_BUILDS)/gloski-agent-linux-amd64 ./cmd/gloski-agent
+	cd server && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(AGENT_LDFLAGS) -o ../$(AGENT_BUILDS)/gloski-agent-linux-arm64 ./cmd/gloski-agent
+	cd server && CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build $(AGENT_LDFLAGS) -o ../$(AGENT_BUILDS)/gloski-agent-linux-arm ./cmd/gloski-agent
+	@echo "$(GREEN)Built agents for amd64, arm64 and arm$(NC)"
+
+build-server: build-agents ## Build master binary (agents are embedded in it)
 	@mkdir -p bin
 	cd server && CGO_ENABLED=0 go build $(LDFLAGS) -o ../bin/gloski ./cmd/gloski
 	@echo "$(GREEN)Built bin/gloski$(NC)"
 
-build-agent: ## Build device agent binary
+build-agent: ## Build a standalone agent binary for this machine
 	@mkdir -p bin
 	cd server && CGO_ENABLED=0 go build $(LDFLAGS) -o ../bin/gloski-agent ./cmd/gloski-agent
 	@echo "$(GREEN)Built bin/gloski-agent$(NC)"
@@ -39,12 +50,12 @@ build-web: ## Build frontend for production
 	cd web && bun run build
 	@echo "$(GREEN)Built web/dist/$(NC)"
 
-build: build-server build-agent build-web ## Build backend, agent, and frontend
+build: build-server build-web ## Build master (with embedded agents) and frontend
 
 # Installation
-install: build-server build-agent ## Install binaries to ~/.local/bin
-	cp bin/gloski bin/gloski-agent ~/.local/bin/
-	@echo "$(GREEN)Installed to ~/.local/bin/{gloski,gloski-agent}$(NC)"
+install: build-server ## Install the master to ~/.local/bin
+	cp bin/gloski ~/.local/bin/
+	@echo "$(GREEN)Installed to ~/.local/bin/gloski$(NC)"
 
 install-agent: build-agent ## Install only the device agent binary
 	cp bin/gloski-agent ~/.local/bin/
@@ -85,4 +96,4 @@ format-check: ## Check code formatting without making changes
 	cd web && bun run format:check
 
 clean: ## Clean build artifacts
-	rm -rf bin/ web/dist/ server/coverage.out server/coverage.html
+	rm -rf bin/ web/dist/ server/coverage.out server/coverage.html $(AGENT_BUILDS)/gloski-agent-*

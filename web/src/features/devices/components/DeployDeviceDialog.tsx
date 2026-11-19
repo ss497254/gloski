@@ -16,6 +16,8 @@ interface DeployDeviceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onDeployed: () => void
+  /** One-line command that installs the agent when run on a device. */
+  installCommand?: string
 }
 
 interface FormState {
@@ -48,7 +50,7 @@ function statusLabel(status: Deployment['status']): string {
   }
 }
 
-export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDeviceDialogProps) {
+export function DeployDeviceDialog({ open, onOpenChange, onDeployed, installCommand }: DeployDeviceDialogProps) {
   const [peers, setPeers] = useState<TailnetNode[]>([])
   const [peersAvailable, setPeersAvailable] = useState(false)
   const [peersError, setPeersError] = useState<string | null>(null)
@@ -197,8 +199,8 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
             Deploy an agent
           </DialogTitle>
           <DialogDescription>
-            The master copies <code className="font-mono text-xs">gloski-agent</code> to{' '}
-            <code className="font-mono text-xs">/tmp</code> on the device and starts it over SSH.
+            The master installs the agent over SSH. The device then keeps it running by itself, including after a
+            reboot.
           </DialogDescription>
         </DialogHeader>
 
@@ -206,6 +208,28 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
           <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
             Tailnet discovery unavailable ({peersError}). Enter the device address manually.
           </p>
+        )}
+
+        {installCommand && (
+          <div className="space-y-1.5 rounded-md border border-border bg-muted/40 px-3 py-2">
+            <p className="text-xs text-muted-foreground">Or run this on the device itself. No SSH access is needed.</p>
+            <div className="flex items-start gap-2">
+              <code className="min-w-0 flex-1 break-all font-mono text-xs">{installCommand}</code>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(installCommand)
+                    .then(() => toast.success('Install command copied'))
+                    .catch(() => toast.error('Could not copy; select the text instead'))
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+          </div>
         )}
 
         <form onSubmit={submit} className="space-y-3">

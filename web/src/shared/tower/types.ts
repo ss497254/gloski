@@ -12,7 +12,8 @@ export interface TowerInfo {
   heartbeat_interval: number
   port: number
   deploy_available: boolean
-  agent_binary: string
+  agent_builds: string[]
+  install_command: string
   tailscale_available: boolean
   tailscale_socket: string
 }

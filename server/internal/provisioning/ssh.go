@@ -96,12 +96,6 @@ func (i *Installer) authMethods() ([]ssh.AuthMethod, func(), error) {
 	return methods, cleanup, nil
 }
 
-func (i *Installer) prepare(target *Target) {
-	if target.RemoteBase == "" {
-		target.RemoteBase = i.RemoteBase
-	}
-}
-
 func (i *Installer) keyFiles() []string {
 	if i.KeyFile != "" {
 		return []string{i.KeyFile}

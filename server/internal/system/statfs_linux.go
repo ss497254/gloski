@@ -17,8 +17,8 @@ func Statfs(path string, stat *StatFS) error {
 	if err := syscall.Statfs(path, &sysstat); err != nil {
 		return err
 	}
-	stat.Bsize = sysstat.Bsize
-	stat.Blocks = sysstat.Blocks
-	stat.Bfree = sysstat.Bfree
+	stat.Bsize = int64(sysstat.Bsize) // int32 on 32-bit ARM
+	stat.Blocks = uint64(sysstat.Blocks)
+	stat.Bfree = uint64(sysstat.Bfree)
 	return nil
 }

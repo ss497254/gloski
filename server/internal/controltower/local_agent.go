@@ -13,7 +13,12 @@ import (
 )
 
 func (t *Tower) startLocalAgent(cfg *config.Config, version string) {
-	if !cfg.Master.LocalAgent || t.agentSocketPath == "" || t.installer.Binary() == "" {
+	if !cfg.Master.LocalAgent || t.agentSocketPath == "" {
+		return
+	}
+	binary := t.localAgentBinary()
+	if binary == "" {
+		logger.Warn("No agent binary found; the master device will not appear (run 'make build')")
 		return
 	}
 	name := cfg.Master.LocalAgentName
@@ -21,7 +26,7 @@ func (t *Tower) startLocalAgent(cfg *config.Config, version string) {
 		name = t.name
 	}
 	agent := &localAgent{
-		binary:    t.installer.Binary(),
+		binary:    binary,
 		masterURL: "unix://" + t.agentSocketPath,
 		joinToken: t.fleetSvc.JoinToken(),
 		name:      name,

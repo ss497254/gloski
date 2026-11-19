@@ -105,14 +105,26 @@ func (svc *Service) Processes(deviceID string, limit int, sortBy string) ([]byte
 	return []byte(result.GetJson()), nil
 }
 
+// ShutdownMode says what an agent should do after it stops.
+type ShutdownMode int
+
+const (
+	// ShutdownExit ends the agent process; its supervisor or cron may start it again.
+	ShutdownExit ShutdownMode = iota
+	// ShutdownStop stops the agent and its self-heal but keeps it installed.
+	ShutdownStop
+	// ShutdownUninstall removes the agent from the device.
+	ShutdownUninstall
+)
+
 // Shutdown asks an agent to stop itself.
-func (svc *Service) Shutdown(deviceID string) error {
+func (svc *Service) Shutdown(deviceID string, mode ShutdownMode) error {
 	conn, err := svc.connection(deviceID)
 	if err != nil {
 		return err
 	}
 	return conn.send(&agentv1.MasterMessage{
-		Payload: &agentv1.MasterMessage_Shutdown{Shutdown: &agentv1.Shutdown{}},
+		Payload: &agentv1.MasterMessage_Shutdown{Shutdown: &agentv1.Shutdown{Stop: mode == ShutdownStop, Uninstall: mode == ShutdownUninstall}},
 	})
 }
 
