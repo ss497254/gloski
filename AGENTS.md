@@ -86,7 +86,10 @@ These came from the owner directly. Follow them unless told otherwise.
 Agents built before these commits must be reinstalled; the protocol changed.
 The install script removes an old `/tmp/gloski-agent` install by itself.
 
-**Current work is `docs/reliability-plan.md`.** It holds the design (each device
+**What to build next is in `docs/roadmap.md`**, in order; start at the first
+unfinished item of step 1.
+
+**The reliability design is in `docs/reliability-plan.md`.** It holds the design (each device
 keeps its own agent alive; the master is the source of truth; every action has
 a definite outcome), the failure scenarios, the build order and a Status
 section saying which phases are done. Update it as phases land.

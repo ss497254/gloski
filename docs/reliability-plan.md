@@ -31,7 +31,7 @@ a separate mechanism per failure.
 | Master down, however long | Agents keep retrying and reconnect (done) |
 | Master restarts mid-job | Job keeps running, output is replayed (done) |
 | Agent is frozen or otherwise misbehaving | **Restart** button; if it ignores that, **Reinstall**, which force-kills |
-| Agent is older than the master | Updates itself at connect, after running jobs finish |
+| Agent is older than the master | Runs the install script again by itself, after running jobs finish |
 | Job sent to an offline device | Fails at once with "offline since …", no queue |
 | Job logs piling up | Deleted after 30 days; 10 MB kept per job |
 | "Offline" with no explanation | Device shows why: never connected, wrong token, last seen, last restart reason |
@@ -46,15 +46,7 @@ fix is to press Reinstall or paste the install command again.
 
 ## Build order
 
-1. **Self-healing install.** Done.
-2. **Restart, Reinstall and self-update.** Two buttons per device. Restart asks
-   the agent to exit so the supervisor starts it again. Reinstall runs the
-   install script over SSH when the master has SSH details, and otherwise shows
-   the one-line command. Self-update compares binary hashes at connect.
-3. **Clear reasons.** Actions on an offline device fail immediately with the
-   reason; the device shows why it is offline; job log limits.
-4. **Break-it test.** One script that kills the master and the agent mid-job,
-   wipes the install directory, and checks recovery.
+See [roadmap.md](roadmap.md), step 1. Phase 1 (self-healing install) is done.
 
 ## Status
 
@@ -62,7 +54,7 @@ fix is to press Reinstall or paste the install command again.
   double start, repeated install, wiped directory, stop and remove from the API,
   wrong-architecture message. Not yet exercised: the SSH install path and a real
   cron daemon (the crontab line was run by hand).
-- Phase 2: next.
+- Next: roadmap step 1.
 
 ## Testing notes
 
