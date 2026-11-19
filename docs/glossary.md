@@ -17,7 +17,8 @@ renames are in [code-quality-plan.md](code-quality-plan.md).
 | **job** | A command the master owns and one agent executes. | `agents.Job` |
 | **session** | One live `Agent.Connect` gRPC stream for a device. | `agents.connection` |
 | **dashboard** | The React single-page app. | `web/` |
-| **file transfer** | A download or upload of file contents, streamed in 1 MB pieces. | `controltower/device_transfer.go` |
+| **file transfer** | A download or upload of file contents over HTTP on the agent port. | `controltower/file_transfer.go` |
+| **transfer id** | A one-time id that lets one agent HTTP request reach its transfer. | `agentv1.FileTransfer` |
 | **terminal** | A PTY session opened from the browser. | `worker/agent_terminal.go` |
 
 ## Words to avoid
@@ -34,4 +35,4 @@ renames are in [code-quality-plan.md](code-quality-plan.md).
 - **standalone**: removed. There is no standalone mode.
 - **upload session / chunked upload**: the chunked upload API in
   `internal/files` is unused legacy code, not the upload path. Real uploads use
-  `WRITE_AT` pieces.
+  a `FileTransfer` over HTTP.

@@ -35,6 +35,7 @@ add a separate mechanism per failure.
 | Master restarts mid-job | Job keeps running, output is replayed (done) |
 | SSH to the device fails | Reason shown on the device; changed host key has a "Trust new key" button (done) |
 | Job sent to an offline device | Fails at once with the reason, no queue |
+| A big download or upload delays commands | Contents use one HTTP request per transfer on the agent port, not the gRPC stream (done) |
 | Job logs piling up | Deleted after 30 days; 10 MB kept per job |
 
 Recovery takes about a minute: 45 seconds of grace so reconnecting agents are
@@ -54,6 +55,9 @@ If one of these cases actually bites, add it then.
   tests. Not yet exercised: an incompatible agent being refused (the check is
   in place but no old-protocol agent was run against it), a real device, and a
   32-bit ARM board.
+- File transfers: done and verified live on a unix socket and over TCP:
+  whole-file download, a byte-range download, and upload. A 200 MB download
+  throttled to 1 MB/s did not delay a job, which finished in 10 ms.
 - Next: see [roadmap.md](roadmap.md).
 
 ## Testing notes

@@ -38,7 +38,30 @@ message MasterMessage {
     ProcessRequest process_request = 10;
     JobAck job_ack = 11;
     TerminalResize terminal_resize = 12;
+    FileTransfer file_transfer = 13;
   }
+}
+
+// FileTransfer moves file contents over plain HTTP on the agent port instead
+// of the gRPC stream. The stream only says what to move; the bytes never share
+// the terminal and job lanes.
+message FileTransfer {
+  // transfer_id is a one-time id. The agent presents it on
+  // /agent/transfer/{transfer_id} to fetch or deliver the bytes.
+  string transfer_id = 1;
+  FileTransferDirection direction = 2;
+  string path = 3;
+  // offset and length select a range; length 0 means to the end of the file.
+  int64 offset = 4;
+  int64 length = 5;
+}
+
+enum FileTransferDirection {
+  FILE_TRANSFER_DIRECTION_UNSPECIFIED = 0;
+  // UPLOAD: the master has the bytes and the agent fetches them.
+  FILE_TRANSFER_DIRECTION_UPLOAD = 1;
+  // DOWNLOAD: the master wants the bytes and the agent sends them.
+  FILE_TRANSFER_DIRECTION_DOWNLOAD = 2;
 }
 
 message ProcessRequest {
@@ -141,10 +164,11 @@ enum FileOp {
   FILE_OP_DELETE = 4;
   FILE_OP_MKDIR = 5;
   FILE_OP_RENAME = 6;
-  // STAT, READ_AT and WRITE_AT move files of any size in bounded pieces.
+  // STAT describes a file before the master starts a download transfer.
   FILE_OP_STAT = 7;
-  FILE_OP_READ_AT = 8;
-  FILE_OP_WRITE_AT = 9;
+  // 8 and 9 were the READ_AT and WRITE_AT piece operations; file contents now
+  // use FileTransfer over HTTP.
+  reserved 8, 9;
 }
 
 message FileRequest {
@@ -152,12 +176,8 @@ message FileRequest {
   string path = 2;
   bytes content = 3;
   string new_path = 4;
-  // offset and length select the range for READ_AT; offset is where a
-  // WRITE_AT piece belongs.
-  int64 offset = 5;
-  int64 length = 6;
-  // final marks the last WRITE_AT piece: the upload is moved into place.
-  bool final = 7;
+  // 5 to 7 belonged to the removed piece operations.
+  reserved 5, 6, 7;
 }
 
 message FileResult {

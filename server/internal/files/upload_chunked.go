@@ -11,9 +11,8 @@ import (
 
 // ChunkUploadInfo describes a chunked upload session.
 //
-// This API is not used by the dashboard. Real uploads stream through the
-// agent's WRITE_AT pieces; the methods are kept until the legacy code is
-// removed.
+// This API is not used by the dashboard. Real uploads use a FileTransfer over
+// HTTP; the methods are kept until the legacy code is removed.
 type ChunkUploadInfo struct {
 	UploadID    string `json:"upload_id"`
 	Filename    string `json:"filename"`

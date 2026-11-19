@@ -1,10 +1,14 @@
 package files_test
 
 import (
-	"github.com/ss497254/gloski/internal/files"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/ss497254/gloski/internal/config"
+	"github.com/ss497254/gloski/internal/files"
 )
 
 func TestExpandTilde(t *testing.T) {
@@ -57,6 +61,65 @@ func TestExpandTilde(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriteStreamReplacesFile(t *testing.T) {
+	service := files.NewService(&config.Config{})
+	target := filepath.Join(t.TempDir(), "dir", "file.txt")
+	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	written, err := service.WriteStream(target, strings.NewReader("new contents"))
+	if err != nil {
+		t.Fatalf("WriteStream() error = %v", err)
+	}
+	if written != int64(len("new contents")) {
+		t.Errorf("WriteStream() wrote %d bytes, want %d", written, len("new contents"))
+	}
+	content, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "new contents" {
+		t.Errorf("content = %q, want %q", content, "new contents")
+	}
+}
+
+func TestWriteStreamLeavesFileOnFailure(t *testing.T) {
+	service := files.NewService(&config.Config{})
+	target := filepath.Join(t.TempDir(), "file.txt")
+	if err := os.WriteFile(target, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := service.WriteStream(target, &failingReader{}); err == nil {
+		t.Fatal("WriteStream() succeeded, want an error")
+	}
+	content, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "old" {
+		t.Errorf("content = %q, want the previous file %q", content, "old")
+	}
+	temp := filepath.Join(filepath.Dir(target), "."+filepath.Base(target)+".gloski-upload")
+	if _, err := os.Stat(temp); !os.IsNotExist(err) {
+		t.Errorf("temporary upload file was left behind: %v", err)
+	}
+}
+
+type failingReader struct{ sent bool }
+
+func (r *failingReader) Read(p []byte) (int, error) {
+	if !r.sent {
+		r.sent = true
+		return copy(p, "partial"), nil
+	}
+	return 0, errors.New("connection lost")
 }
 
 func TestToTildePath(t *testing.T) {

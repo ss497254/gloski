@@ -24,7 +24,7 @@ func (s *Service) Exists(path string) bool {
 }
 
 // GetFileInfo returns the resolved absolute path and file info. It is used by
-// the agent's piece reads and writes, which need the real path.
+// the agent's transfer and stat code, which needs the real path.
 func (s *Service) GetFileInfo(path string) (string, os.FileInfo, error) {
 	absPath, err := s.validatePath(path)
 	if err != nil {

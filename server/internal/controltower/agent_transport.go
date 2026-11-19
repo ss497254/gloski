@@ -35,7 +35,11 @@ func (t *Tower) startAgentTransport(cfg *config.Config) {
 	if listener, err := net.Listen("unix", t.agentSocketPath); err == nil {
 		// Only the master's own user may reach the local agent socket.
 		_ = os.Chmod(t.agentSocketPath, 0600)
-		t.serveGRPC(listener, "unix://"+t.agentSocketPath)
+		// The socket carries gRPC and the HTTP file transfers the local agent
+		// makes, just like the TCP agent port.
+		grpcSide, httpSide := splitListener(listener)
+		t.serveGRPC(grpcSide, "unix://"+t.agentSocketPath)
+		t.serveAgentHTTP(httpSide)
 	} else {
 		logger.Error("Failed to listen on agent socket %s: %v", t.agentSocketPath, err)
 	}
@@ -98,11 +102,17 @@ func (t *Tower) listenAgentTCP(host string, port int) bool {
 	}
 	grpcSide, httpSide := splitListener(listener)
 	t.serveGRPC(grpcSide, address)
+	t.serveAgentHTTP(httpSide)
+	return true
+}
+
+// serveAgentHTTP serves plain HTTP on an agent listener. Agents use it for the
+// install script and to move file contents.
+func (t *Tower) serveAgentHTTP(listener net.Listener) {
 	go func() {
 		server := &http.Server{Handler: t.agentHTTPHandler(), ReadHeaderTimeout: 10 * time.Second}
-		_ = server.Serve(httpSide)
+		_ = server.Serve(listener)
 	}()
-	return true
 }
 
 func (t *Tower) serveGRPC(listener net.Listener, label string) {

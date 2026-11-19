@@ -129,9 +129,10 @@ A job ID from another device returns `404`. Job fields and statuses are in
 `FileEntry` has `name`, `path` (tilde form under the home directory), `type`
 (`file` or `directory`), `size`, `modified`, `permissions`.
 
-Uploads stream in 1 MB `WRITE_AT` pieces and replace the target only when the
-last piece lands. Only images, audio, video and PDF are served inline; SVG and
-HTML are downloads on purpose.
+Contents move over HTTP on the agent port, not the gRPC stream. An upload
+replaces its target only when the whole body arrived, so a failed transfer
+leaves the old file in place. Only images, audio, video and PDF are served
+inline; SVG and HTML are downloads on purpose.
 
 ### Terminal
 

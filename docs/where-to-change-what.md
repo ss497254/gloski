@@ -72,10 +72,10 @@ The browser never talks to an agent directly. A command crosses the gRPC stream.
 ## Change file operations
 
 1. Filesystem policy and operations: `server/internal/files/`.
-2. Device-side gRPC handling: `server/internal/worker/agent_files.go` and
-   `agent_jobs.go`.
+2. Device-side handling: `server/internal/worker/agent_files.go` for small
+   operations, `agent_transfer.go` for file contents over HTTP.
 3. Browser API translation: `server/internal/controltower/device_files.go`;
-   downloads and uploads add `device_transfer.go`.
+   downloads and uploads add `device_transfer.go` and `file_transfer.go`.
 4. Frontend client and UI: `web/src/shared/api/resources/files.ts` and
    `web/src/features/files/`.
 5. Update [http-api.md](http-api.md).

@@ -88,6 +88,13 @@ workflow. The files service is split by operation, worker file handling lives in
 refuses whole trees (except `/tmp`); Rename refuses only the roots, so renames
 inside system directories stay legal.
 
+File contents no longer travel on the gRPC stream. A download or upload sends a
+`FileTransfer` with a one-time id, and the agent makes one HTTP request to
+`/agent/transfer/{id}` on the same agent port (unix socket for the local agent).
+`ProtocolVersion` is 3; agents built before this change are refused and
+reinstalled by the lifecycle. Listing, stat, rename, delete and the editor's
+small text reads stay on gRPC.
+
 The master-owned agent lifecycle is built (`7b936a3`), and the protocol changes
 from `7f86d0a` and `ab0abad` are in. Agents built before those commits must be
 reinstalled; the install script removes an old `/tmp/gloski-agent` install by

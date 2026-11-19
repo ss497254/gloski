@@ -45,9 +45,15 @@ The master and agents use a single bidirectional gRPC `Agent.Connect` stream.
 - Remote agents: gRPC h2c over Tailnet, port `9090` by default.
 
 Agents send registration, heartbeats/stats, job output, and file/process
-results. The master sends jobs, file requests, terminal I/O, and shutdown.
-The browser never speaks gRPC; the master translates its HTTP/WS calls into
-agent commands.
+results. The master sends jobs, file operations, transfers, terminal I/O, and
+shutdown. The browser never speaks gRPC; the master translates its HTTP/WS
+calls into agent commands.
+
+File contents do not travel on the stream. For a download or upload the master
+sends a `FileTransfer` with a one-time id, and the agent makes one plain HTTP
+request to `/agent/transfer/{id}` on the same agent port, posting a download or
+fetching an upload. Listing, stat, rename, delete and the editor's small text
+reads stay on gRPC.
 
 ## State ownership
 
@@ -83,8 +89,9 @@ and `/api/fleet/ws`.
 master persists logs → browser polls logs.
 
 **Files / terminal** — browser HTTP/WS → master → matching gRPC request →
-agent. The master injects the device token, so the browser never holds an agent
-credential.
+agent. Downloads and uploads switch to one HTTP request on the agent port;
+small operations stay on the stream. The master injects the device token, so the
+browser never holds an agent credential.
 
 ## Web routes
 

@@ -7,7 +7,7 @@ it simple, and prefer one general building block over many special features.
 ## Step 1: finish reliability
 
 1. ~~Master-owned agent lifecycle~~ (done, see reliability-plan.md).
-2. **File transfers on their own connection** (design B below).
+2. ~~File transfers on their own connection~~ (done, design B below).
 3. **Smarter heartbeats** (design C below).
 4. **Clear reasons.** An action on an offline device fails at once and says
    why. Each device shows: connected or not, since when, and the reason.
@@ -74,7 +74,7 @@ Add any of these when the need is real.
 
 ## Design direction (owner's decision, 2026-11-19)
 
-A is built. B and C are next.
+A and B are built. C is next.
 
 ### A. The master owns the agent's lifecycle (built)
 
@@ -102,7 +102,7 @@ Devices differ too much (no systemd, no cron) to rely on anything on them.
 - Removed: `internal/supervisor`, the `start` and `supervise` subcommands, and
   the crontab line in the install script.
 
-### B. File transfers get their own connection
+### B. File transfers get their own connection (built)
 
 Reads and writes of file contents leave the gRPC stream. The master asks on the
 stream ("send me this file", "fetch this upload") and the agent makes a plain

@@ -8,8 +8,8 @@ import (
 )
 
 // Upload streams reader into filename inside destPath. It replaces an existing
-// file. This is the whole-request path; the browser uses the agent's WRITE_AT
-// pieces instead.
+// file. This is the whole-request path; browser uploads use a FileTransfer
+// over HTTP instead.
 func (s *Service) Upload(destPath, filename string, reader io.Reader) error {
 	absPath, err := s.validatePath(destPath)
 	if err != nil {

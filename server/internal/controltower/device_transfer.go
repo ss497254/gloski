@@ -2,7 +2,6 @@ package controltower
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -14,15 +13,8 @@ import (
 	"github.com/ss497254/gloski/proto/agentv1"
 )
 
-const (
-	// transferPiece is how much of a file crosses the agent stream per
-	// request. Each piece is a round trip, so the master never holds more
-	// than this in memory and a slow browser slows the transfer instead of
-	// filling buffers.
-	transferPiece = 1 << 20
-	// maxUploadBytes bounds a single upload.
-	maxUploadBytes = 8 << 30
-)
+// maxUploadBytes bounds a single upload.
+const maxUploadBytes = 8 << 30
 
 // inlineTypes are the only content types served for display in the browser.
 // Device files are untrusted as far as the dashboard is concerned: an HTML or
@@ -37,7 +29,7 @@ var inlineTypes = map[string]string{
 	".pdf": "application/pdf",
 }
 
-// agentFile reads a file on a device piece by piece. It implements
+// agentFile reads a file on a device through one HTTP transfer. It implements
 // io.ReadSeeker so http.ServeContent can serve ranges, which is what lets a
 // video seek without fetching the whole file.
 type agentFile struct {
@@ -46,37 +38,36 @@ type agentFile struct {
 	path     string
 	size     int64
 	offset   int64
+	current  *transfer
 }
 
-// Read returns the next piece of the device file.
+// Read returns the next piece of the device file. The first read opens a
+// transfer for the rest of the file; the pipe then delivers it in whatever
+// size the caller asks for.
 func (f *agentFile) Read(buffer []byte) (int, error) {
 	if f.offset >= f.size {
 		return 0, io.EOF
 	}
-	length := int64(len(buffer))
-	if length > transferPiece {
-		length = transferPiece
+	if f.current == nil {
+		tr, err := f.tower.startDownload(f.deviceID, f.path, f.offset, f.size-f.offset)
+		if err != nil {
+			return 0, err
+		}
+		f.current = tr
 	}
-	result, err := f.tower.agentService.File(f.deviceID, &agentv1.FileRequest{
-		Op: agentv1.FileOp_FILE_OP_READ_AT, Path: f.path, Offset: f.offset, Length: length,
-	})
-	if err != nil {
-		return 0, err
-	}
-	if result.GetCode() != 0 {
-		return 0, errors.New(result.GetMessage())
-	}
-	n := copy(buffer, result.GetContent())
-	if n == 0 {
-		// The file shrank after it was measured.
-		return 0, io.ErrUnexpectedEOF
-	}
+
+	n, err := f.current.reader.Read(buffer)
 	f.offset += int64(n)
-	return n, nil
+	if err != nil {
+		f.closeCurrent()
+	}
+	return n, err
 }
 
-// Seek moves the read position, enabling Range requests.
+// Seek moves the read position, enabling Range requests. A seek discards the
+// open transfer; the next read starts a new one at the new position.
 func (f *agentFile) Seek(offset int64, whence int) (int64, error) {
+	f.closeCurrent()
 	switch whence {
 	case io.SeekStart:
 	case io.SeekCurrent:
@@ -91,6 +82,19 @@ func (f *agentFile) Seek(offset int64, whence int) (int64, error) {
 	}
 	f.offset = offset
 	return offset, nil
+}
+
+// Close ends the current transfer, if any.
+func (f *agentFile) Close() error {
+	f.closeCurrent()
+	return nil
+}
+
+func (f *agentFile) closeCurrent() {
+	if f.current != nil {
+		_ = f.current.reader.Close()
+		f.current = nil
+	}
 }
 
 func (t *Tower) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
@@ -114,11 +118,12 @@ func (t *Tower) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
 	}
 	file := &agentFile{tower: t, deviceID: deviceID, path: path, size: stat.GetSize()}
+	defer file.Close()
 	http.ServeContent(w, r, name, time.Unix(stat.GetModTimeUnix(), 0), file)
 }
 
-// handleUploadFile streams a multipart upload to the device in pieces. The
-// body is never buffered whole, in memory or on the master's disk.
+// handleUploadFile streams a multipart upload to the device. The body is never
+// buffered whole, in memory or on the master's disk.
 func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
 	reader, err := r.MultipartReader()
@@ -161,58 +166,57 @@ func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			target := strings.TrimRight(destination, "/") + "/" + name
-			size, err := t.streamUpload(deviceID, target, part)
-			if err != nil {
-				var agentErr fileOpError
-				if errors.As(err, &agentErr) {
-					httpapi.Error(w, http.StatusBadRequest, agentErr.Error())
-					return
-				}
-				var tooLarge *http.MaxBytesError
-				if errors.As(err, &tooLarge) {
-					httpapi.Error(w, http.StatusRequestEntityTooLarge, "upload is too large")
-					return
-				}
-				writeAgentError(w, err)
-				return
-			}
-			httpapi.Success(w, map[string]interface{}{"filename": name, "size": size})
+			t.uploadToDevice(w, r, deviceID, target, part)
 			return
 		}
 	}
 }
 
-// fileOpError is a failure reported by the device (permission denied, disk
-// full) as opposed to a failure to reach it.
-type fileOpError string
-
-// Error returns the device's message for the failed operation.
-func (e fileOpError) Error() string { return string(e) }
-
-// streamUpload sends content to the device one piece at a time and returns
-// the number of bytes written. The device assembles the pieces in a
-// temporary file and only replaces the target when the last one arrives.
-func (t *Tower) streamUpload(deviceID, path string, content io.Reader) (int64, error) {
-	buffer := make([]byte, transferPiece)
-	var offset int64
-	for {
-		n, readErr := io.ReadFull(content, buffer)
-		final := errors.Is(readErr, io.EOF) || errors.Is(readErr, io.ErrUnexpectedEOF)
-		if readErr != nil && !final {
-			return offset, fmt.Errorf("failed to read upload: %w", readErr)
-		}
-		result, err := t.agentService.File(deviceID, &agentv1.FileRequest{
-			Op: agentv1.FileOp_FILE_OP_WRITE_AT, Path: path, Offset: offset, Content: buffer[:n], Final: final,
-		})
-		if err != nil {
-			return offset, err
-		}
-		if result.GetCode() != 0 {
-			return offset, fileOpError(result.GetMessage())
-		}
-		offset += int64(n)
-		if final {
-			return offset, nil
-		}
+// uploadToDevice feeds one browser file part to the device and waits for the
+// device to confirm that it wrote the file.
+func (t *Tower) uploadToDevice(w http.ResponseWriter, r *http.Request, deviceID, path string, content io.Reader) {
+	tr, err := t.startUpload(deviceID, path)
+	if err != nil {
+		writeAgentError(w, err)
+		return
 	}
+
+	type copyResult struct {
+		written int64
+		err     error
+	}
+	copied := make(chan copyResult, 1)
+	go func() {
+		written, err := io.Copy(tr.writer, content)
+		_ = tr.writer.CloseWithError(err)
+		copied <- copyResult{written: written, err: err}
+	}()
+
+	var copy copyResult
+	select {
+	case copy = <-copied:
+	case <-tr.done:
+		// The device stopped early; unblock the copy and collect its result.
+		_ = tr.reader.CloseWithError(errors.New("transfer ended"))
+		copy = <-copied
+	case <-r.Context().Done():
+		_ = tr.reader.CloseWithError(r.Context().Err())
+		<-copied
+		return
+	}
+
+	var tooLarge *http.MaxBytesError
+	if errors.As(copy.err, &tooLarge) {
+		httpapi.Error(w, http.StatusRequestEntityTooLarge, "upload is too large")
+		return
+	}
+	if err := tr.wait(); err != nil {
+		httpapi.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if copy.err != nil {
+		httpapi.BadRequest(w, "failed to read upload")
+		return
+	}
+	httpapi.Success(w, map[string]interface{}{"filename": filepath.Base(path), "size": copy.written})
 }

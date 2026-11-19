@@ -1,6 +1,8 @@
 package files
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -19,6 +21,44 @@ func (s *Service) Write(path, content string) error {
 	}
 
 	return os.WriteFile(absPath, []byte(content), 0644)
+}
+
+// WriteStream copies content into path atomically: bytes accumulate in a
+// temporary file beside the target, which replaces it only when the copy
+// completes. A failed or interrupted transfer therefore leaves the old file
+// untouched.
+func (s *Service) WriteStream(path string, content io.Reader) (int64, error) {
+	absPath, err := s.validatePath(path)
+	if err != nil {
+		return 0, err
+	}
+	if info, err := os.Stat(absPath); err == nil && info.IsDir() {
+		return 0, errors.New("destination is a directory")
+	}
+	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+		return 0, err
+	}
+
+	temp := filepath.Join(filepath.Dir(absPath), "."+filepath.Base(absPath)+".gloski-upload")
+	file, err := os.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return 0, err
+	}
+	written, copyErr := io.Copy(file, content)
+	closeErr := file.Close()
+	if copyErr != nil {
+		_ = os.Remove(temp)
+		return written, copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(temp)
+		return written, closeErr
+	}
+	if err := os.Rename(temp, absPath); err != nil {
+		_ = os.Remove(temp)
+		return written, err
+	}
+	return written, nil
 }
 
 // Mkdir creates a directory and any missing parents with mode 0755.

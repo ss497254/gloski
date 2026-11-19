@@ -314,6 +314,8 @@ func (w *Runtime) handle(message *agentv1.MasterMessage) {
 		w.forgetJob(message.RequestId)
 	case *agentv1.MasterMessage_FileRequest:
 		go w.handleFile(message.RequestId, payload.FileRequest)
+	case *agentv1.MasterMessage_FileTransfer:
+		go w.handleTransfer(message.RequestId, payload.FileTransfer)
 	case *agentv1.MasterMessage_ProcessRequest:
 		go w.handleProcesses(message.RequestId, payload.ProcessRequest)
 	case *agentv1.MasterMessage_TerminalOpen:

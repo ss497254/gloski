@@ -79,6 +79,59 @@ func (svc *Service) ProblemJobs(limit int) ([]Job, error) { return svc.jobs.Prob
 // DeleteJob removes a job and its logs.
 func (svc *Service) DeleteJob(id string) error { return svc.jobs.Delete(id) }
 
+// StartTransfer asks an agent to move file contents over HTTP and reports the
+// outcome when it finishes. Only the request and the result travel on the
+// stream; the bytes use the agent HTTP port, so a big transfer cannot delay
+// terminals or commands.
+func (svc *Service) StartTransfer(deviceID string, request *agentv1.FileTransfer) (<-chan error, error) {
+	conn, err := svc.connection(deviceID)
+	if err != nil {
+		return nil, err
+	}
+	id := request.GetTransferId()
+	reply := make(chan *agentv1.AgentMessage, 1)
+	conn.mu.Lock()
+	conn.pending[id] = reply
+	conn.mu.Unlock()
+
+	done := make(chan error, 1)
+	if err := conn.send(&agentv1.MasterMessage{
+		RequestId: id,
+		Payload:   &agentv1.MasterMessage_FileTransfer{FileTransfer: request},
+	}); err != nil {
+		conn.mu.Lock()
+		delete(conn.pending, id)
+		conn.mu.Unlock()
+		return nil, err
+	}
+
+	go func() {
+		defer func() {
+			conn.mu.Lock()
+			delete(conn.pending, id)
+			conn.mu.Unlock()
+			close(done)
+		}()
+		select {
+		case message := <-reply:
+			if message == nil {
+				done <- ErrNoAgent
+				return
+			}
+			result := message.GetFileResult()
+			switch {
+			case result == nil:
+				done <- errors.New("agent returned no file transfer result")
+			case result.GetCode() != 0:
+				done <- errors.New(result.GetMessage())
+			}
+		case <-conn.closed:
+			done <- ErrNoAgent
+		}
+	}()
+	return done, nil
+}
+
 // File performs a file operation on an agent and waits for its result.
 func (svc *Service) File(deviceID string, request *agentv1.FileRequest) (*agentv1.FileResult, error) {
 	reply, err := svc.request(deviceID, &agentv1.MasterMessage{

@@ -21,6 +21,57 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type FileTransferDirection int32
+
+const (
+	FileTransferDirection_FILE_TRANSFER_DIRECTION_UNSPECIFIED FileTransferDirection = 0
+	// UPLOAD: the master has the bytes and the agent fetches them.
+	FileTransferDirection_FILE_TRANSFER_DIRECTION_UPLOAD FileTransferDirection = 1
+	// DOWNLOAD: the master wants the bytes and the agent sends them.
+	FileTransferDirection_FILE_TRANSFER_DIRECTION_DOWNLOAD FileTransferDirection = 2
+)
+
+// Enum value maps for FileTransferDirection.
+var (
+	FileTransferDirection_name = map[int32]string{
+		0: "FILE_TRANSFER_DIRECTION_UNSPECIFIED",
+		1: "FILE_TRANSFER_DIRECTION_UPLOAD",
+		2: "FILE_TRANSFER_DIRECTION_DOWNLOAD",
+	}
+	FileTransferDirection_value = map[string]int32{
+		"FILE_TRANSFER_DIRECTION_UNSPECIFIED": 0,
+		"FILE_TRANSFER_DIRECTION_UPLOAD":      1,
+		"FILE_TRANSFER_DIRECTION_DOWNLOAD":    2,
+	}
+)
+
+func (x FileTransferDirection) Enum() *FileTransferDirection {
+	p := new(FileTransferDirection)
+	*p = x
+	return p
+}
+
+func (x FileTransferDirection) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FileTransferDirection) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_agentv1_agent_proto_enumTypes[0].Descriptor()
+}
+
+func (FileTransferDirection) Type() protoreflect.EnumType {
+	return &file_proto_agentv1_agent_proto_enumTypes[0]
+}
+
+func (x FileTransferDirection) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FileTransferDirection.Descriptor instead.
+func (FileTransferDirection) EnumDescriptor() ([]byte, []int) {
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{0}
+}
+
 type FileOp int32
 
 const (
@@ -31,10 +82,8 @@ const (
 	FileOp_FILE_OP_DELETE      FileOp = 4
 	FileOp_FILE_OP_MKDIR       FileOp = 5
 	FileOp_FILE_OP_RENAME      FileOp = 6
-	// STAT, READ_AT and WRITE_AT move files of any size in bounded pieces.
-	FileOp_FILE_OP_STAT     FileOp = 7
-	FileOp_FILE_OP_READ_AT  FileOp = 8
-	FileOp_FILE_OP_WRITE_AT FileOp = 9
+	// STAT describes a file before the master starts a download transfer.
+	FileOp_FILE_OP_STAT FileOp = 7
 )
 
 // Enum value maps for FileOp.
@@ -48,8 +97,6 @@ var (
 		5: "FILE_OP_MKDIR",
 		6: "FILE_OP_RENAME",
 		7: "FILE_OP_STAT",
-		8: "FILE_OP_READ_AT",
-		9: "FILE_OP_WRITE_AT",
 	}
 	FileOp_value = map[string]int32{
 		"FILE_OP_UNSPECIFIED": 0,
@@ -60,8 +107,6 @@ var (
 		"FILE_OP_MKDIR":       5,
 		"FILE_OP_RENAME":      6,
 		"FILE_OP_STAT":        7,
-		"FILE_OP_READ_AT":     8,
-		"FILE_OP_WRITE_AT":    9,
 	}
 )
 
@@ -76,11 +121,11 @@ func (x FileOp) String() string {
 }
 
 func (FileOp) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_agentv1_agent_proto_enumTypes[0].Descriptor()
+	return file_proto_agentv1_agent_proto_enumTypes[1].Descriptor()
 }
 
 func (FileOp) Type() protoreflect.EnumType {
-	return &file_proto_agentv1_agent_proto_enumTypes[0]
+	return &file_proto_agentv1_agent_proto_enumTypes[1]
 }
 
 func (x FileOp) Number() protoreflect.EnumNumber {
@@ -89,7 +134,7 @@ func (x FileOp) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FileOp.Descriptor instead.
 func (FileOp) EnumDescriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{0}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{1}
 }
 
 type AgentMessage struct {
@@ -279,6 +324,7 @@ type MasterMessage struct {
 	//	*MasterMessage_ProcessRequest
 	//	*MasterMessage_JobAck
 	//	*MasterMessage_TerminalResize
+	//	*MasterMessage_FileTransfer
 	Payload       isMasterMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -427,6 +473,15 @@ func (x *MasterMessage) GetTerminalResize() *TerminalResize {
 	return nil
 }
 
+func (x *MasterMessage) GetFileTransfer() *FileTransfer {
+	if x != nil {
+		if x, ok := x.Payload.(*MasterMessage_FileTransfer); ok {
+			return x.FileTransfer
+		}
+	}
+	return nil
+}
+
 type isMasterMessage_Payload interface {
 	isMasterMessage_Payload()
 }
@@ -475,6 +530,10 @@ type MasterMessage_TerminalResize struct {
 	TerminalResize *TerminalResize `protobuf:"bytes,12,opt,name=terminal_resize,json=terminalResize,proto3,oneof"`
 }
 
+type MasterMessage_FileTransfer struct {
+	FileTransfer *FileTransfer `protobuf:"bytes,13,opt,name=file_transfer,json=fileTransfer,proto3,oneof"`
+}
+
 func (*MasterMessage_RegisterResponse) isMasterMessage_Payload() {}
 
 func (*MasterMessage_RunJob) isMasterMessage_Payload() {}
@@ -497,6 +556,90 @@ func (*MasterMessage_JobAck) isMasterMessage_Payload() {}
 
 func (*MasterMessage_TerminalResize) isMasterMessage_Payload() {}
 
+func (*MasterMessage_FileTransfer) isMasterMessage_Payload() {}
+
+// FileTransfer moves file contents over plain HTTP on the agent port instead
+// of the gRPC stream. The stream only says what to move; the bytes never share
+// the terminal and job lanes.
+type FileTransfer struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// transfer_id is a one-time id. The agent presents it on
+	// /agent/transfer/{transfer_id} to fetch or deliver the bytes.
+	TransferId string                `protobuf:"bytes,1,opt,name=transfer_id,json=transferId,proto3" json:"transfer_id,omitempty"`
+	Direction  FileTransferDirection `protobuf:"varint,2,opt,name=direction,proto3,enum=gloski.agent.v1.FileTransferDirection" json:"direction,omitempty"`
+	Path       string                `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	// offset and length select a range; length 0 means to the end of the file.
+	Offset        int64 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	Length        int64 `protobuf:"varint,5,opt,name=length,proto3" json:"length,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FileTransfer) Reset() {
+	*x = FileTransfer{}
+	mi := &file_proto_agentv1_agent_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FileTransfer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FileTransfer) ProtoMessage() {}
+
+func (x *FileTransfer) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_agentv1_agent_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FileTransfer.ProtoReflect.Descriptor instead.
+func (*FileTransfer) Descriptor() ([]byte, []int) {
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *FileTransfer) GetTransferId() string {
+	if x != nil {
+		return x.TransferId
+	}
+	return ""
+}
+
+func (x *FileTransfer) GetDirection() FileTransferDirection {
+	if x != nil {
+		return x.Direction
+	}
+	return FileTransferDirection_FILE_TRANSFER_DIRECTION_UNSPECIFIED
+}
+
+func (x *FileTransfer) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *FileTransfer) GetOffset() int64 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *FileTransfer) GetLength() int64 {
+	if x != nil {
+		return x.Length
+	}
+	return 0
+}
+
 type ProcessRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
@@ -507,7 +650,7 @@ type ProcessRequest struct {
 
 func (x *ProcessRequest) Reset() {
 	*x = ProcessRequest{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[2]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -519,7 +662,7 @@ func (x *ProcessRequest) String() string {
 func (*ProcessRequest) ProtoMessage() {}
 
 func (x *ProcessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[2]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -532,7 +675,7 @@ func (x *ProcessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessRequest.ProtoReflect.Descriptor instead.
 func (*ProcessRequest) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{2}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ProcessRequest) GetLimit() int32 {
@@ -558,7 +701,7 @@ type ProcessResult struct {
 
 func (x *ProcessResult) Reset() {
 	*x = ProcessResult{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[3]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -570,7 +713,7 @@ func (x *ProcessResult) String() string {
 func (*ProcessResult) ProtoMessage() {}
 
 func (x *ProcessResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[3]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -583,7 +726,7 @@ func (x *ProcessResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessResult.ProtoReflect.Descriptor instead.
 func (*ProcessResult) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{3}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ProcessResult) GetJson() string {
@@ -622,7 +765,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[4]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -634,7 +777,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[4]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -647,7 +790,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{4}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RegisterRequest) GetJoinToken() string {
@@ -755,7 +898,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[5]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -767,7 +910,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[5]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -780,7 +923,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{5}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RegisterResponse) GetDeviceId() string {
@@ -833,7 +976,7 @@ type JobState struct {
 
 func (x *JobState) Reset() {
 	*x = JobState{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[6]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -845,7 +988,7 @@ func (x *JobState) String() string {
 func (*JobState) ProtoMessage() {}
 
 func (x *JobState) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[6]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -858,7 +1001,7 @@ func (x *JobState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobState.ProtoReflect.Descriptor instead.
 func (*JobState) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{6}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *JobState) GetId() string {
@@ -911,7 +1054,7 @@ type JobResume struct {
 
 func (x *JobResume) Reset() {
 	*x = JobResume{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[7]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -923,7 +1066,7 @@ func (x *JobResume) String() string {
 func (*JobResume) ProtoMessage() {}
 
 func (x *JobResume) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[7]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -936,7 +1079,7 @@ func (x *JobResume) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobResume.ProtoReflect.Descriptor instead.
 func (*JobResume) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{7}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *JobResume) GetId() string {
@@ -969,7 +1112,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[8]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -981,7 +1124,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[8]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -994,7 +1137,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{8}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Heartbeat) GetStatsJson() string {
@@ -1014,7 +1157,7 @@ type RunJob struct {
 
 func (x *RunJob) Reset() {
 	*x = RunJob{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[9]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1026,7 +1169,7 @@ func (x *RunJob) String() string {
 func (*RunJob) ProtoMessage() {}
 
 func (x *RunJob) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[9]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1039,7 +1182,7 @@ func (x *RunJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunJob.ProtoReflect.Descriptor instead.
 func (*RunJob) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{9}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RunJob) GetCommand() string {
@@ -1065,7 +1208,7 @@ type CancelRequest struct {
 
 func (x *CancelRequest) Reset() {
 	*x = CancelRequest{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[10]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1077,7 +1220,7 @@ func (x *CancelRequest) String() string {
 func (*CancelRequest) ProtoMessage() {}
 
 func (x *CancelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[10]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1090,7 +1233,7 @@ func (x *CancelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelRequest.ProtoReflect.Descriptor instead.
 func (*CancelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{10}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CancelRequest) GetReason() string {
@@ -1114,7 +1257,7 @@ type JobOutput struct {
 
 func (x *JobOutput) Reset() {
 	*x = JobOutput{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[11]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1126,7 +1269,7 @@ func (x *JobOutput) String() string {
 func (*JobOutput) ProtoMessage() {}
 
 func (x *JobOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[11]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1139,7 +1282,7 @@ func (x *JobOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobOutput.ProtoReflect.Descriptor instead.
 func (*JobOutput) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{11}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *JobOutput) GetChunk() []byte {
@@ -1172,7 +1315,7 @@ type JobAck struct {
 
 func (x *JobAck) Reset() {
 	*x = JobAck{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[12]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1184,7 +1327,7 @@ func (x *JobAck) String() string {
 func (*JobAck) ProtoMessage() {}
 
 func (x *JobAck) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[12]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1197,7 +1340,7 @@ func (x *JobAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobAck.ProtoReflect.Descriptor instead.
 func (*JobAck) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{12}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{13}
 }
 
 type JobResult struct {
@@ -1210,7 +1353,7 @@ type JobResult struct {
 
 func (x *JobResult) Reset() {
 	*x = JobResult{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[13]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1222,7 +1365,7 @@ func (x *JobResult) String() string {
 func (*JobResult) ProtoMessage() {}
 
 func (x *JobResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[13]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1235,7 +1378,7 @@ func (x *JobResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobResult.ProtoReflect.Descriptor instead.
 func (*JobResult) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{13}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *JobResult) GetExitCode() int32 {
@@ -1253,24 +1396,18 @@ func (x *JobResult) GetError() string {
 }
 
 type FileRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Op      FileOp                 `protobuf:"varint,1,opt,name=op,proto3,enum=gloski.agent.v1.FileOp" json:"op,omitempty"`
-	Path    string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
-	Content []byte                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
-	NewPath string                 `protobuf:"bytes,4,opt,name=new_path,json=newPath,proto3" json:"new_path,omitempty"`
-	// offset and length select the range for READ_AT; offset is where a
-	// WRITE_AT piece belongs.
-	Offset int64 `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
-	Length int64 `protobuf:"varint,6,opt,name=length,proto3" json:"length,omitempty"`
-	// final marks the last WRITE_AT piece: the upload is moved into place.
-	Final         bool `protobuf:"varint,7,opt,name=final,proto3" json:"final,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Op            FileOp                 `protobuf:"varint,1,opt,name=op,proto3,enum=gloski.agent.v1.FileOp" json:"op,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Content       []byte                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	NewPath       string                 `protobuf:"bytes,4,opt,name=new_path,json=newPath,proto3" json:"new_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FileRequest) Reset() {
 	*x = FileRequest{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[14]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1282,7 +1419,7 @@ func (x *FileRequest) String() string {
 func (*FileRequest) ProtoMessage() {}
 
 func (x *FileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[14]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1295,7 +1432,7 @@ func (x *FileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileRequest.ProtoReflect.Descriptor instead.
 func (*FileRequest) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{14}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *FileRequest) GetOp() FileOp {
@@ -1326,27 +1463,6 @@ func (x *FileRequest) GetNewPath() string {
 	return ""
 }
 
-func (x *FileRequest) GetOffset() int64 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *FileRequest) GetLength() int64 {
-	if x != nil {
-		return x.Length
-	}
-	return 0
-}
-
-func (x *FileRequest) GetFinal() bool {
-	if x != nil {
-		return x.Final
-	}
-	return false
-}
-
 type FileResult struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	Code        int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
@@ -1363,7 +1479,7 @@ type FileResult struct {
 
 func (x *FileResult) Reset() {
 	*x = FileResult{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[15]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1375,7 +1491,7 @@ func (x *FileResult) String() string {
 func (*FileResult) ProtoMessage() {}
 
 func (x *FileResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[15]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1388,7 +1504,7 @@ func (x *FileResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileResult.ProtoReflect.Descriptor instead.
 func (*FileResult) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{15}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *FileResult) GetCode() int32 {
@@ -1451,7 +1567,7 @@ type TerminalOpen struct {
 
 func (x *TerminalOpen) Reset() {
 	*x = TerminalOpen{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[16]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1463,7 +1579,7 @@ func (x *TerminalOpen) String() string {
 func (*TerminalOpen) ProtoMessage() {}
 
 func (x *TerminalOpen) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[16]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1476,7 +1592,7 @@ func (x *TerminalOpen) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalOpen.ProtoReflect.Descriptor instead.
 func (*TerminalOpen) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{16}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *TerminalOpen) GetCwd() string {
@@ -1509,7 +1625,7 @@ type TerminalInput struct {
 
 func (x *TerminalInput) Reset() {
 	*x = TerminalInput{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[17]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1521,7 +1637,7 @@ func (x *TerminalInput) String() string {
 func (*TerminalInput) ProtoMessage() {}
 
 func (x *TerminalInput) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[17]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1534,7 +1650,7 @@ func (x *TerminalInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalInput.ProtoReflect.Descriptor instead.
 func (*TerminalInput) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{17}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *TerminalInput) GetData() []byte {
@@ -1552,7 +1668,7 @@ type TerminalClose struct {
 
 func (x *TerminalClose) Reset() {
 	*x = TerminalClose{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[18]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1564,7 +1680,7 @@ func (x *TerminalClose) String() string {
 func (*TerminalClose) ProtoMessage() {}
 
 func (x *TerminalClose) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[18]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1577,7 +1693,7 @@ func (x *TerminalClose) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalClose.ProtoReflect.Descriptor instead.
 func (*TerminalClose) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{18}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{19}
 }
 
 type TerminalResize struct {
@@ -1590,7 +1706,7 @@ type TerminalResize struct {
 
 func (x *TerminalResize) Reset() {
 	*x = TerminalResize{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[19]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1602,7 +1718,7 @@ func (x *TerminalResize) String() string {
 func (*TerminalResize) ProtoMessage() {}
 
 func (x *TerminalResize) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[19]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1615,7 +1731,7 @@ func (x *TerminalResize) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalResize.ProtoReflect.Descriptor instead.
 func (*TerminalResize) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{19}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *TerminalResize) GetCols() uint32 {
@@ -1642,7 +1758,7 @@ type TerminalOutput struct {
 
 func (x *TerminalOutput) Reset() {
 	*x = TerminalOutput{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[20]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1654,7 +1770,7 @@ func (x *TerminalOutput) String() string {
 func (*TerminalOutput) ProtoMessage() {}
 
 func (x *TerminalOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[20]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1667,7 +1783,7 @@ func (x *TerminalOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalOutput.ProtoReflect.Descriptor instead.
 func (*TerminalOutput) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{20}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *TerminalOutput) GetData() []byte {
@@ -1695,7 +1811,7 @@ type Shutdown struct {
 
 func (x *Shutdown) Reset() {
 	*x = Shutdown{}
-	mi := &file_proto_agentv1_agent_proto_msgTypes[21]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1707,7 +1823,7 @@ func (x *Shutdown) String() string {
 func (*Shutdown) ProtoMessage() {}
 
 func (x *Shutdown) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agentv1_agent_proto_msgTypes[21]
+	mi := &file_proto_agentv1_agent_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1720,7 +1836,7 @@ func (x *Shutdown) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Shutdown.ProtoReflect.Descriptor instead.
 func (*Shutdown) Descriptor() ([]byte, []int) {
-	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{21}
+	return file_proto_agentv1_agent_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Shutdown) GetRestart() bool {
@@ -1755,7 +1871,7 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"fileResult\x12J\n" +
 	"\x0fterminal_output\x18\a \x01(\v2\x1f.gloski.agent.v1.TerminalOutputH\x00R\x0eterminalOutput\x12G\n" +
 	"\x0eprocess_result\x18\b \x01(\v2\x1e.gloski.agent.v1.ProcessResultH\x00R\rprocessResultB\t\n" +
-	"\apayload\"\x99\x06\n" +
+	"\apayload\"\xdf\x06\n" +
 	"\rMasterMessage\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12P\n" +
@@ -1770,8 +1886,16 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\x0fprocess_request\x18\n" +
 	" \x01(\v2\x1f.gloski.agent.v1.ProcessRequestH\x00R\x0eprocessRequest\x122\n" +
 	"\ajob_ack\x18\v \x01(\v2\x17.gloski.agent.v1.JobAckH\x00R\x06jobAck\x12J\n" +
-	"\x0fterminal_resize\x18\f \x01(\v2\x1f.gloski.agent.v1.TerminalResizeH\x00R\x0eterminalResizeB\t\n" +
-	"\apayload\":\n" +
+	"\x0fterminal_resize\x18\f \x01(\v2\x1f.gloski.agent.v1.TerminalResizeH\x00R\x0eterminalResize\x12D\n" +
+	"\rfile_transfer\x18\r \x01(\v2\x1d.gloski.agent.v1.FileTransferH\x00R\ffileTransferB\t\n" +
+	"\apayload\"\xb9\x01\n" +
+	"\fFileTransfer\x12\x1f\n" +
+	"\vtransfer_id\x18\x01 \x01(\tR\n" +
+	"transferId\x12D\n" +
+	"\tdirection\x18\x02 \x01(\x0e2&.gloski.agent.v1.FileTransferDirectionR\tdirection\x12\x12\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x03R\x06offset\x12\x16\n" +
+	"\x06length\x18\x05 \x01(\x03R\x06length\":\n" +
 	"\x0eProcessRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x12\n" +
 	"\x04sort\x18\x02 \x01(\tR\x04sort\"#\n" +
@@ -1827,15 +1951,12 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\x06JobAck\">\n" +
 	"\tJobResult\x12\x1b\n" +
 	"\texit_code\x18\x01 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"\xc5\x01\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"\x91\x01\n" +
 	"\vFileRequest\x12'\n" +
 	"\x02op\x18\x01 \x01(\x0e2\x17.gloski.agent.v1.FileOpR\x02op\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x18\n" +
 	"\acontent\x18\x03 \x01(\fR\acontent\x12\x19\n" +
-	"\bnew_path\x18\x04 \x01(\tR\anewPath\x12\x16\n" +
-	"\x06offset\x18\x05 \x01(\x03R\x06offset\x12\x16\n" +
-	"\x06length\x18\x06 \x01(\x03R\x06length\x12\x14\n" +
-	"\x05final\x18\a \x01(\bR\x05final\"\xc6\x01\n" +
+	"\bnew_path\x18\x04 \x01(\tR\anewPathJ\x04\b\x05\x10\x06J\x04\b\x06\x10\aJ\x04\b\a\x10\b\"\xc6\x01\n" +
 	"\n" +
 	"FileResult\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
@@ -1860,7 +1981,11 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\x06closed\x18\x02 \x01(\bR\x06closed\"B\n" +
 	"\bShutdown\x12\x18\n" +
 	"\arestart\x18\x01 \x01(\bR\arestart\x12\x1c\n" +
-	"\tuninstall\x18\x02 \x01(\bR\tuninstall*\xd0\x01\n" +
+	"\tuninstall\x18\x02 \x01(\bR\tuninstall*\x8a\x01\n" +
+	"\x15FileTransferDirection\x12'\n" +
+	"#FILE_TRANSFER_DIRECTION_UNSPECIFIED\x10\x00\x12\"\n" +
+	"\x1eFILE_TRANSFER_DIRECTION_UPLOAD\x10\x01\x12$\n" +
+	" FILE_TRANSFER_DIRECTION_DOWNLOAD\x10\x02*\xb1\x01\n" +
 	"\x06FileOp\x12\x17\n" +
 	"\x13FILE_OP_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fFILE_OP_LIST\x10\x01\x12\x10\n" +
@@ -1869,9 +1994,7 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\x0eFILE_OP_DELETE\x10\x04\x12\x11\n" +
 	"\rFILE_OP_MKDIR\x10\x05\x12\x12\n" +
 	"\x0eFILE_OP_RENAME\x10\x06\x12\x10\n" +
-	"\fFILE_OP_STAT\x10\a\x12\x13\n" +
-	"\x0fFILE_OP_READ_AT\x10\b\x12\x14\n" +
-	"\x10FILE_OP_WRITE_AT\x10\t2U\n" +
+	"\fFILE_OP_STAT\x10\a\"\x04\b\b\x10\b\"\x04\b\t\x10\t2U\n" +
 	"\x05Agent\x12L\n" +
 	"\aConnect\x12\x1d.gloski.agent.v1.AgentMessage\x1a\x1e.gloski.agent.v1.MasterMessage(\x010\x01B2Z0github.com/ss497254/gloski/proto/agentv1;agentv1b\x06proto3"
 
@@ -1887,62 +2010,66 @@ func file_proto_agentv1_agent_proto_rawDescGZIP() []byte {
 	return file_proto_agentv1_agent_proto_rawDescData
 }
 
-var file_proto_agentv1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_agentv1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_proto_agentv1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_proto_agentv1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_proto_agentv1_agent_proto_goTypes = []any{
-	(FileOp)(0),              // 0: gloski.agent.v1.FileOp
-	(*AgentMessage)(nil),     // 1: gloski.agent.v1.AgentMessage
-	(*MasterMessage)(nil),    // 2: gloski.agent.v1.MasterMessage
-	(*ProcessRequest)(nil),   // 3: gloski.agent.v1.ProcessRequest
-	(*ProcessResult)(nil),    // 4: gloski.agent.v1.ProcessResult
-	(*RegisterRequest)(nil),  // 5: gloski.agent.v1.RegisterRequest
-	(*RegisterResponse)(nil), // 6: gloski.agent.v1.RegisterResponse
-	(*JobState)(nil),         // 7: gloski.agent.v1.JobState
-	(*JobResume)(nil),        // 8: gloski.agent.v1.JobResume
-	(*Heartbeat)(nil),        // 9: gloski.agent.v1.Heartbeat
-	(*RunJob)(nil),           // 10: gloski.agent.v1.RunJob
-	(*CancelRequest)(nil),    // 11: gloski.agent.v1.CancelRequest
-	(*JobOutput)(nil),        // 12: gloski.agent.v1.JobOutput
-	(*JobAck)(nil),           // 13: gloski.agent.v1.JobAck
-	(*JobResult)(nil),        // 14: gloski.agent.v1.JobResult
-	(*FileRequest)(nil),      // 15: gloski.agent.v1.FileRequest
-	(*FileResult)(nil),       // 16: gloski.agent.v1.FileResult
-	(*TerminalOpen)(nil),     // 17: gloski.agent.v1.TerminalOpen
-	(*TerminalInput)(nil),    // 18: gloski.agent.v1.TerminalInput
-	(*TerminalClose)(nil),    // 19: gloski.agent.v1.TerminalClose
-	(*TerminalResize)(nil),   // 20: gloski.agent.v1.TerminalResize
-	(*TerminalOutput)(nil),   // 21: gloski.agent.v1.TerminalOutput
-	(*Shutdown)(nil),         // 22: gloski.agent.v1.Shutdown
+	(FileTransferDirection)(0), // 0: gloski.agent.v1.FileTransferDirection
+	(FileOp)(0),                // 1: gloski.agent.v1.FileOp
+	(*AgentMessage)(nil),       // 2: gloski.agent.v1.AgentMessage
+	(*MasterMessage)(nil),      // 3: gloski.agent.v1.MasterMessage
+	(*FileTransfer)(nil),       // 4: gloski.agent.v1.FileTransfer
+	(*ProcessRequest)(nil),     // 5: gloski.agent.v1.ProcessRequest
+	(*ProcessResult)(nil),      // 6: gloski.agent.v1.ProcessResult
+	(*RegisterRequest)(nil),    // 7: gloski.agent.v1.RegisterRequest
+	(*RegisterResponse)(nil),   // 8: gloski.agent.v1.RegisterResponse
+	(*JobState)(nil),           // 9: gloski.agent.v1.JobState
+	(*JobResume)(nil),          // 10: gloski.agent.v1.JobResume
+	(*Heartbeat)(nil),          // 11: gloski.agent.v1.Heartbeat
+	(*RunJob)(nil),             // 12: gloski.agent.v1.RunJob
+	(*CancelRequest)(nil),      // 13: gloski.agent.v1.CancelRequest
+	(*JobOutput)(nil),          // 14: gloski.agent.v1.JobOutput
+	(*JobAck)(nil),             // 15: gloski.agent.v1.JobAck
+	(*JobResult)(nil),          // 16: gloski.agent.v1.JobResult
+	(*FileRequest)(nil),        // 17: gloski.agent.v1.FileRequest
+	(*FileResult)(nil),         // 18: gloski.agent.v1.FileResult
+	(*TerminalOpen)(nil),       // 19: gloski.agent.v1.TerminalOpen
+	(*TerminalInput)(nil),      // 20: gloski.agent.v1.TerminalInput
+	(*TerminalClose)(nil),      // 21: gloski.agent.v1.TerminalClose
+	(*TerminalResize)(nil),     // 22: gloski.agent.v1.TerminalResize
+	(*TerminalOutput)(nil),     // 23: gloski.agent.v1.TerminalOutput
+	(*Shutdown)(nil),           // 24: gloski.agent.v1.Shutdown
 }
 var file_proto_agentv1_agent_proto_depIdxs = []int32{
-	5,  // 0: gloski.agent.v1.AgentMessage.register:type_name -> gloski.agent.v1.RegisterRequest
-	9,  // 1: gloski.agent.v1.AgentMessage.heartbeat:type_name -> gloski.agent.v1.Heartbeat
-	12, // 2: gloski.agent.v1.AgentMessage.job_output:type_name -> gloski.agent.v1.JobOutput
-	14, // 3: gloski.agent.v1.AgentMessage.job_result:type_name -> gloski.agent.v1.JobResult
-	16, // 4: gloski.agent.v1.AgentMessage.file_result:type_name -> gloski.agent.v1.FileResult
-	21, // 5: gloski.agent.v1.AgentMessage.terminal_output:type_name -> gloski.agent.v1.TerminalOutput
-	4,  // 6: gloski.agent.v1.AgentMessage.process_result:type_name -> gloski.agent.v1.ProcessResult
-	6,  // 7: gloski.agent.v1.MasterMessage.register_response:type_name -> gloski.agent.v1.RegisterResponse
-	10, // 8: gloski.agent.v1.MasterMessage.run_job:type_name -> gloski.agent.v1.RunJob
-	11, // 9: gloski.agent.v1.MasterMessage.cancel:type_name -> gloski.agent.v1.CancelRequest
-	15, // 10: gloski.agent.v1.MasterMessage.file_request:type_name -> gloski.agent.v1.FileRequest
-	17, // 11: gloski.agent.v1.MasterMessage.terminal_open:type_name -> gloski.agent.v1.TerminalOpen
-	18, // 12: gloski.agent.v1.MasterMessage.terminal_input:type_name -> gloski.agent.v1.TerminalInput
-	19, // 13: gloski.agent.v1.MasterMessage.terminal_close:type_name -> gloski.agent.v1.TerminalClose
-	22, // 14: gloski.agent.v1.MasterMessage.shutdown:type_name -> gloski.agent.v1.Shutdown
-	3,  // 15: gloski.agent.v1.MasterMessage.process_request:type_name -> gloski.agent.v1.ProcessRequest
-	13, // 16: gloski.agent.v1.MasterMessage.job_ack:type_name -> gloski.agent.v1.JobAck
-	20, // 17: gloski.agent.v1.MasterMessage.terminal_resize:type_name -> gloski.agent.v1.TerminalResize
-	7,  // 18: gloski.agent.v1.RegisterRequest.jobs:type_name -> gloski.agent.v1.JobState
-	8,  // 19: gloski.agent.v1.RegisterResponse.jobs:type_name -> gloski.agent.v1.JobResume
-	0,  // 20: gloski.agent.v1.FileRequest.op:type_name -> gloski.agent.v1.FileOp
-	1,  // 21: gloski.agent.v1.Agent.Connect:input_type -> gloski.agent.v1.AgentMessage
-	2,  // 22: gloski.agent.v1.Agent.Connect:output_type -> gloski.agent.v1.MasterMessage
-	22, // [22:23] is the sub-list for method output_type
-	21, // [21:22] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	7,  // 0: gloski.agent.v1.AgentMessage.register:type_name -> gloski.agent.v1.RegisterRequest
+	11, // 1: gloski.agent.v1.AgentMessage.heartbeat:type_name -> gloski.agent.v1.Heartbeat
+	14, // 2: gloski.agent.v1.AgentMessage.job_output:type_name -> gloski.agent.v1.JobOutput
+	16, // 3: gloski.agent.v1.AgentMessage.job_result:type_name -> gloski.agent.v1.JobResult
+	18, // 4: gloski.agent.v1.AgentMessage.file_result:type_name -> gloski.agent.v1.FileResult
+	23, // 5: gloski.agent.v1.AgentMessage.terminal_output:type_name -> gloski.agent.v1.TerminalOutput
+	6,  // 6: gloski.agent.v1.AgentMessage.process_result:type_name -> gloski.agent.v1.ProcessResult
+	8,  // 7: gloski.agent.v1.MasterMessage.register_response:type_name -> gloski.agent.v1.RegisterResponse
+	12, // 8: gloski.agent.v1.MasterMessage.run_job:type_name -> gloski.agent.v1.RunJob
+	13, // 9: gloski.agent.v1.MasterMessage.cancel:type_name -> gloski.agent.v1.CancelRequest
+	17, // 10: gloski.agent.v1.MasterMessage.file_request:type_name -> gloski.agent.v1.FileRequest
+	19, // 11: gloski.agent.v1.MasterMessage.terminal_open:type_name -> gloski.agent.v1.TerminalOpen
+	20, // 12: gloski.agent.v1.MasterMessage.terminal_input:type_name -> gloski.agent.v1.TerminalInput
+	21, // 13: gloski.agent.v1.MasterMessage.terminal_close:type_name -> gloski.agent.v1.TerminalClose
+	24, // 14: gloski.agent.v1.MasterMessage.shutdown:type_name -> gloski.agent.v1.Shutdown
+	5,  // 15: gloski.agent.v1.MasterMessage.process_request:type_name -> gloski.agent.v1.ProcessRequest
+	15, // 16: gloski.agent.v1.MasterMessage.job_ack:type_name -> gloski.agent.v1.JobAck
+	22, // 17: gloski.agent.v1.MasterMessage.terminal_resize:type_name -> gloski.agent.v1.TerminalResize
+	4,  // 18: gloski.agent.v1.MasterMessage.file_transfer:type_name -> gloski.agent.v1.FileTransfer
+	0,  // 19: gloski.agent.v1.FileTransfer.direction:type_name -> gloski.agent.v1.FileTransferDirection
+	9,  // 20: gloski.agent.v1.RegisterRequest.jobs:type_name -> gloski.agent.v1.JobState
+	10, // 21: gloski.agent.v1.RegisterResponse.jobs:type_name -> gloski.agent.v1.JobResume
+	1,  // 22: gloski.agent.v1.FileRequest.op:type_name -> gloski.agent.v1.FileOp
+	2,  // 23: gloski.agent.v1.Agent.Connect:input_type -> gloski.agent.v1.AgentMessage
+	3,  // 24: gloski.agent.v1.Agent.Connect:output_type -> gloski.agent.v1.MasterMessage
+	24, // [24:25] is the sub-list for method output_type
+	23, // [23:24] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_proto_agentv1_agent_proto_init() }
@@ -1971,14 +2098,15 @@ func file_proto_agentv1_agent_proto_init() {
 		(*MasterMessage_ProcessRequest)(nil),
 		(*MasterMessage_JobAck)(nil),
 		(*MasterMessage_TerminalResize)(nil),
+		(*MasterMessage_FileTransfer)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_agentv1_agent_proto_rawDesc), len(file_proto_agentv1_agent_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   22,
+			NumEnums:      2,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

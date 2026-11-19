@@ -100,6 +100,12 @@ func (t *Tower) agentHTTPHandler() http.Handler {
 		fmt.Fprintln(w, "ok")
 	})
 
+	// File contents travel here, not on the gRPC stream. The agent is the
+	// client for both directions; the one-time id from the stream selects the
+	// transfer.
+	mux.HandleFunc("POST /agent/transfer/{id}", t.handleAgentTransfer)
+	mux.HandleFunc("GET /agent/transfer/{id}", t.handleAgentTransfer)
+
 	return mux
 }
 

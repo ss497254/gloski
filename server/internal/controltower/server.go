@@ -54,6 +54,10 @@ type Tower struct {
 	listeners         []net.Listener
 	localAgentProcess *localAgent
 	lifecycle         *lifecycle
+
+	// transfers holds file transfers the agent still has to answer on HTTP.
+	transfersMu sync.Mutex
+	transfers   map[string]*transfer
 }
 
 // New opens the database and wires the HTTP API, gRPC listeners, and local agent.
@@ -120,6 +124,7 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		done:            make(chan struct{}),
 		agentService:    agentService,
 		agentGRPCServer: grpcServer,
+		transfers:       make(map[string]*transfer),
 	}
 
 	fleetSvc.SetOnChange(func() {

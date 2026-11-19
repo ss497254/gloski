@@ -38,7 +38,8 @@ server/
     │   ├── device_api.go     # Shared device helpers, stats, processes
     │   ├── device_jobs.go    # Job endpoints
     │   ├── device_files.go   # File endpoints
-    │   ├── device_transfer.go# Streamed download and upload
+    │   ├── device_transfer.go# Downloads and uploads from the browser
+    │   ├── file_transfer.go  # Transfer registry and agent HTTP endpoints
     │   ├── device_terminal.go# Terminal WebSocket bridge
     │   ├── agent_http.go     # Plain HTTP health on the agent port
     │   ├── agent_transport.go# gRPC listeners and endpoint selection
@@ -61,7 +62,8 @@ server/
     ├── worker/               # Device agent implementation
     │   ├── run.go            # Runtime lifecycle and command dispatch
     │   ├── agent_jobs.go     # Job execution and streamed output
-    │   ├── agent_files.go    # File operations and piece reads/writes
+    │   ├── agent_files.go    # Small file operations over the stream
+    │   ├── agent_transfer.go # File contents over HTTP
     │   ├── agent_terminal.go # PTY sessions
     │   └── agent_dial.go     # Dial master over Unix socket or h2c
     ├── config/               # Config types, defaults, env overrides
@@ -115,10 +117,14 @@ Browser ──HTTP/WS──▶ Tower route ──gRPC command──▶ agents.co
 - **Stats** — agent collector → heartbeat → master DB → dashboard and `/api/fleet/ws`.
 - **Jobs** — browser POST → master stores job → `RunJob` command → agent executes →
   output chunks stream back → master persists logs in `agent_job_logs`.
-- **Files** — master translates `/api/devices/{id}/api/files/*` into gRPC `FileRequest`.
-  Downloads and uploads move in 1 MB pieces (`READ_AT` / `WRITE_AT`), so file size is not
-  limited by message size; an upload replaces its target only when the last piece lands.
-  Only images, audio, video and PDF are served inline; everything else is a download.
+- **Files** — master translates `/api/devices/{id}/api/files/*` into gRPC `FileRequest`
+  for listing, stat, rename, delete and small text reads/writes. Download and upload
+  contents use a `FileTransfer` message instead: the master sends a one-time id on the
+  stream and the agent makes one plain HTTP request to `/agent/transfer/{id}` on the
+  agent port, posting a download or fetching an upload. The bytes never share the
+  terminal and job lanes, and an upload replaces its target only when the whole body
+  arrived. Only images, audio, video and PDF are served inline; everything else is a
+  download.
 - **Terminal** — text frames are forwarded as `TerminalInput` and the 5-byte binary resize
   frame as `TerminalResize`. PTY output is streamed back as `TerminalOutput` into a bounded
   buffer per session, so a slow browser cannot stall the device's stream.
