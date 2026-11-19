@@ -3,6 +3,11 @@
 Goal: when you want to do something on a device, it works, and when it cannot,
 you are told why. Security hardening is out of scope for now.
 
+> Superseded in part: on 2026-11-19 the owner decided the master, not the
+> device, owns the agent lifecycle. See "Design direction" in
+> [roadmap.md](roadmap.md). Design point 1 below describes what phase 1 built
+> and will be replaced.
+
 **Keep it simple.** The agent is stateless, so there are only two repairs:
 restart it, or reinstall it. Every failure is handled by one of those two, done
 automatically where that is cheap and by one button where it is not. Do not add

@@ -76,53 +76,51 @@ Copy a file from one device to another; notes per device (location, hardware,
 what runs on it); installable phone app view; resumable terminals; alerts.
 Add any of these when the need is real.
 
-## Proposed design changes (not decided yet)
+## Design direction (owner's decision, 2026-11-19)
 
-Two changes to how agents work, raised on 2026-11-19. If accepted they go into
-step 1 ahead of everything else, because they remove code rather than add it.
+These replace the device-side self-healing built in phase 1 and go first in
+step 1.
 
-### A. The agent stops managing its own lifecycle
+### A. The master owns the agent's lifecycle
 
-Today the agent binary contains a supervisor (restart loop, lock, pid file, log
-cap) and the install adds a crontab line. Proposal: hand all of that to
-systemd, which already does each of those things, and make the agent a plain
-process that connects, works, and exits non-zero whenever something is wrong.
+The agent exists only to serve the master, so the master is responsible for it.
+Devices differ too much (no systemd, no cron) to rely on anything on them.
 
-- Install writes one systemd unit (a system unit as root, a user unit with
-  lingering otherwise) with `Restart=always`. systemd then provides restart on
-  crash, start at boot, one instance, log limits, a memory ceiling
-  (`MemoryMax`) and a clean stop.
-- The unit runs a short script before the agent starts: ask the master for the
-  current build's hash and download it if it differs. So "update" is just
-  "restart", the agent has no update code, and the dashboard's Restart button
-  also updates.
-- The agent moves out of `/tmp` to a directory that survives reboots. The
-  uninstall script removes the unit and that directory.
-- Devices without systemd (some containers and NAS boxes) get the same script
-  run in a loop from one crontab line.
-- Removed: `internal/supervisor`, the `start` and `supervise` subcommands, the
-  lock, pid and log handling, and the reinstall-from-cron logic.
+- The agent is a plain process started with `nohup`. It has no supervisor, no
+  crontab line and no update code. If the master says it is incompatible, or
+  anything else is badly wrong, it exits.
+- The master keeps the wanted state per device (running or stopped) and runs
+  one loop: for every device that should be running but is not connected, log
+  in over SSH and run the install script. The script is safe to repeat: it
+  replaces the binary if its hash differs from the master's and starts the
+  agent if it is not running. That single action covers a crash, a reboot, a
+  wiped directory, an old version and an incompatible agent.
+- Rules for the loop: wait about a minute after the master starts and after a
+  device drops, so reconnecting agents are left alone; back off for devices
+  that stay unreachable; never touch a device the owner stopped; replace an
+  outdated agent only when it has no running jobs.
+- Everything depends on SSH from the master working, so each device shows the
+  last SSH error in plain words (no key accepted, host key changed with a
+  one-click "trust it", unreachable).
+- A device installed by hand with the one-line command is not managed until SSH
+  details are added for it; the dashboard says so.
+- Removed: `internal/supervisor`, the `start` and `supervise` subcommands, and
+  the crontab line in the install script.
 
-### B. More than one stream per connection
+### B. File transfers get their own connection
 
-Today everything shares one gRPC stream: commands, heartbeats, job output,
-terminal bytes and file pieces. It works, but a large file transfer or a flood
-of job output sits in front of terminal keystrokes and heartbeats, and the code
-has to do by hand what HTTP/2 already does (request ids, pending maps, bounded
-buffers).
+Reads and writes of file contents leave the gRPC stream. The master asks on the
+stream ("send me this file", "fetch this upload") and the agent makes a plain
+HTTP request to the master's agent port, which already serves HTTP, one request
+per transfer with a one-time id. The bytes are streamed straight through, so
+there is no piece protocol, a big transfer cannot delay terminals or commands,
+and a failed transfer affects nothing else. The stream keeps commands, job
+output, terminals, and small file operations (list, stat, rename, delete).
 
-Proposal: keep the single connection, dialled by the agent as now, but open
-separate streams on it:
+### C. Heartbeats
 
-- one **control** stream: register, heartbeats, small commands, job events;
-- one stream **per terminal**;
-- one stream **per file transfer**.
-
-The master asks on the control stream ("open terminal 42") and the agent opens
-the matching stream back to the master. Each stream has its own flow control,
-so a slow download cannot delay a terminal, and backpressure comes for free.
-Jobs stay on the control stream because their replay logic already works.
-
-Not proposed: having the master dial agents. It would make the code plain
-request and response, but every agent would need an open port, and the
-agent-dials model already works everywhere.
+- A live stream means the device is online. gRPC keepalive pings already
+  detect a dead connection, so no separate liveness message is needed.
+- Any message from the agent counts as "seen".
+- Stats are sent only while someone is looking at that device in the
+  dashboard, and otherwise once a minute for the overview.

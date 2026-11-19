@@ -50,6 +50,10 @@ These came from the owner directly. Follow them unless told otherwise.
   up, pick the simplest approach that covers the failure cases, explain it
   briefly and build it ("use your brain"). Ask only when the answer cannot be
   worked out.
+- **The master owns the agent lifecycle.** Not the device and not the agent:
+  devices differ and may lack systemd or cron. The master installs, starts,
+  restarts and updates agents over SSH; an incompatible agent just exits and
+  the master runs the right one. Details in `docs/roadmap.md`.
 - **No SSH fallback for actions.** If an agent is down the master should revive
   it, not run the task over SSH instead.
 - **No offline alerts** for now.
