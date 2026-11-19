@@ -10,7 +10,7 @@ func (s *Service) Delete(path string) error {
 		return err
 	}
 
-	if isProtectedPath(absPath) {
+	if isProtectedTree(absPath) {
 		return ErrDangerousPath
 	}
 

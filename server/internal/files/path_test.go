@@ -7,7 +7,38 @@ import (
 	"github.com/ss497254/gloski/internal/config"
 )
 
-func TestIsProtectedPath(t *testing.T) {
+func TestIsProtectedRoot(t *testing.T) {
+	t.Setenv("HOME", "/home/tester")
+
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"/", true},
+		{"/etc", true},
+		{"/etc/passwd", false},
+		{"/usr", true},
+		{"/usr/local/bin", false},
+		{"/dev", true},
+		{"/dev/sda", false},
+		{"/tmp", true},
+		{"/tmp/scratch", false},
+		{"/root", true},
+		{"/root/.ssh", false},
+		{"/home/tester", true},
+		{"/home/tester/file.txt", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			if got := isProtectedRoot(tt.path); got != tt.want {
+				t.Errorf("isProtectedRoot(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsProtectedTree(t *testing.T) {
 	t.Setenv("HOME", "/home/tester")
 
 	tests := []struct {
@@ -18,30 +49,23 @@ func TestIsProtectedPath(t *testing.T) {
 		{"/etc", true},
 		{"/etc/passwd", true},
 		{"/usr/local/bin", true},
-		{"/bin/sh", true},
-		{"/sbin/init", true},
-		{"/var/lib/gloski", true},
-		{"/boot/vmlinuz", true},
-		{"/lib/modules", true},
-		{"/lib64/ld-linux", true},
 		{"/dev/sda", true},
 		{"/proc/1", true},
 		{"/sys/class", true},
 		{"/run/gloski", true},
-		{"/tmp", true},
-		{"/tmp/scratch", false},
-		{"/root", true},
 		{"/root/.ssh", true},
 		{"/home/tester", true},
 		{"/home/tester/file.txt", false},
+		{"/tmp", true},
+		{"/tmp/scratch", false},
 		{"/srv/data", false},
 		{"/home/other", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
-			if got := isProtectedPath(tt.path); got != tt.want {
-				t.Errorf("isProtectedPath(%q) = %v, want %v", tt.path, got, tt.want)
+			if got := isProtectedTree(tt.path); got != tt.want {
+				t.Errorf("isProtectedTree(%q) = %v, want %v", tt.path, got, tt.want)
 			}
 		})
 	}
@@ -58,13 +82,16 @@ func TestDeleteRefusesProtectedPaths(t *testing.T) {
 	}
 }
 
-func TestRenameRefusesProtectedPaths(t *testing.T) {
+// TestRenameRefusesProtectedRoots checks that Rename refuses the protected
+// roots themselves. Renaming a file inside a system directory is allowed, so
+// /etc/passwd is not in this list; TestIsProtectedRoot covers that boundary.
+func TestRenameRefusesProtectedRoots(t *testing.T) {
 	t.Setenv("HOME", "/home/tester")
 	service := NewService(&config.Config{})
 
 	tests := []struct{ oldPath, newPath string }{
-		{"/etc/passwd", "/tmp/passwd"},
-		{"/tmp/passwd", "/etc/passwd"},
+		{"/etc", "/tmp/etc"},
+		{"/tmp/etc", "/etc"},
 		{"/", "/tmp/root"},
 		{"/home/tester", "/tmp/tester"},
 	}

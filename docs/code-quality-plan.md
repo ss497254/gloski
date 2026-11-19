@@ -62,8 +62,10 @@ Risk: none. Verify: `go doc` output, doc links, unchanged build.
 - `internal/files/service.go` becomes `path.go` (validation and protected-path
   policy), `list.go`, `read.go`, `write.go`, `delete.go`, `rename.go`,
   `upload.go`, `search.go`.
-- One protected-path policy used by delete and rename. Write its tests before
-  moving the code.
+- One protected-path list used by delete and rename, with one scope each:
+  Delete refuses the whole tree (except under `/tmp`), Rename refuses only the
+  roots, so moving a file inside a system directory stays legal. Write its tests
+  before moving the code.
 - Move file operations out of `internal/worker/agent_jobs.go` into
   `agent_files.go`; leave jobs and processes where they are.
 

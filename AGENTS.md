@@ -84,7 +84,9 @@ These came from the owner directly. Follow them unless told otherwise.
 1. `19f3769` docs map: glossary, HTTP API reference, data model,
    where-to-change-what, and CONTRIBUTING now matches the main-only workflow.
 2. `8fc397f` the files service is split by operation and worker file handling
-   lives in `agent_files.go`; delete and rename share one protected-path policy.
+   lives in `agent_files.go`; delete and rename share one protected-path list,
+   but Delete refuses whole trees (except `/tmp`) while Rename refuses only the
+   roots, so renames inside system directories stay legal.
 3. `bdc4b89` records the readability plan progress.
 
 The master-owned agent lifecycle is built (`7b936a3`), and the protocol changes

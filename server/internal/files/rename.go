@@ -19,7 +19,7 @@ func (s *Service) Rename(oldPath, newPath string) error {
 		return err
 	}
 
-	if isProtectedPath(absOldPath) || isProtectedPath(absNewPath) {
+	if isProtectedRoot(absOldPath) || isProtectedRoot(absNewPath) {
 		return ErrDangerousPath
 	}
 

@@ -25,9 +25,10 @@ var (
 // MaxFileSize is the largest file Read will load for the editor.
 const MaxFileSize = 10 * 1024 * 1024 // 10 MB
 
-// protectedPaths are the roots a delete or rename may not touch. Paths below
-// them are protected too, except below /tmp, where deleting individual files
-// is normal. Write and Mkdir are not restricted by this list.
+// protectedPaths are the system roots a delete or rename may not touch.
+// Delete refuses the whole tree (except below /tmp, where deleting individual
+// files is normal); Rename refuses only the roots themselves, so moving a file
+// inside a system directory remains possible.
 var protectedPaths = []string{
 	"/", "/etc", "/usr", "/bin", "/sbin", "/var", "/boot",
 	"/lib", "/lib64", "/dev", "/proc", "/sys", "/run", "/tmp", "/root",
@@ -156,9 +157,10 @@ func resolveMissingPath(absPath string) (string, error) {
 	}
 }
 
-// isProtectedPath reports whether a resolved path is a protected root, the
-// home directory itself, or below a protected root other than /tmp.
-func isProtectedPath(path string) bool {
+// isProtectedRoot reports whether path is a protected root or the home
+// directory itself. It is the check Rename uses: moving a file inside a system
+// directory is allowed, replacing the directory itself is not.
+func isProtectedRoot(path string) bool {
 	if path == "/" {
 		return true
 	}
@@ -169,6 +171,18 @@ func isProtectedPath(path string) bool {
 		if path == root {
 			return true
 		}
+	}
+	return false
+}
+
+// isProtectedTree reports whether path is at or below a protected root. /tmp
+// is the exception: its contents are normal files. Delete uses this stricter
+// check because it removes recursively.
+func isProtectedTree(path string) bool {
+	if isProtectedRoot(path) {
+		return true
+	}
+	for _, root := range protectedPaths {
 		if root != "/tmp" && strings.HasPrefix(path, root+string(filepath.Separator)) {
 			return true
 		}
