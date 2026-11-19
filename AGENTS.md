@@ -79,12 +79,13 @@ These came from the owner directly. Follow them unless told otherwise.
 
 ## Current state (2026-11-19)
 
-`main` is two commits ahead of `origin/main`:
+`main` is ahead of `origin/main`. The newest commits are:
 
 1. `19f3769` docs map: glossary, HTTP API reference, data model,
    where-to-change-what, and CONTRIBUTING now matches the main-only workflow.
 2. `8fc397f` the files service is split by operation and worker file handling
    lives in `agent_files.go`; delete and rename share one protected-path policy.
+3. `bdc4b89` records the readability plan progress.
 
 The master-owned agent lifecycle is built (`7b936a3`), and the protocol changes
 from `7f86d0a` and `ab0abad` are in. Agents built before those commits must be
