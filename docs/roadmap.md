@@ -75,3 +75,54 @@ Only where a list of command output is not good enough:
 Copy a file from one device to another; notes per device (location, hardware,
 what runs on it); installable phone app view; resumable terminals; alerts.
 Add any of these when the need is real.
+
+## Proposed design changes (not decided yet)
+
+Two changes to how agents work, raised on 2026-11-19. If accepted they go into
+step 1 ahead of everything else, because they remove code rather than add it.
+
+### A. The agent stops managing its own lifecycle
+
+Today the agent binary contains a supervisor (restart loop, lock, pid file, log
+cap) and the install adds a crontab line. Proposal: hand all of that to
+systemd, which already does each of those things, and make the agent a plain
+process that connects, works, and exits non-zero whenever something is wrong.
+
+- Install writes one systemd unit (a system unit as root, a user unit with
+  lingering otherwise) with `Restart=always`. systemd then provides restart on
+  crash, start at boot, one instance, log limits, a memory ceiling
+  (`MemoryMax`) and a clean stop.
+- The unit runs a short script before the agent starts: ask the master for the
+  current build's hash and download it if it differs. So "update" is just
+  "restart", the agent has no update code, and the dashboard's Restart button
+  also updates.
+- The agent moves out of `/tmp` to a directory that survives reboots. The
+  uninstall script removes the unit and that directory.
+- Devices without systemd (some containers and NAS boxes) get the same script
+  run in a loop from one crontab line.
+- Removed: `internal/supervisor`, the `start` and `supervise` subcommands, the
+  lock, pid and log handling, and the reinstall-from-cron logic.
+
+### B. More than one stream per connection
+
+Today everything shares one gRPC stream: commands, heartbeats, job output,
+terminal bytes and file pieces. It works, but a large file transfer or a flood
+of job output sits in front of terminal keystrokes and heartbeats, and the code
+has to do by hand what HTTP/2 already does (request ids, pending maps, bounded
+buffers).
+
+Proposal: keep the single connection, dialled by the agent as now, but open
+separate streams on it:
+
+- one **control** stream: register, heartbeats, small commands, job events;
+- one stream **per terminal**;
+- one stream **per file transfer**.
+
+The master asks on the control stream ("open terminal 42") and the agent opens
+the matching stream back to the master. Each stream has its own flow control,
+so a slow download cannot delay a terminal, and backpressure comes for free.
+Jobs stay on the control stream because their replay logic already works.
+
+Not proposed: having the master dial agents. It would make the code plain
+request and response, but every agent would need an open port, and the
+agent-dials model already works everywhere.
