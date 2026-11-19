@@ -79,15 +79,14 @@ These came from the owner directly. Follow them unless told otherwise.
 
 ## Current state (2026-11-19)
 
-`main` is ahead of `origin/main`. The newest commits are:
+`main` has local commits not yet pushed to `origin/main`.
 
-1. `19f3769` docs map: glossary, HTTP API reference, data model,
-   where-to-change-what, and CONTRIBUTING now matches the main-only workflow.
-2. `8fc397f` the files service is split by operation and worker file handling
-   lives in `agent_files.go`; delete and rename share one protected-path list,
-   but Delete refuses whole trees (except `/tmp`) while Rename refuses only the
-   roots, so renames inside system directories stay legal.
-3. `bdc4b89` records the readability plan progress.
+The docs map is written: glossary, HTTP API reference, data model,
+where-to-change-what, and a `CONTRIBUTING.md` that matches the main-only
+workflow. The files service is split by operation, worker file handling lives in
+`agent_files.go`, and delete and rename share one protected-path list. Delete
+refuses whole trees (except `/tmp`); Rename refuses only the roots, so renames
+inside system directories stay legal.
 
 The master-owned agent lifecycle is built (`7b936a3`), and the protocol changes
 from `7f86d0a` and `ab0abad` are in. Agents built before those commits must be
