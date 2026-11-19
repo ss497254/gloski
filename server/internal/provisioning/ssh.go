@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -46,7 +47,7 @@ func (i *Installer) connect(ctx context.Context, target Target) (*ssh.Client, er
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
-		return nil, fmt.Errorf("ssh connect to %s: %w", addr, err)
+		return nil, fmt.Errorf("cannot reach %s over SSH (is the device on and on the tailnet?): %w", addr, err)
 	}
 	if deadline, ok := ctx.Deadline(); ok {
 		_ = conn.SetDeadline(deadline)
@@ -55,7 +56,15 @@ func (i *Installer) connect(ctx context.Context, target Target) (*ssh.Client, er
 	clientConn, channels, requests, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("ssh handshake with %s: %w", addr, err)
+		var keyErr *knownhosts.KeyError
+		switch {
+		case errors.As(err, &keyErr):
+			return nil, fmt.Errorf("%w: %s presented a different key than last time (it was probably reinstalled)", ErrHostKeyChanged, addr)
+		case strings.Contains(err.Error(), "unable to authenticate"):
+			return nil, fmt.Errorf("%s refused the master's SSH key for user %q; add the master's public key to that user's authorized_keys", addr, user)
+		default:
+			return nil, fmt.Errorf("ssh handshake with %s: %w", addr, err)
+		}
 	}
 	return ssh.NewClient(clientConn, channels, requests), nil
 }
@@ -171,4 +180,38 @@ func (i *Installer) trustHost(file, hostname string, key ssh.PublicKey) error {
 		return err
 	}
 	return nil
+}
+
+// ErrHostKeyChanged means a device's SSH host key no longer matches the one
+// remembered from the first connection.
+var ErrHostKeyChanged = errors.New("SSH host key changed")
+
+// ForgetHost drops the remembered host key for a device, so the next
+// connection trusts whatever key it presents.
+func (i *Installer) ForgetHost(host string, port int) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	if port == 0 {
+		port = 22
+	}
+	data, err := os.ReadFile(i.KnownHosts)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	prefix := knownhosts.Normalize(net.JoinHostPort(host, strconv.Itoa(port))) + " "
+	var kept []string
+	for _, line := range strings.Split(string(data), "\n") {
+		if line != "" && !strings.HasPrefix(line, prefix) {
+			kept = append(kept, line)
+		}
+	}
+	content := strings.Join(kept, "\n")
+	if content != "" {
+		content += "\n"
+	}
+	return os.WriteFile(i.KnownHosts, []byte(content), 0600)
 }

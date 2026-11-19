@@ -5,7 +5,19 @@ import type { FleetDevice } from '@/shared/tower/types'
 import { Button } from '@/ui/button'
 import { EmptyState, UsageBar } from '@/shared/components'
 import { Skeleton } from '@/ui/skeleton'
-import { Activity, ArrowUpRight, Circle, Play, Plus, Radar, RefreshCw, Square, Trash2, Wifi } from 'lucide-react'
+import {
+  Activity,
+  ArrowUpRight,
+  Circle,
+  Play,
+  Plus,
+  Radar,
+  RefreshCw,
+  RotateCw,
+  Square,
+  Trash2,
+  Wifi,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { devicePath } from '@/app/navigation'
@@ -17,6 +29,10 @@ function DeviceRow({ device }: { device: FleetDevice }) {
   const { run, busy } = useDeviceActions(device)
   const online = device.status === 'online'
   const stats = device.stats
+  // Why the master could not get this device's agent running, if it tried.
+  const problem = !online && device.deployment?.status === 'failed' ? device.deployment.error : undefined
+  const hostKeyChanged = problem?.includes('host key changed') ?? false
+  const stopped = device.deployment?.status === 'stopped'
 
   return (
     <tr
@@ -36,6 +52,25 @@ function DeviceRow({ device }: { device: FleetDevice }) {
               )}
             </p>
             <p className="truncate text-xs text-muted-foreground">{device.hostname || device.url}</p>
+            {problem && (
+              <p
+                className="mt-1 max-w-md whitespace-normal text-xs text-destructive"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {problem}
+                {hostKeyChanged && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-2 h-6 px-2 text-xs"
+                    disabled={busy}
+                    onClick={() => void run('trust')}
+                  >
+                    Trust new key
+                  </Button>
+                )}
+              </p>
+            )}
           </div>
         </div>
       </td>
@@ -47,7 +82,7 @@ function DeviceRow({ device }: { device: FleetDevice }) {
           )}
         >
           <Circle className="h-2 w-2 fill-current" />
-          {online ? 'Online' : 'Offline'}
+          {online ? 'Online' : stopped ? 'Stopped' : 'Offline'}
         </span>
       </td>
       <td className="px-4 py-3">
@@ -64,11 +99,22 @@ function DeviceRow({ device }: { device: FleetDevice }) {
       <td className="px-4 py-3 text-xs text-muted-foreground">{formatRelativeTime(device.last_seen)}</td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
+          {device.managed && online && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Restart agent"
+              disabled={busy}
+              onClick={() => void run('restart')}
+            >
+              <RotateCw className="h-3.5 w-3.5" />
+            </Button>
+          )}
           {(device.managed || (online && !device.master)) && (
             <Button
               variant="ghost"
               size="icon-sm"
-              title={online ? 'Stop agent' : 'Start agent'}
+              title={online ? 'Stop agent' : 'Install and start agent'}
               disabled={busy}
               onClick={() => void run(online ? 'stop' : 'start')}
             >
@@ -179,7 +225,7 @@ export function DevicesPage() {
           <EmptyState
             icon={Wifi}
             title="No devices yet"
-            description="Deploy gloski-agent to a machine on your tailnet. The master installs it over SSH, or you can run a one-line command on the device. Either way the device keeps the agent running by itself."
+            description="Deploy gloski-agent to a machine on your tailnet. The master installs it over SSH and keeps it running from then on."
             action={
               <Button onClick={() => setDeployOpen(true)} disabled={deployDisabled}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -222,12 +268,7 @@ export function DevicesPage() {
         </span>
       </div>
 
-      <DeployDeviceDialog
-        open={deployOpen}
-        onOpenChange={setDeployOpen}
-        onDeployed={() => void refresh()}
-        installCommand={info?.install_command}
-      />
+      <DeployDeviceDialog open={deployOpen} onOpenChange={setDeployOpen} onDeployed={() => void refresh()} />
     </PageLayout>
   )
 }

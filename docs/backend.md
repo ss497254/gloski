@@ -71,7 +71,8 @@ server/
 | `agents.connection` | One device's gRPC stream with serialized sends and pending request channels |
 | `provisioning.Installer` | Runs the install and uninstall scripts on a device over SSH |
 | `agentdist.Dist` | Agent builds per architecture and the install and uninstall scripts the master serves |
-| `supervisor` | Runs inside `gloski-agent` on a device: restarts the agent, holds the single-instance lock, caps the log |
+| `controltower.lifecycle` | Master loop that reinstalls any deployed device whose agent is disconnected or outdated |
+| `provisioning/sshtest` | SSH server for tests that runs commands locally, standing in for a device |
 | `worker.Runtime` | Device-side executor: handles jobs, files, terminal, and heartbeats |
 | `tailnet.Client` | Reads tailnet peers from tailscaled's LocalAPI socket |
 
@@ -82,7 +83,7 @@ the former runs in the master, the latter on each device.
 
 1. Master starts gRPC listeners: a Unix socket for its own agent and TCP h2c for remote agents.
 2. Master starts `gloski-agent` as a supervised child process pointed at the Unix socket.
-3. Remote agents are installed by the script from `agentdist` and pointed at the TCP listener, which also serves that script and the agent builds over plain HTTP.
+3. Remote agents are installed by the script from `agentdist` and pointed at the TCP listener, which can also carry plain HTTP.
 4. The agent opens `Agent.Connect` and sends `RegisterRequest` with the join token.
 5. Master registers the device, issues a device token, and stores the stream under that device ID.
 6. Agent sends heartbeats with cached stats; master stores them and broadcasts fleet updates.

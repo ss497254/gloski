@@ -11,6 +11,9 @@ type connection struct {
 	deviceID string
 	token    string
 	stream   agentv1.Agent_ConnectServer
+	// arch and buildHash describe the agent binary on the other end.
+	arch      string
+	buildHash string
 
 	// replaced is set when a newer connection took over this device, so this
 	// one's teardown must not mark the device offline or abort its jobs.

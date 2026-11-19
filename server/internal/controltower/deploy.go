@@ -103,35 +103,8 @@ func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go t.runDeployment(deployment, target)
+	go func() { _, _ = t.lifecycle.Install(deployment, false) }()
 	httpapi.SuccessWithMessage(w, deployment)
-}
-
-func (t *Tower) runDeployment(deployment *fleet.Deployment, target provisioning.Target) {
-	timeout := time.Duration(t.cfg.Master.DeployTimeout) * time.Second
-	if timeout <= 0 {
-		timeout = 120 * time.Second
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	if err := t.fleetSvc.SetDeploymentStatus(deployment.ID, fleet.DeployUploading, ""); err != nil {
-		logger.Warn("Failed to update deployment %s: %v", deployment.ID, err)
-	}
-
-	result, err := t.installer.Install(ctx, target)
-	if err != nil {
-		logger.Error("Deployment %s failed: %v", deployment.ID, err)
-		if statusErr := t.fleetSvc.SetDeploymentStatus(deployment.ID, fleet.DeployFailed, err.Error()); statusErr != nil {
-			logger.Warn("Failed to record deployment failure: %v", statusErr)
-		}
-		return
-	}
-
-	if err := t.fleetSvc.SetDeploymentRunning(deployment.ID, result.PID); err != nil {
-		logger.Warn("Failed to mark deployment %s as running: %v", deployment.ID, err)
-	}
-	logger.Info("Agent %s installed on %s (pid %s, %s, self-heal: %s)", deployment.Name, deployment.Host, result.PID, result.Arch, result.SelfHeal)
 }
 
 func (t *Tower) handleListDeployments(w http.ResponseWriter, r *http.Request) {
@@ -160,23 +133,36 @@ func (t *Tower) handleGetDeployment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Tower) handleStartDevice(w http.ResponseWriter, r *http.Request) {
-	target, err := t.deviceTarget(r.PathValue("id"))
+	t.installNow(w, r, false)
+}
+
+// handleTrustHost accepts a device's new SSH host key, then installs again.
+func (t *Tower) handleTrustHost(w http.ResponseWriter, r *http.Request) {
+	t.installNow(w, r, true)
+}
+
+// installNow runs the install script on a device at a person's request. It
+// starts a stopped agent, restarts a running one, and replaces a broken one.
+func (t *Tower) installNow(w http.ResponseWriter, r *http.Request, trustHost bool) {
+	device, err := t.fleetSvc.Get(r.PathValue("id"))
 	if err != nil {
-		httpapi.NotFound(w, err.Error())
+		httpapi.NotFound(w, "device not found")
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
-	defer cancel()
-
-	result, err := t.installer.Install(ctx, target)
-	if err != nil {
-		_ = t.fleetSvc.SetDeploymentStatus(target.DeployID, fleet.DeployFailed, err.Error())
-		httpapi.InternalError(w, "failed to start agent", err.Error())
+	if device.Deploy == nil {
+		httpapi.BadRequest(w, "the master has no SSH details for this device")
 		return
 	}
-	if err := t.fleetSvc.SetDeploymentRunning(target.DeployID, result.PID); err != nil {
-		logger.Warn("Failed to update deployment %s: %v", target.DeployID, err)
+	if trustHost {
+		if err := t.installer.ForgetHost(device.Deploy.Host, device.Deploy.SSHPort); err != nil {
+			httpapi.InternalError(w, "failed to forget the old host key", err.Error())
+			return
+		}
+	}
+	result, err := t.lifecycle.Install(device.Deploy, true)
+	if err != nil {
+		httpapi.InternalError(w, "failed to install the agent", err.Error())
+		return
 	}
 	httpapi.SuccessWithMessage(w, map[string]interface{}{"pid": result.PID, "status": fleet.DeployRunning})
 }
@@ -189,10 +175,11 @@ func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 	}
 	target, targetErr := t.deviceTarget(device.ID)
 
-	// A connected agent stops itself, which needs no SSH and also works for
-	// devices installed by hand. SSH is the way in when it is not connected.
+	// A connected agent is simply told to exit. SSH is the way in when it is
+	// not connected. Either way the deployment is marked stopped, which is
+	// what keeps the lifecycle loop from starting it again.
 	stopped := false
-	if err := t.agentService.Shutdown(device.ID, agents.ShutdownStop); err == nil {
+	if err := t.agentService.Shutdown(device.ID, agents.ShutdownExit); err == nil {
 		stopped = true
 	} else if targetErr != nil {
 		httpapi.BadRequest(w, "the device is offline and was not installed over SSH, so the master cannot reach it")

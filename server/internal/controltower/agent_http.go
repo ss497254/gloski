@@ -2,19 +2,15 @@ package controltower
 
 import (
 	"bufio"
-	"crypto/subtle"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/ss497254/gloski/internal/agentdist"
 	"github.com/ss497254/gloski/internal/logger"
 )
 
@@ -91,7 +87,7 @@ func (l *chanListener) Accept() (net.Conn, error) {
 func (l *chanListener) Close() error   { return l.close() }
 func (l *chanListener) Addr() net.Addr { return l.addr }
 
-// agentHTTPHandler serves what a device needs to install an agent.
+// agentHTTPHandler serves plain HTTP on the agent port.
 func (t *Tower) agentHTTPHandler() http.Handler {
 	mux := http.NewServeMux()
 
@@ -99,67 +95,7 @@ func (t *Tower) agentHTTPHandler() http.Handler {
 		fmt.Fprintln(w, "ok")
 	})
 
-	mux.HandleFunc("GET /install-agent.sh", func(w http.ResponseWriter, r *http.Request) {
-		query := r.URL.Query()
-		token := t.fleetSvc.JoinToken()
-		if subtle.ConstantTimeCompare([]byte(query.Get("token")), []byte(token)) != 1 {
-			logger.Warn("Install script request from %s rejected: wrong token", r.RemoteAddr)
-			http.Error(w, "wrong or missing token; copy the install command from the dashboard again", http.StatusForbidden)
-			return
-		}
-		dir := query.Get("dir")
-		if dir == "" {
-			dir = agentdist.DefaultDir
-		}
-		if !agentdist.ValidDir(dir) {
-			http.Error(w, "dir must be an absolute path of letters, digits, '.', '_', '-' and '/'", http.StatusBadRequest)
-			return
-		}
-		// The device reached the master at r.Host, so that address is known
-		// to work from there; the agent uses it for gRPC too.
-		master := "http://" + r.Host
-		w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
-		fmt.Fprint(w, t.dist.InstallScript(agentdist.InstallParams{
-			Dir:        dir,
-			MasterHTTP: master,
-			MasterURL:  master,
-			JoinToken:  token,
-			Name:       strings.TrimSpace(query.Get("name")),
-			DeployID:   query.Get("deploy_id"),
-		}))
-	})
-
-	mux.HandleFunc("GET /uninstall-agent.sh", func(w http.ResponseWriter, r *http.Request) {
-		dir := r.URL.Query().Get("dir")
-		if dir == "" {
-			dir = agentdist.DefaultDir
-		}
-		if !agentdist.ValidDir(dir) {
-			http.Error(w, "invalid dir", http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
-		fmt.Fprint(w, agentdist.UninstallScript(dir, r.URL.Query().Get("mode") == "stop"))
-	})
-
-	mux.HandleFunc("GET /agent/linux/{arch}", func(w http.ResponseWriter, r *http.Request) {
-		build := t.dist.Build(r.PathValue("arch"))
-		if build == nil {
-			http.Error(w, "the master has no agent build for this architecture", http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Length", strconv.Itoa(len(build.Data)))
-		w.Header().Set("X-Checksum-Sha256", build.SHA256)
-		_, _ = w.Write(build.Data)
-	})
-
 	return mux
-}
-
-// installCommand is the one-liner a person pastes on a device.
-func (t *Tower) installCommand() string {
-	return fmt.Sprintf("curl -fsSL '%s/install-agent.sh?token=%s' | sh", t.agentGRPCURL(), t.fleetSvc.JoinToken())
 }
 
 // localAgentBinary returns the agent the master runs for its own machine: the

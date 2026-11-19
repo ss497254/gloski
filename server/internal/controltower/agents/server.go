@@ -39,6 +39,8 @@ type Service struct {
 
 	mu          sync.RWMutex
 	connections map[string]*connection
+	// rejections maps an agent name to why it was last refused.
+	rejections map[string]string
 
 	// stopping holds jobs the user cancelled, so their result is recorded as
 	// stopped rather than failed.
@@ -78,6 +80,11 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 	if registration == nil {
 		return status.Error(codes.InvalidArgument, "first message must be a registration")
 	}
+	if registration.GetProtocol() != agentv1.ProtocolVersion {
+		logger.Warn("Rejected agent %q: it speaks protocol %d, this master speaks %d", registration.GetName(), registration.GetProtocol(), agentv1.ProtocolVersion)
+		svc.noteRejection(registration.GetName(), "agent build is incompatible with this master")
+		return status.Error(codes.FailedPrecondition, "incompatible agent build")
+	}
 
 	// Devices are keyed by name. A second machine using a name that is live
 	// right now would otherwise take over the first one's identity and jobs,
@@ -102,6 +109,7 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 		Stats:     stats,
 	})
 	if err != nil {
+		svc.noteRejection(registration.GetName(), "join token rejected")
 		return status.Error(codes.Unauthenticated, "invalid join token")
 	}
 	device, err := svc.fleetSvc.Get(registered.DeviceID)
@@ -110,12 +118,14 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 	}
 
 	conn := &connection{
-		deviceID: device.ID,
-		token:    registered.DeviceToken,
-		stream:   stream,
-		closed:   make(chan struct{}),
-		pending:  make(map[string]chan *agentv1.AgentMessage),
-		terms:    make(map[string]*TerminalOutput),
+		deviceID:  device.ID,
+		arch:      registration.GetArch(),
+		buildHash: registration.GetBuildHash(),
+		token:     registered.DeviceToken,
+		stream:    stream,
+		closed:    make(chan struct{}),
+		pending:   make(map[string]chan *agentv1.AgentMessage),
+		terms:     make(map[string]*TerminalOutput),
 	}
 	svc.mu.Lock()
 	if previous := svc.connections[device.ID]; previous != nil {
@@ -124,6 +134,7 @@ func (svc *Service) Connect(stream agentv1.Agent_ConnectServer) error {
 		previous.close()
 	}
 	svc.connections[device.ID] = conn
+	delete(svc.rejections, registration.GetName())
 	svc.mu.Unlock()
 	defer svc.disconnect(conn)
 

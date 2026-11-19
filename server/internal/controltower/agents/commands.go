@@ -109,10 +109,8 @@ func (svc *Service) Processes(deviceID string, limit int, sortBy string) ([]byte
 type ShutdownMode int
 
 const (
-	// ShutdownExit ends the agent process; its supervisor or cron may start it again.
+	// ShutdownExit ends the agent process.
 	ShutdownExit ShutdownMode = iota
-	// ShutdownStop stops the agent and its self-heal but keeps it installed.
-	ShutdownStop
 	// ShutdownUninstall removes the agent from the device.
 	ShutdownUninstall
 )
@@ -124,7 +122,7 @@ func (svc *Service) Shutdown(deviceID string, mode ShutdownMode) error {
 		return err
 	}
 	return conn.send(&agentv1.MasterMessage{
-		Payload: &agentv1.MasterMessage_Shutdown{Shutdown: &agentv1.Shutdown{Stop: mode == ShutdownStop, Uninstall: mode == ShutdownUninstall}},
+		Payload: &agentv1.MasterMessage_Shutdown{Shutdown: &agentv1.Shutdown{Uninstall: mode == ShutdownUninstall}},
 	})
 }
 
@@ -188,3 +186,36 @@ func (svc *Service) Close() {
 
 // ForgetDevice removes a device's jobs and logs.
 func (svc *Service) ForgetDevice(deviceID string) error { return svc.jobs.DeleteDevice(deviceID) }
+
+// Build reports the architecture and binary hash of a connected agent.
+func (svc *Service) Build(deviceID string) (arch, hash string, connected bool) {
+	conn, err := svc.connection(deviceID)
+	if err != nil {
+		return "", "", false
+	}
+	return conn.arch, conn.buildHash, true
+}
+
+// noteRejection remembers why an agent was turned away, keyed by the name it
+// gave, so "offline" can be explained.
+func (svc *Service) noteRejection(name, reason string) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	if svc.rejections == nil {
+		svc.rejections = make(map[string]string)
+	}
+	svc.rejections[name] = reason
+}
+
+// Rejection returns why an agent using this name was last turned away, or "".
+// A successful connection clears it.
+func (svc *Service) Rejection(name string) string {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	return svc.rejections[name]
+}
+
+// ActiveJobs counts jobs on a device that have not finished.
+func (svc *Service) ActiveJobs(deviceID string) int {
+	return svc.jobs.Active(deviceID)
+}

@@ -14,8 +14,8 @@ GLOSKI_MASTER_WEB_DIR="$PWD/web/dist" bin/gloski
 ```
 
 Open the dashboard, then use **Deploy agent** to install the agent on a Tailnet
-device over SSH, or paste the one-line install command it shows on the device
-itself. The device then keeps its agent running, including after a reboot.
+device over SSH. The master then keeps that agent running and up to date: if it
+stops or the device reboots, the master installs it again.
 
 See [Control Tower](docs/tower.md) for setup and configuration.
 

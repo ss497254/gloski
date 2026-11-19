@@ -19,6 +19,8 @@ import (
 	"github.com/ss497254/gloski/internal/logger"
 	"github.com/ss497254/gloski/internal/system"
 	"github.com/ss497254/gloski/proto/agentv1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -70,6 +72,7 @@ func Run(cfg *config.Config, version string) error {
 		version:   version,
 		name:      name,
 		machineID: machineID(),
+		buildHash: buildHash(),
 		stats:     system.NewService(statsStore, statsHub),
 		files:     files.NewService(cfg),
 		shutdown:  shutdown,
@@ -83,6 +86,11 @@ func Run(cfg *config.Config, version string) error {
 	for ctx.Err() == nil {
 		started := time.Now()
 		if err := worker.connectOnce(ctx); err != nil && ctx.Err() == nil {
+			if status.Code(err) == codes.FailedPrecondition {
+				// The master will not work with this build. Retrying cannot
+				// help; exit and let the master install its own build.
+				return fmt.Errorf("master refused this agent: %w", err)
+			}
 			logger.Warn("Agent session ended: %v", err)
 		}
 		if ctx.Err() != nil {
@@ -112,6 +120,7 @@ type Runtime struct {
 	version   string
 	name      string
 	machineID string
+	buildHash string
 	stats     *system.Service
 	files     *files.Service
 	deviceID  string
@@ -166,6 +175,9 @@ func (w *Runtime) connectOnce(ctx context.Context) error {
 				StatsJson: string(statsJSON),
 				Jobs:      w.jobStates(),
 				MachineId: w.machineID,
+				Arch:      runtime.GOARCH,
+				BuildHash: w.buildHash,
+				Protocol:  agentv1.ProtocolVersion,
 			},
 		},
 	}); err != nil {
@@ -312,9 +324,9 @@ func (w *Runtime) handle(message *agentv1.MasterMessage) {
 		w.closeTerminal(message.RequestId)
 	case *agentv1.MasterMessage_Shutdown:
 		// Cancel rather than exit so running jobs and terminals are cleaned up.
-		logger.Info("Master requested agent shutdown (stop=%v uninstall=%v)", payload.Shutdown.GetStop(), payload.Shutdown.GetUninstall())
-		if payload.Shutdown.GetStop() || payload.Shutdown.GetUninstall() {
-			removeInstall(payload.Shutdown.GetStop())
+		logger.Info("Master requested agent shutdown (uninstall=%v)", payload.Shutdown.GetUninstall())
+		if payload.Shutdown.GetUninstall() {
+			removeInstall()
 		}
 		w.shutdown()
 	}

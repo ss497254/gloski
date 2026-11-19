@@ -65,6 +65,13 @@ message RegisterRequest {
   // machine_id identifies the machine (not the agent process) so the master
   // can tell a reconnect from a second machine using the same name.
   string machine_id = 10;
+  // arch and build_hash describe the agent binary, so the master can tell when
+  // a device runs a different build from the one it would install.
+  string arch = 11;
+  string build_hash = 12;
+  // protocol is agentv1.ProtocolVersion. The master refuses any other value
+  // and the agent then exits, leaving the master to install the right build.
+  int32 protocol = 13;
 }
 
 message RegisterResponse {
@@ -188,8 +195,6 @@ message TerminalOutput {
 
 message Shutdown {
   bool restart = 1;
-  // uninstall removes the agent, its files and its self-heal from the device.
+  // uninstall removes the agent and its files from the device.
   bool uninstall = 2;
-  // stop keeps the files but makes sure nothing starts the agent again.
-  bool stop = 3;
 }

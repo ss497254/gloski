@@ -6,8 +6,8 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
+	"encoding/json"
 	"io/fs"
-	"net/url"
 	"os"
 	"regexp"
 	"runtime"
@@ -93,14 +93,13 @@ func (d *Dist) Available() bool {
 
 // InstallParams fills the install script.
 type InstallParams struct {
-	Dir string
-	// MasterHTTP is the base URL the device downloads from; MasterURL is the
-	// gRPC address the agent connects to. Both are on the agent port.
-	MasterHTTP string
-	MasterURL  string
-	JoinToken  string
-	Name       string
-	DeployID   string
+	Dir       string
+	MasterURL string // gRPC address the agent connects to
+	JoinToken string
+	Name      string
+	DeployID  string
+	// Force restarts the agent even when nothing changed.
+	Force bool
 }
 
 // InstallScript renders the installer for one device.
@@ -114,14 +113,22 @@ func (d *Dist) InstallScript(p InstallParams) string {
 		}
 		return ""
 	}
+	config, _ := json.MarshalIndent(map[string]any{
+		"agent": map[string]any{
+			"master_url": p.MasterURL,
+			"join_token": p.JoinToken,
+			"name":       oneLine(p.Name),
+			"deploy_id":  p.DeployID,
+		},
+	}, "", "  ")
+	force := "0"
+	if p.Force {
+		force = "1"
+	}
 	return strings.NewReplacer(
 		"@@DIR@@", quote(p.Dir),
-		"@@MASTER_HTTP@@", quote(p.MasterHTTP),
-		"@@MASTER_URL@@", quote(p.MasterURL),
-		"@@JOIN_TOKEN@@", quote(p.JoinToken),
-		"@@AGENT_NAME@@", quote(oneLine(p.Name)),
-		"@@DEPLOY_ID@@", quote(p.DeployID),
-		"@@REINSTALL_URL@@", quote(reinstallURL(p)),
+		"@@FORCE@@", force,
+		"@@CONFIG@@", string(config),
 		"@@SHA_AMD64@@", quote(sha("amd64")),
 		"@@SHA_ARM64@@", quote(sha("arm64")),
 		"@@SHA_ARM@@", quote(sha("arm")),
@@ -139,35 +146,6 @@ func UninstallScript(dir string, stopOnly bool) string {
 		mode = "stop"
 	}
 	return strings.NewReplacer("@@DIR@@", quote(dir), "@@MODE@@", mode).Replace(uninstallScript)
-}
-
-// reinstallURL is what the device's crontab fetches when the agent's files
-// are gone. It ends up inside single quotes on a crontab line, where "%" is
-// special, so it is only offered when every part survives without escaping.
-func reinstallURL(p InstallParams) string {
-	if p.MasterHTTP == "" {
-		return ""
-	}
-	query := url.Values{}
-	query.Set("token", p.JoinToken)
-	if p.Name != "" {
-		query.Set("name", p.Name)
-	}
-	if p.DeployID != "" {
-		query.Set("deploy_id", p.DeployID)
-	}
-	if p.Dir != DefaultDir {
-		query.Set("dir", p.Dir)
-	}
-	full := p.MasterHTTP + "/install-agent.sh?" + query.Encode()
-	if strings.ContainsAny(full, "%'\\\n") {
-		// Crontab accepts "\%" for a literal percent sign.
-		if strings.ContainsAny(full, "'\\\n") {
-			return ""
-		}
-		full = strings.ReplaceAll(full, "%", `\%`)
-	}
-	return full
 }
 
 func oneLine(value string) string {

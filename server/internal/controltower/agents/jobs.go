@@ -417,3 +417,12 @@ func nullable(value string) interface{} {
 	}
 	return value
 }
+
+// Active counts a device's jobs that are still pending or running.
+func (t *JobStore) Active(deviceID string) int {
+	var count int
+	_ = t.db.QueryRow(`
+		SELECT COUNT(*) FROM agent_jobs
+		WHERE device_id = ? AND status IN ('pending', 'running')`, deviceID).Scan(&count)
+	return count
+}

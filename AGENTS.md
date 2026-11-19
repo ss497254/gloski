@@ -54,6 +54,8 @@ These came from the owner directly. Follow them unless told otherwise.
   devices differ and may lack systemd or cron. The master installs, starts,
   restarts and updates agents over SSH; an incompatible agent just exits and
   the master runs the right one. Details in `docs/roadmap.md`.
+- **Agents are never installed by hand.** Every device is deployed from the
+  dashboard. Do not add manual install paths.
 - **No SSH fallback for actions.** If an agent is down the master should revive
   it, not run the task over SSH instead.
 - **No offline alerts** for now.
@@ -93,10 +95,9 @@ The install script removes an old `/tmp/gloski-agent` install by itself.
 **What to build next is in `docs/roadmap.md`**, in order; start at the first
 unfinished item of step 1.
 
-**The reliability design is in `docs/reliability-plan.md`.** It holds the design (each device
-keeps its own agent alive; the master is the source of truth; every action has
-a definite outcome), the failure scenarios, the build order and a Status
-section saying which phases are done. Update it as phases land.
+**The reliability design is in `docs/reliability-plan.md`**: the master owns
+the agent lifecycle and reinstalls over SSH whatever is disconnected or
+outdated. Its Status section says what is verified and how to test it here.
 
 Known gaps not covered by the plan:
 
@@ -144,7 +145,5 @@ These are facts about one machine, not requirements of the project.
   generated code byte for byte:
   `PATH=/root/.local/share/gloski-tools/bin:/root/.local/share/gloski-tools/protoc/bin:$PATH make proto`
 - `python3` is not installed; script with awk, perl or bun.
-- There is no SSH server and Tailscale is not running, so the SSH install path
-  cannot be tested live here.
-- `crontab` exists but no cron daemon runs. To test self-heal, run the crontab
-  line by hand (replace `\%` with `%` first, as cron would).
+- There is no SSH server and Tailscale is not running. Use the test SSH server
+  described in `docs/reliability-plan.md` to deploy agents locally.

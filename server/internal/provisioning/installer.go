@@ -113,14 +113,14 @@ func (i *Installer) Available() bool {
 type Result struct {
 	PID  string
 	Arch string
-	// SelfHeal is "cron" when the device will restart and reinstall the agent
-	// by itself, "none" when it has no crontab.
-	SelfHeal string
+	// Started is false when a healthy agent was already running.
+	Started bool
 }
 
 // Install makes sure the agent is installed, current and running. It is safe
-// to call on a device that already has a healthy agent.
-func (i *Installer) Install(ctx context.Context, target Target) (Result, error) {
+// to call on a device that already has a healthy agent, which it leaves alone
+// unless force is set.
+func (i *Installer) Install(ctx context.Context, target Target, force bool) (Result, error) {
 	if !i.Available() {
 		return Result{}, errors.New("the master has no agent builds to install (run 'make build')")
 	}
@@ -128,17 +128,17 @@ func (i *Installer) Install(ctx context.Context, target Target) (Result, error) 
 		return Result{}, err
 	}
 	script := i.Dist.InstallScript(agentdist.InstallParams{
-		Dir:        target.RemoteBase,
-		MasterHTTP: target.MasterURL,
-		MasterURL:  target.MasterURL,
-		JoinToken:  target.JoinToken,
-		Name:       target.Name,
-		DeployID:   target.DeployID,
+		Dir:       target.RemoteBase,
+		MasterURL: target.MasterURL,
+		JoinToken: target.JoinToken,
+		Name:      target.Name,
+		DeployID:  target.DeployID,
+		Force:     force,
 	})
 
 	output, err := i.runScript(ctx, target, script)
 	if arch := field(output, "GLOSKI_NEED_UPLOAD", "arch"); err != nil && arch != "" {
-		// The device has no curl or wget. Copy the agent over SSH and retry.
+		// The device lacks the current build. Copy it over and run again.
 		build := i.Dist.Build(arch)
 		if build == nil {
 			return Result{}, fmt.Errorf("the master has no agent build for linux/%s", arch)
@@ -152,9 +152,9 @@ func (i *Installer) Install(ctx context.Context, target Target) (Result, error) 
 		return Result{}, err
 	}
 	result := Result{
-		PID:      field(output, "GLOSKI_INSTALLED", "pid"),
-		Arch:     field(output, "GLOSKI_INSTALLED", "arch"),
-		SelfHeal: field(output, "GLOSKI_INSTALLED", "selfheal"),
+		PID:     field(output, "GLOSKI_INSTALLED", "pid"),
+		Arch:    field(output, "GLOSKI_INSTALLED", "arch"),
+		Started: field(output, "GLOSKI_INSTALLED", "started") == "yes",
 	}
 	if result.PID == "" {
 		return Result{}, fmt.Errorf("unexpected installer output %q", output)

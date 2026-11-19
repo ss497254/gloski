@@ -6,25 +6,21 @@ it simple, and prefer one general building block over many special features.
 
 ## Step 1: finish reliability
 
-1. **Restart and Reinstall buttons** per device. Restart makes the agent exit so
-   its supervisor starts it fresh. Reinstall runs the install script over SSH,
-   or shows the one-line command when the master has no SSH details.
-2. **Self-update by reinstall.** An agent whose binary differs from the master's
-   fetches and runs the same install script once its jobs have finished. No
-   separate update code.
-3. **Clear reasons.** An action on an offline device fails at once and says why.
-   Each device shows: connected or not, since when, the reason, agent version,
-   and whether it survives a reboot (cron or not).
-4. **Job log limits.** Finished jobs deleted after 30 days; 10 MB kept per job.
-5. **Protect the master.** It is the single point of failure.
+1. ~~Master-owned agent lifecycle~~ (done, see reliability-plan.md).
+2. **File transfers on their own connection** (design B below).
+3. **Smarter heartbeats** (design C below).
+4. **Clear reasons.** An action on an offline device fails at once and says
+   why. Each device shows: connected or not, since when, and the reason.
+5. **Job log limits.** Finished jobs deleted after 30 days; 10 MB kept per job.
+6. **Protect the master.** It is the single point of failure.
    - Document running it under systemd with automatic restart (the unit file is
      in `deploy/`).
    - A nightly copy of the database and join token into `<data_dir>/backups`,
      keeping the last 7. Losing the join token locks out every agent.
-6. **Break-it test.** One script: kill the master and the agent mid-job, wipe
+7. **Break-it test.** One script: kill the master and the agent mid-job, wipe
    the install directory, check everything recovers.
-7. **Try it on real devices**, including a Raspberry Pi, with a real cron daemon
-   and a real SSH install. Fix what turns up before building further.
+8. **Try it on real devices**, including a Raspberry Pi. Fix what turns up
+   before building further.
 
 ## Step 2: three building blocks
 
@@ -78,10 +74,9 @@ Add any of these when the need is real.
 
 ## Design direction (owner's decision, 2026-11-19)
 
-These replace the device-side self-healing built in phase 1 and go first in
-step 1.
+A is built. B and C are next.
 
-### A. The master owns the agent's lifecycle
+### A. The master owns the agent's lifecycle (built)
 
 The agent exists only to serve the master, so the master is responsible for it.
 Devices differ too much (no systemd, no cron) to rely on anything on them.
@@ -102,8 +97,8 @@ Devices differ too much (no systemd, no cron) to rely on anything on them.
 - Everything depends on SSH from the master working, so each device shows the
   last SSH error in plain words (no key accepted, host key changed with a
   one-click "trust it", unreachable).
-- A device installed by hand with the one-line command is not managed until SSH
-  details are added for it; the dashboard says so.
+- Agents are never installed by hand; every device is deployed from the
+  dashboard, so the master always has its SSH details.
 - Removed: `internal/supervisor`, the `start` and `supervise` subcommands, and
   the crontab line in the install script.
 

@@ -53,6 +53,7 @@ type Tower struct {
 	listenersMu       sync.Mutex
 	listeners         []net.Listener
 	localAgentProcess *localAgent
+	lifecycle         *lifecycle
 }
 
 // New opens the database and wires the HTTP API, gRPC listeners, and local agent.
@@ -137,6 +138,8 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 	}
 
 	go t.fleetLoop()
+	t.lifecycle = newLifecycle(t)
+	go t.lifecycle.loop()
 	t.router = t.routes()
 	t.startAgentTransport(cfg)
 	t.startLocalAgent(cfg, version)

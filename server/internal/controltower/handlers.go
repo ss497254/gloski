@@ -35,7 +35,6 @@ func (t *Tower) handleTowerInfo(w http.ResponseWriter, r *http.Request) {
 		"port":                t.cfg.Port,
 		"deploy_available":    t.installer.Available(),
 		"agent_builds":        t.dist.Builds(),
-		"install_command":     t.installCommand(),
 		"tailscale_available": t.tailnetClient.Available(),
 		"tailscale_socket":    t.tailnetClient.Socket(),
 	})

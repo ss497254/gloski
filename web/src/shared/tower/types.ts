@@ -13,7 +13,6 @@ export interface TowerInfo {
   port: number
   deploy_available: boolean
   agent_builds: string[]
-  install_command: string
   tailscale_available: boolean
   tailscale_socket: string
 }

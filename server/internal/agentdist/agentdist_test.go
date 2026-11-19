@@ -36,17 +36,6 @@ func TestValidDir(t *testing.T) {
 	}
 }
 
-func TestReinstallURLIsCrontabSafe(t *testing.T) {
-	url := reinstallURL(InstallParams{Dir: DefaultDir, MasterHTTP: "http://tower:9090", JoinToken: "abc", Name: "Living room Pi"})
-	if !strings.Contains(url, "name=Living+room+Pi") {
-		t.Fatalf("unexpected URL %q", url)
-	}
-	url = reinstallURL(InstallParams{Dir: DefaultDir, MasterHTTP: "http://tower:9090", JoinToken: "abc", Name: "50% box"})
-	if strings.Contains(strings.ReplaceAll(url, `\%`, ""), "%") {
-		t.Fatalf("unescaped percent sign in %q", url)
-	}
-}
-
 // The scripts must at least parse, with awkward values in every field.
 func TestScriptsAreValidShell(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
@@ -55,7 +44,7 @@ func TestScriptsAreValidShell(t *testing.T) {
 	dist := New(nil, "")
 	scripts := map[string]string{
 		"install": dist.InstallScript(InstallParams{
-			MasterHTTP: "http://tower:9090", MasterURL: "http://tower:9090",
+			MasterURL: "http://tower:9090",
 			JoinToken: "tok'en", Name: `it's "a" $HOME box`, DeployID: "id",
 		}),
 		"uninstall": UninstallScript("", false),

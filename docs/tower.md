@@ -9,7 +9,7 @@ Browser ──HTTP/WS──▶ Master (dashboard + state + proxy)
         ┌────────────────┼────────────────┐
         ▼                ▼                ▼
    agent on A        agent on B        agent on C
-   (master host,     (self-healing)    (self-healing)
+   (master host,     (run by master)   (run by master)
     child process)
 ```
 
@@ -55,45 +55,41 @@ the master is missing; if more than the buffer was produced, the log notes the
 gap. A job is marked abandoned only when the agent comes back without it,
 which means the agent process itself was restarted.
 
-## Installing and removing agents
+## Agent lifecycle
 
-The master serves an install script, an uninstall script and agent builds for
-amd64, arm64 and 32-bit ARM on the agent port (9090), next to gRPC. The builds
-are embedded in the master binary, so master and agents always match.
+The master owns every remote agent's lifecycle. An agent does not restart,
+update or reinstall itself; it is a plain process that connects, does work,
+and exits if the master refuses it as incompatible.
 
-Install an agent in either of two ways; both run the same script:
+**Deploy agent** in the dashboard records the device's SSH details and runs
+the install script over SSH. The script (`internal/agentdist/install-agent.sh`)
+is safe to repeat: it copies the right build for the device's CPU (amd64,
+arm64 or 32-bit ARM, all embedded in the master), replaces the agent only if
+the binary or its settings changed, and starts it only if it is not running.
+Everything lives in `/tmp/gloski`: the binary, `agent.json`, `agent.log`
+(rolled over at 5 MB) and `agent.pid`.
 
-- **Deploy agent** in the dashboard runs it over SSH.
-- On the device itself, paste the one-line command the dashboard shows:
+From then on a loop in the master (`controltower/lifecycle.go`) looks at every
+deployed device each 15 seconds and runs that same script when:
 
-  ```bash
-  curl -fsSL 'http://<master>:9090/install-agent.sh?token=<join token>' | sh
-  ```
+- the agent has been disconnected for 45 seconds. This covers a crash, a
+  reboot, a wiped `/tmp` and an agent that exited as incompatible;
+- the agent is connected but is not the master's build, and has no running
+  jobs. This is how agents are updated after the master is rebuilt.
 
-  Optional query parameters: `name` (display name, default the hostname) and
-  `dir` (install directory, default `/tmp/gloski`).
+Failed attempts back off from 1 to 15 minutes. The reason for the last failure
+is stored on the deployment and shown on the device, for example "cannot reach
+host over SSH", "refused the master's SSH key" or "SSH host key changed"; the
+last one has a **Trust new key** button.
 
-The script picks the right build, checks it runs, and is safe to run again.
-Everything lives in one directory: the binary, `agent.env`, `agent.log`
-(capped at 5 MB plus one old file), `agent.pid` and `agent.lock`.
+- **Stop** tells the agent to exit and marks the device stopped, so the loop
+  leaves it alone until you start it.
+- **Start** and **Restart** run the install script now and force a restart.
+- **Remove device** makes a connected agent delete its own install; for an
+  offline device the master removes it over SSH.
 
-The device then keeps its own agent alive:
-
-- `gloski-agent start -dir <dir>` launches a supervisor that runs the agent
-  and restarts it within seconds if it dies. A lock stops two agents from
-  running in one directory.
-- A crontab line runs that `start` command every 5 minutes. If the files are
-  gone (a reboot wiped `/tmp`) it downloads the install script again. A device
-  without `crontab` still restarts after a crash but not after a reboot.
-
-**Stop** in the dashboard stops the agent and removes the crontab line but
-keeps the files; install again to start it. **Remove device** uninstalls
-everything. A connected agent does both itself, so neither needs SSH. To
-remove by hand:
-
-```bash
-curl -fsSL 'http://<master>:9090/uninstall-agent.sh' | sh
-```
+The master needs an SSH key the device accepts: `GLOSKI_MASTER_SSH_KEY_FILE`,
+or `~/.ssh/id_ed25519`, `id_ecdsa` or `id_rsa`, or a running ssh-agent.
 
 ## Master-owned state
 
@@ -163,8 +159,9 @@ the SSH user. SSH keys come from `SSH_AUTH_SOCK` or `~/.ssh/id_*`.
 - Master log: wherever stdout of `gloski` is redirected. It records local agent
   start/stop, gRPC session state, health checks, and forced restarts.
 - Local agent log: `<data_dir>/local-agent.log`.
-- Remote agent log: `/tmp/gloski/agent.log` on the device. Lines marked
-  `[SUPERVISOR]` say why the agent last restarted.
+- Remote agent log: `/tmp/gloski/agent.log` on the device.
+- Master log lines starting `lifecycle:` say when and why the master installed
+  an agent, and why an attempt failed.
 
 The master checks the local agent's gRPC session every 5 seconds. If it is not
 connected for 20 seconds, the master kills the child process and starts a new

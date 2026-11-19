@@ -608,7 +608,14 @@ type RegisterRequest struct {
 	Jobs []*JobState `protobuf:"bytes,9,rep,name=jobs,proto3" json:"jobs,omitempty"`
 	// machine_id identifies the machine (not the agent process) so the master
 	// can tell a reconnect from a second machine using the same name.
-	MachineId     string `protobuf:"bytes,10,opt,name=machine_id,json=machineId,proto3" json:"machine_id,omitempty"`
+	MachineId string `protobuf:"bytes,10,opt,name=machine_id,json=machineId,proto3" json:"machine_id,omitempty"`
+	// arch and build_hash describe the agent binary, so the master can tell when
+	// a device runs a different build from the one it would install.
+	Arch      string `protobuf:"bytes,11,opt,name=arch,proto3" json:"arch,omitempty"`
+	BuildHash string `protobuf:"bytes,12,opt,name=build_hash,json=buildHash,proto3" json:"build_hash,omitempty"`
+	// protocol is agentv1.ProtocolVersion. The master refuses any other value
+	// and the agent then exits, leaving the master to install the right build.
+	Protocol      int32 `protobuf:"varint,13,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -711,6 +718,27 @@ func (x *RegisterRequest) GetMachineId() string {
 		return x.MachineId
 	}
 	return ""
+}
+
+func (x *RegisterRequest) GetArch() string {
+	if x != nil {
+		return x.Arch
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetBuildHash() string {
+	if x != nil {
+		return x.BuildHash
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetProtocol() int32 {
+	if x != nil {
+		return x.Protocol
+	}
+	return 0
 }
 
 type RegisterResponse struct {
@@ -1659,10 +1687,8 @@ func (x *TerminalOutput) GetClosed() bool {
 type Shutdown struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Restart bool                   `protobuf:"varint,1,opt,name=restart,proto3" json:"restart,omitempty"`
-	// uninstall removes the agent, its files and its self-heal from the device.
-	Uninstall bool `protobuf:"varint,2,opt,name=uninstall,proto3" json:"uninstall,omitempty"`
-	// stop keeps the files but makes sure nothing starts the agent again.
-	Stop          bool `protobuf:"varint,3,opt,name=stop,proto3" json:"stop,omitempty"`
+	// uninstall removes the agent and its files from the device.
+	Uninstall     bool `protobuf:"varint,2,opt,name=uninstall,proto3" json:"uninstall,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1711,13 +1737,6 @@ func (x *Shutdown) GetUninstall() bool {
 	return false
 }
 
-func (x *Shutdown) GetStop() bool {
-	if x != nil {
-		return x.Stop
-	}
-	return false
-}
-
 var File_proto_agentv1_agent_proto protoreflect.FileDescriptor
 
 const file_proto_agentv1_agent_proto_rawDesc = "" +
@@ -1757,7 +1776,7 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x12\n" +
 	"\x04sort\x18\x02 \x01(\tR\x04sort\"#\n" +
 	"\rProcessResult\x12\x12\n" +
-	"\x04json\x18\x01 \x01(\tR\x04json\"\xb8\x02\n" +
+	"\x04json\x18\x01 \x01(\tR\x04json\"\x87\x03\n" +
 	"\x0fRegisterRequest\x12\x1d\n" +
 	"\n" +
 	"join_token\x18\x01 \x01(\tR\tjoinToken\x12\x12\n" +
@@ -1772,7 +1791,11 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\x04jobs\x18\t \x03(\v2\x19.gloski.agent.v1.JobStateR\x04jobs\x12\x1d\n" +
 	"\n" +
 	"machine_id\x18\n" +
-	" \x01(\tR\tmachineId\"\xd8\x01\n" +
+	" \x01(\tR\tmachineId\x12\x12\n" +
+	"\x04arch\x18\v \x01(\tR\x04arch\x12\x1d\n" +
+	"\n" +
+	"build_hash\x18\f \x01(\tR\tbuildHash\x12\x1a\n" +
+	"\bprotocol\x18\r \x01(\x05R\bprotocol\"\xd8\x01\n" +
 	"\x10RegisterResponse\x12\x1b\n" +
 	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12!\n" +
 	"\fdevice_token\x18\x02 \x01(\tR\vdeviceToken\x12-\n" +
@@ -1834,11 +1857,10 @@ const file_proto_agentv1_agent_proto_rawDesc = "" +
 	"\x04rows\x18\x02 \x01(\rR\x04rows\"<\n" +
 	"\x0eTerminalOutput\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\fR\x04data\x12\x16\n" +
-	"\x06closed\x18\x02 \x01(\bR\x06closed\"V\n" +
+	"\x06closed\x18\x02 \x01(\bR\x06closed\"B\n" +
 	"\bShutdown\x12\x18\n" +
 	"\arestart\x18\x01 \x01(\bR\arestart\x12\x1c\n" +
-	"\tuninstall\x18\x02 \x01(\bR\tuninstall\x12\x12\n" +
-	"\x04stop\x18\x03 \x01(\bR\x04stop*\xd0\x01\n" +
+	"\tuninstall\x18\x02 \x01(\bR\tuninstall*\xd0\x01\n" +
 	"\x06FileOp\x12\x17\n" +
 	"\x13FILE_OP_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fFILE_OP_LIST\x10\x01\x12\x10\n" +

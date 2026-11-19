@@ -3,24 +3,19 @@
 Goal: when you want to do something on a device, it works, and when it cannot,
 you are told why. Security hardening is out of scope for now.
 
-> Superseded in part: on 2026-11-19 the owner decided the master, not the
-> device, owns the agent lifecycle. See "Design direction" in
-> [roadmap.md](roadmap.md). Design point 1 below describes what phase 1 built
-> and will be replaced.
-
-**Keep it simple.** The agent is stateless, so there are only two repairs:
-restart it, or reinstall it. Every failure is handled by one of those two, done
-automatically where that is cheap and by one button where it is not. Do not add
-a separate mechanism per failure.
+**Keep it simple.** The agent is stateless, so there is one repair: run the
+install script again. It is safe to repeat and fixes whatever is wrong. Do not
+add a separate mechanism per failure.
 
 ## Design
 
-1. **Each device keeps its own agent alive.** A supervisor inside the agent
-   binary restarts it after a crash. A crontab line starts it every 5 minutes if
-   it is not running, and reinstalls it from the master if its files are gone.
-2. **The master is the source of truth.** It serves one install script, one
-   uninstall script and the agent builds (embedded in the master binary) on
-   port 9090. An agent whose binary differs from the master's replaces itself.
+1. **The master owns the agent lifecycle.** Devices differ too much to rely on
+   systemd or cron being there. The master installs agents over SSH and a loop
+   reinstalls any deployed device whose agent is disconnected or is not the
+   master's build. The agent does not restart, update or reinstall itself.
+2. **The master is the source of truth.** Agent builds for amd64, arm64 and
+   32-bit ARM are embedded in the master, so they always match it. An agent the
+   master refuses as incompatible exits and gets replaced.
 3. **Every action ends in a definite outcome.** It runs, or it fails with a
    reason a person can act on.
 
@@ -28,41 +23,43 @@ a separate mechanism per failure.
 
 | Problem | Handled by |
 |---|---|
-| Agent crashes, or is killed for using too much memory | Supervisor restarts it (done) |
-| Device reboots, or `/tmp` is wiped | Crontab line reinstalls it (done) |
-| Two agents on one device | Lock; the second exits (done) |
+| Agent crashes or is killed | Lifecycle loop reinstalls it (done) |
+| Device reboots, or `/tmp` is wiped | Lifecycle loop reinstalls it (done) |
+| Agent is older than the master | Loop replaces it once it has no running jobs (done) |
+| Agent is incompatible with the master | Master refuses it, agent exits, loop replaces it (done) |
+| Agent is frozen or misbehaving | **Restart** button runs the install script with a forced restart (done) |
+| You stopped an agent on purpose | Marked stopped; the loop leaves it alone (done) |
 | Wrong architecture, or `noexec` directory | Install fails with a clear message (done) |
-| Agent log fills the disk | Supervisor caps it (done) |
+| Agent log fills the disk | Rolled over at 5 MB on each start (done) |
 | Master down, however long | Agents keep retrying and reconnect (done) |
 | Master restarts mid-job | Job keeps running, output is replayed (done) |
-| Agent is frozen or otherwise misbehaving | **Restart** button; if it ignores that, **Reinstall**, which force-kills |
-| Agent is older than the master | Runs the install script again by itself, after running jobs finish |
-| Job sent to an offline device | Fails at once with "offline since …", no queue |
+| SSH to the device fails | Reason shown on the device; changed host key has a "Trust new key" button (done) |
+| Job sent to an offline device | Fails at once with the reason, no queue |
 | Job logs piling up | Deleted after 30 days; 10 MB kept per job |
-| "Offline" with no explanation | Device shows why: never connected, wrong token, last seen, last restart reason |
 
-Deliberately left out, because each adds a mechanism for a rare case: master-side
-SSH revive loop, agent self-removal timers, remembering deleted devices, memory
-and heartbeat watchdogs, job queueing, per-job timeouts. If one of these cases
-actually bites, add it then.
+Recovery takes about a minute: 45 seconds of grace so reconnecting agents are
+left alone, plus up to 15 seconds for the next look.
 
-A device without `crontab` restarts after a crash but not after a reboot; the
-fix is to press Reinstall or paste the install command again.
-
-## Build order
-
-See [roadmap.md](roadmap.md), step 1. Phase 1 (self-healing install) is done.
+Left out on purpose: anything on the device that manages the agent (supervisor,
+cron, systemd), installing by hand, job queueing, per-job timeouts, watchdogs.
+If one of these cases actually bites, add it then.
 
 ## Status
 
-- Phase 1: done. Verified live: install by curl, agent crash, supervisor killed,
-  double start, repeated install, wiped directory, stop and remove from the API,
-  wrong-architecture message. Not yet exercised: the SSH install path and a real
-  cron daemon (the crontab line was run by hand).
-- Next: roadmap step 1.
+- Master-owned lifecycle: done and verified live against a local test SSH
+  server (`server/internal/provisioning/sshtest`): deploy, agent killed and
+  directory wiped (reinstalled in 76 s), master rebuilt with a new agent build
+  (agent replaced automatically), stop (left alone), start, remove, unreachable
+  device (clear error). Changed host key and repeat installs are covered by
+  tests. Not yet exercised: an incompatible agent being refused (the check is
+  in place but no old-protocol agent was run against it), a real device, and a
+  32-bit ARM board.
+- Next: see [roadmap.md](roadmap.md).
 
 ## Testing notes
 
-The development machine has `crontab` but no cron daemon and no SSH server. Run
-the crontab line by hand to test self-heal. Test the SSH path against an
-in-process SSH server written with `golang.org/x/crypto/ssh`.
+The development machine has no SSH server. For a live test run
+`go run ./internal/provisioning/sshtest/sshd` from `server/` (it listens on
+127.0.0.1:2222 and runs commands locally), generate a key with `ssh-keygen`,
+start the master with `GLOSKI_MASTER_SSH_KEY_FILE` pointing at it, and deploy
+to host `127.0.0.1`, SSH port `2222`. The agent lands in `/tmp/gloski`.

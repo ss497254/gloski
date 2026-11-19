@@ -212,17 +212,29 @@ func (r *Registry) ListDeployments() ([]Deployment, error) {
 
 // SetDeploymentStatus updates a deployment's status and optional error.
 func (r *Registry) SetDeploymentStatus(id, status, errMsg string) error {
-	return r.deployments.SetStatus(id, status, errMsg)
+	err := r.deployments.SetStatus(id, status, errMsg)
+	if err == nil {
+		r.changed()
+	}
+	return err
 }
 
 // SetDeploymentRunning marks a deployment as running with its remote PID.
 func (r *Registry) SetDeploymentRunning(id, pid string) error {
-	return r.deployments.SetRunning(id, pid)
+	err := r.deployments.SetRunning(id, pid)
+	if err == nil {
+		r.changed()
+	}
+	return err
 }
 
 // SetDeploymentStopped marks a deployment as stopped.
 func (r *Registry) SetDeploymentStopped(id string) error {
-	return r.deployments.SetStopped(id)
+	err := r.deployments.SetStopped(id)
+	if err == nil {
+		r.changed()
+	}
+	return err
 }
 
 // DeleteDeployment removes a deployment record.

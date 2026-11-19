@@ -83,6 +83,13 @@ export async function startDevice(id: string): Promise<{ pid: string; status: st
   return request<{ pid: string; status: string }>(`/api/devices/${encodeURIComponent(id)}/start`, { method: 'POST' })
 }
 
+/** Accept a device's new SSH host key and install the agent again. */
+export async function trustDeviceHost(id: string): Promise<{ pid: string; status: string }> {
+  return request<{ pid: string; status: string }>(`/api/devices/${encodeURIComponent(id)}/trust-host`, {
+    method: 'POST',
+  })
+}
+
 export async function stopDevice(id: string): Promise<{ stopped: boolean; status: string }> {
   return request<{ stopped: boolean; status: string }>(`/api/devices/${encodeURIComponent(id)}/stop`, {
     method: 'POST',
