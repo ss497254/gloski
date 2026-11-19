@@ -11,6 +11,7 @@ import (
 	"github.com/ss497254/gloski/proto/agentv1"
 )
 
+// PTYSession is one shell running on a pseudo-terminal.
 type PTYSession struct {
 	ptmx   *os.File
 	cmd    *exec.Cmd

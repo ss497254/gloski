@@ -1,3 +1,5 @@
+// Command gloski runs the master: the dashboard, browser API, SQLite state and
+// agent lifecycle. The device-side binary is gloski-agent.
 package main
 
 import (

@@ -15,6 +15,7 @@ type responseWriter struct {
 	status int
 }
 
+// WriteHeader records the status code for the request log.
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)

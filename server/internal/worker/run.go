@@ -1,3 +1,5 @@
+// Package worker implements gloski-agent, the device-side half of the gRPC
+// stream: registration, heartbeats, jobs, files and terminal sessions.
 package worker
 
 import (

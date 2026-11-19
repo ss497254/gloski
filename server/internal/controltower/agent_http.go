@@ -66,6 +66,7 @@ type peekedConn struct {
 	reader *bufio.Reader
 }
 
+// Read reads through the peeked prefix before the underlying connection.
 func (c *peekedConn) Read(p []byte) (int, error) { return c.reader.Read(p) }
 
 type chanListener struct {
@@ -75,6 +76,7 @@ type chanListener struct {
 	addr   net.Addr
 }
 
+// Accept waits for a connection routed to this side.
 func (l *chanListener) Accept() (net.Conn, error) {
 	select {
 	case conn := <-l.conns:
@@ -84,7 +86,10 @@ func (l *chanListener) Accept() (net.Conn, error) {
 	}
 }
 
-func (l *chanListener) Close() error   { return l.close() }
+// Close closes the shared listener.
+func (l *chanListener) Close() error { return l.close() }
+
+// Addr returns the address of the shared listener.
 func (l *chanListener) Addr() net.Addr { return l.addr }
 
 // agentHTTPHandler serves plain HTTP on the agent port.

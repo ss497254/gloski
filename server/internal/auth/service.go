@@ -1,3 +1,5 @@
+// Package auth validates the optional API key and JWT credentials used by the
+// browser-facing master API.
 package auth
 
 import (
@@ -9,19 +11,28 @@ import (
 	"github.com/ss497254/gloski/internal/config"
 )
 
+// Errors returned by credential validation.
 var (
-	ErrInvalidAPIKey   = errors.New("invalid API key")
-	ErrInvalidToken    = errors.New("invalid token")
-	ErrNoAuthMethod    = errors.New("no authentication method configured")
-	ErrTokenExpired    = errors.New("token expired")
+	// ErrInvalidAPIKey means the supplied API key does not match the configured one.
+	ErrInvalidAPIKey = errors.New("invalid API key")
+	// ErrInvalidToken means no JWT public key is configured or the token is malformed.
+	ErrInvalidToken = errors.New("invalid token")
+	// ErrNoAuthMethod means no API key or JWT public key is configured.
+	ErrNoAuthMethod = errors.New("no authentication method configured")
+	// ErrTokenExpired means the JWT's exp claim is in the past.
+	ErrTokenExpired = errors.New("token expired")
+	// ErrInvalidAudience means the JWT's audience does not include the master.
 	ErrInvalidAudience = errors.New("invalid audience")
 )
 
+// Service checks the credentials accepted by the browser-facing API.
 type Service struct {
 	apiKey       string
 	jwtPublicKey *rsa.PublicKey
 }
 
+// NewService builds the credential checker for the configured API key and JWT
+// public key.
 func NewService(cfg *config.Config) (*Service, error) {
 	s := &Service{
 		apiKey: cfg.APIKey,

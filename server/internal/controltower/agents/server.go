@@ -26,6 +26,7 @@ const (
 	processRequestTimeout    = 10 * time.Second
 )
 
+// ErrNoAgent means the device has no live agent stream.
 var ErrNoAgent = errors.New("agent is not connected")
 
 // Service owns agent connections and master-side job state.
@@ -48,6 +49,7 @@ type Service struct {
 	stopping map[string]struct{}
 }
 
+// New creates the master-side stream service and its job store.
 func New(db *database.Database, fleetSvc *fleet.Registry, version string, interval int) (*Service, error) {
 	jobs, err := NewJobStore(db)
 	if err != nil {

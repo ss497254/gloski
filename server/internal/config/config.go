@@ -1,3 +1,6 @@
+// Package config defines Gloski's configuration, defaults and environment
+// overrides. The same types hold master and agent settings; each binary reads
+// the fields for its side.
 package config
 
 import (
@@ -8,11 +11,15 @@ import (
 	"strings"
 )
 
+// Operating modes accepted in Config.Mode. The gloski binary only runs
+// ModeMaster; gloski-agent forces ModeAgent.
 const (
 	ModeMaster = "master"
 	ModeAgent  = "agent"
 )
 
+// Config is the complete configuration for a master or agent process. Values
+// come from defaults, an optional JSON file, then environment variables.
 type Config struct {
 	// Operating mode: master (default) or agent.
 	Mode string `json:"mode"`
@@ -130,6 +137,8 @@ type JobsConfig struct {
 	MaxJobs int  `json:"max_jobs"` // Maximum number of jobs to keep (default: 100)
 }
 
+// DefaultConfig returns the built-in defaults before the config file and
+// environment are applied.
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	dataDir := filepath.Join(homeDir, ".gloski", "data")
@@ -184,6 +193,8 @@ func (c *Config) LogsDir() string {
 	return filepath.Join(c.DataDir, "logs")
 }
 
+// Load reads the optional JSON config file, applies environment overrides and
+// validates the result.
 func Load(path string) (*Config, error) {
 	cfg := DefaultConfig()
 
@@ -250,10 +261,12 @@ func (c *Config) validate() error {
 	return nil
 }
 
+// Addr returns the host:port the dashboard listens on.
 func (c *Config) Addr() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
 
+// Save writes the configuration as JSON with owner-only permissions.
 func (c *Config) Save(path string) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -268,6 +281,8 @@ func (c *Config) Save(path string) error {
 	return os.WriteFile(path, data, 0600)
 }
 
+// IsPathAllowed reports whether path is inside one of AllowedPaths. An empty
+// list allows every path.
 func (c *Config) IsPathAllowed(path string) bool {
 	if len(c.AllowedPaths) == 0 {
 		return true

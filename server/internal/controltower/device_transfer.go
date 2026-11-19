@@ -48,6 +48,7 @@ type agentFile struct {
 	offset   int64
 }
 
+// Read returns the next piece of the device file.
 func (f *agentFile) Read(buffer []byte) (int, error) {
 	if f.offset >= f.size {
 		return 0, io.EOF
@@ -74,6 +75,7 @@ func (f *agentFile) Read(buffer []byte) (int, error) {
 	return n, nil
 }
 
+// Seek moves the read position, enabling Range requests.
 func (f *agentFile) Seek(offset int64, whence int) (int64, error) {
 	switch whence {
 	case io.SeekStart:
@@ -184,6 +186,7 @@ func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 // full) as opposed to a failure to reach it.
 type fileOpError string
 
+// Error returns the device's message for the failed operation.
 func (e fileOpError) Error() string { return string(e) }
 
 // streamUpload sends content to the device one piece at a time and returns

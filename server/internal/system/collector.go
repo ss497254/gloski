@@ -1,3 +1,5 @@
+// Package system collects Linux host statistics and the process list for
+// heartbeats and the dashboard.
 package system
 
 import (

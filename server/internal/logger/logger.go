@@ -1,3 +1,5 @@
+// Package logger is the process log shared by the master and the agent. It
+// wraps slog with printf-style helpers so call sites stay short.
 package logger
 
 import (

@@ -3,6 +3,10 @@
 The Go side has two binaries: `gloski` (the master/control tower) and
 `gloski-agent` (the device-side worker). They communicate only over gRPC.
 
+Terms in this document are defined in [glossary.md](glossary.md). Routes and
+payloads are in [http-api.md](http-api.md); tables and statuses are in
+[data-model.md](data-model.md).
+
 ## Tech stack
 
 | Technology | Purpose |
@@ -28,16 +32,20 @@ server/
     │   ├── agents/           # Master side of the agent gRPC stream
     │   ├── server.go         # Tower type, construction, shutdown
     │   ├── routes.go         # Browser routes and auth wrapper
-    │   ├── spa.go            # SPA static files and fallback
-    │   ├── local_agent.go    # Supervised agent on the master host
-    │   ├── agent_transport.go# gRPC listeners and endpoint selection
-    │   ├── fleet_loop.go     # Periodic fleet status broadcast
-    │   ├── deploy.go         # SSH deployment/lifecycle endpoints
+    │   ├── handlers.go       # Fleet, device info, fleet WebSocket
     │   ├── dashboard.go      # Summary and issues
-    │   ├── device_api.go     # Shared device API helpers
+    │   ├── deploy.go         # SSH deployment and lifecycle endpoints
+    │   ├── device_api.go     # Shared device helpers, stats, processes
     │   ├── device_jobs.go    # Job endpoints
     │   ├── device_files.go   # File endpoints
-    │   └── device_terminal.go# Terminal WebSocket bridge
+    │   ├── device_transfer.go# Streamed download and upload
+    │   ├── device_terminal.go# Terminal WebSocket bridge
+    │   ├── agent_http.go     # Plain HTTP health on the agent port
+    │   ├── agent_transport.go# gRPC listeners and endpoint selection
+    │   ├── local_agent.go    # Supervised agent on the master host
+    │   ├── lifecycle.go      # Reinstall disconnected/outdated agents
+    │   ├── fleet_loop.go     # Periodic fleet status broadcast
+    │   └── spa.go            # SPA static files and fallback
     ├── fleet/                # Device registry, deployments, event hub
     │   ├── service.go        # Registry: enrollment, heartbeats, status
     │   ├── store.go          # SQLite persistence for devices
@@ -52,12 +60,15 @@ server/
     │   └── client.go
     ├── worker/               # Device agent implementation
     │   ├── run.go            # Runtime lifecycle and command dispatch
-    │   ├── agent_jobs.go     # Job execution and file operations
+    │   ├── agent_jobs.go     # Job execution and streamed output
+    │   ├── agent_files.go    # File operations and piece reads/writes
     │   ├── agent_terminal.go # PTY sessions
     │   └── agent_dial.go     # Dial master over Unix socket or h2c
     ├── config/               # Config types, defaults, env overrides
     ├── database/             # SQLite migrations
     ├── httpapi/              # JSON responses, auth and logging middleware
+    ├── agentdist/            # Agent builds and install scripts
+    ├── auth/                 # Optional API key and JWT checks
     └── files/, system/       # Shared filesystem and stats helpers
 ```
 
@@ -132,7 +143,7 @@ Configuration comes from an optional JSON file, then environment overrides
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `GLOSKI_MODE` | `master` | `master` or `agent` |
+| `GLOSKI_MODE` | `master` | The `gloski` binary only runs `master`; use `gloski-agent` for the device side |
 | `GLOSKI_HOST` / `GLOSKI_PORT` | `127.0.0.1:8080` | Dashboard listener |
 | `GLOSKI_MASTER_WEB_DIR` | `web/dist` | SPA directory |
 | `GLOSKI_MASTER_AGENT_GRPC_HOST` / `_PORT` | Tailscale IPs, `9090` | Remote agent listener |

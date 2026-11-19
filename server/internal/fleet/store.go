@@ -166,6 +166,7 @@ func marshalStats(stats *system.Stats) string {
 	return string(data)
 }
 
+// String renders a device as "name (id)" for logs.
 func (d *Device) String() string {
 	return fmt.Sprintf("%s (%s)", d.Name, d.ID)
 }

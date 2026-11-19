@@ -4,6 +4,9 @@ Gloski is a master/agent control tower for Linux devices on a Tailnet. One
 `gloski` master serves the dashboard and owns all state. Every device —
 including the master itself — runs a stateless `gloski-agent`.
 
+Terms are defined in [glossary.md](glossary.md). The HTTP contract is in
+[http-api.md](http-api.md) and the database in [data-model.md](data-model.md).
+
 ## Components
 
 | Component | Responsibility |
@@ -108,7 +111,8 @@ See [Control Tower](tower.md) for the full configuration reference.
 - Keep the dashboard on the Tailnet; use `tailscale serve` for HTTPS.
 - The agent gRPC port is h2c and must not be exposed off-Tailnet.
 - New SSH host keys are trusted once and stored in `<data_dir>/known_hosts`.
-- An optional `GLOSKI_API_KEY` protects the browser-facing master API.
+- An optional `GLOSKI_API_KEY` or JWT public key protects the browser-facing
+  master API.
 
 ## Future work
 

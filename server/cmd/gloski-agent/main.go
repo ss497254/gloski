@@ -1,3 +1,5 @@
+// Command gloski-agent runs the device-side agent: one gRPC stream to the
+// master, executing jobs, file operations and terminal sessions.
 package main
 
 import (

@@ -18,9 +18,12 @@ import (
 	"github.com/ss497254/gloski/internal/logger"
 )
 
+// Errors returned by fleet registration and lookup.
 var (
+	// ErrInvalidJoinToken means the agent presented the wrong enrollment token.
 	ErrInvalidJoinToken = errors.New("invalid join token")
-	ErrDeviceNotFound   = errors.New("device not found")
+	// ErrDeviceNotFound means no device has that ID or token.
+	ErrDeviceNotFound = errors.New("device not found")
 )
 
 // Service implements registration, heartbeats, and fleet queries.

@@ -30,8 +30,9 @@ See [Control Tower](docs/tower.md) for setup and configuration.
 - **Fast transport** — one gRPC stream per agent (Unix socket locally, h2c over
   Tailnet remotely)
 
-The browser talks only to the master over HTTP/WS. Master and agents do not use
-HTTP between them.
+The browser talks only to the master over HTTP/WS. Master and agents use one
+bidirectional gRPC stream; the agent port also answers plain HTTP health checks
+on the same listener.
 
 ## Code layout
 
@@ -57,6 +58,10 @@ All settings are documented in [docs/tower.md](docs/tower.md).
 ## Documentation
 
 - [Architecture Overview](docs/architecture.md)
+- [Glossary](docs/glossary.md)
+- [HTTP API](docs/http-api.md)
+- [Data Model](docs/data-model.md)
+- [Where to Change What](docs/where-to-change-what.md)
 - [Control Tower](docs/tower.md)
 - [Frontend](docs/frontend.md)
 - [Backend](docs/backend.md)

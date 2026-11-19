@@ -53,7 +53,7 @@ gloski/
 └── CONTRIBUTING.md  # This file
 ```
 
-See [docs/frontend.md](docs/frontend.md) and [docs/backend.md](docs/backend.md) for detailed architecture.
+See [docs/frontend.md](docs/frontend.md) and [docs/backend.md](docs/backend.md) for detailed architecture. For the vocabulary, the HTTP contract and the common change paths, start with the [glossary](docs/glossary.md), [HTTP API](docs/http-api.md), [data model](docs/data-model.md) and [where to change what](docs/where-to-change-what.md).
 
 ## Code Style
 
@@ -140,11 +140,14 @@ go build ./cmd/gloski
 
 ## Git Workflow
 
-1. Create a feature branch: `git checkout -b feature/my-feature`
-2. Make your changes
-3. Test: `bun run build` (frontend) and `go build ./cmd/gloski` and `go build ./cmd/gloski-agent` (backend)
-4. Commit with clear messages
-5. Push and create a PR
+This is a solo project. Commit straight to `main`; do not create feature
+branches, pull requests or force-pushes. Do not push unless the owner asks.
+
+1. Make the change on `main`.
+2. Run the backend and frontend checks below.
+3. Commit with a clear message.
+4. Keep `main` buildable after every commit. Split unrelated work into
+   separate commits.
 
 ### Commit Message Format
 
@@ -157,14 +160,35 @@ type: short description
 
 Types: `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`
 
+## Documentation Checklist
+
+Code changes are not done until the matching docs are true:
+
+- New or changed HTTP route: update [docs/http-api.md](docs/http-api.md).
+- Schema or status change: update [docs/data-model.md](docs/data-model.md).
+- New package or exported Go symbol: add its doc comment.
+- New page, route or client: update [docs/frontend.md](docs/frontend.md).
+- New term or a renamed concept: update [docs/glossary.md](docs/glossary.md).
+- Moving where a kind of change belongs: update
+  [docs/where-to-change-what.md](docs/where-to-change-what.md).
+
 ## Need Help?
 
 - Check the [docs/](docs/) folder for detailed documentation
 - Look at existing code for patterns
 - Open an issue for questions
 
-## Documentation
+## Documentation Map
 
-- [Frontend Architecture](docs/frontend.md)
+- [Architecture Overview](docs/architecture.md)
+- [Glossary](docs/glossary.md)
+- [HTTP API](docs/http-api.md)
+- [Data Model](docs/data-model.md)
+- [Where to Change What](docs/where-to-change-what.md)
 - [Backend Architecture](docs/backend.md)
+- [Frontend Architecture](docs/frontend.md)
+- [Control Tower](docs/tower.md)
 - [Responsive Design Patterns](docs/responsive-design.md)
+- [SDK](docs/sdk.md)
+- [Code Quality Plan](docs/code-quality-plan.md)
+- [Roadmap](docs/roadmap.md)

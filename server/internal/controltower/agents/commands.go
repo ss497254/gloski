@@ -9,6 +9,8 @@ import (
 	"github.com/ss497254/gloski/proto/agentv1"
 )
 
+// RunJob stores a pending job, marks it running and sends it to the device. A
+// send failure is recorded as a failed job.
 func (svc *Service) RunJob(deviceID, command, cwd string) (*Job, error) {
 	conn, err := svc.connection(deviceID)
 	if err != nil {
