@@ -92,6 +92,24 @@ version turns it around.
 | U3 | Update needed while jobs run | Waits for jobs to finish |
 | U4 | Update loop | Impossible: binaries are embedded in the master, hashes match after one update |
 
+### An agent that misbehaves
+
+Rule: nothing that controls an agent may depend on that agent cooperating. The
+supervisor is a separate, tiny process, so it is the one that judges and kills.
+
+| # | Scenario | What handles it |
+|---|---|---|
+| G1 | Connected but frozen: commands time out | Agent writes a heartbeat file; supervisor kills and restarts it after 2 minutes of silence. Master drops a stream whose heartbeats stop |
+| G2 | Agent itself leaks memory or spins CPU | Supervisor restarts it above a memory limit (jobs not counted) |
+| G3 | Ignores stop or uninstall | Supervisor and uninstall script use SIGKILL after a grace period; on its next connect the master answers "stop" or "remove yourself" before anything else runs |
+| G4 | Crash loop | Backoff up to 30 s; restart count and last exit reason shown on the device |
+| G5 | Runaway jobs | Cancel kills the whole process group; "stop all jobs" per device |
+| G6 | Floods the master with output | 10 MB per job, bounded terminal buffer |
+| G7 | Deleted device keeps coming back | Master remembers deleted devices and tells them to remove themselves |
+| G8 | Update keeps failing | One attempt per connect, failure reason shown, old binary keeps working |
+
+G1 to G3, G7 and G8 are built in phase 2; G4 and G5 are shown in phase 4.
+
 Later, on request: resumable terminals, per-job timeouts, editor "changed on
 disk" check, one command on many devices with per-device results, dashboard
 reconnect banner.
