@@ -25,7 +25,10 @@ transfer files, and view processes and stats on every device.
   found through Tailscale.
 
 Deeper reading: `docs/architecture.md`, `docs/tower.md`, `docs/backend.md`,
-`docs/frontend.md`, `CONTRIBUTING.md`.
+`docs/frontend.md`, `CONTRIBUTING.md`. `docs/ideas-from-smdwin.md` inventories
+patterns from a Windows diagnostics tool; `docs/beszel/` is a topic-by-topic
+sourcebook for borrowing from Beszel (MIT; its frontend is React 19, so UI code
+is directly portable). Start at `docs/beszel/README.md`.
 
 ## Owner's priorities and preferences
 

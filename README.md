@@ -66,3 +66,9 @@ All settings are documented in [docs/tower.md](docs/tower.md).
 - [Frontend](docs/frontend.md)
 - [Backend](docs/backend.md)
 - [SDK](docs/sdk.md)
+
+## Acknowledgements
+
+Patterns and a small amount of code in this project were informed by
+[Beszel](https://github.com/henrygd/beszel) (MIT, © 2024 henrygd). See
+[docs/beszel/](docs/beszel/README.md) for the topic-by-topic reference.

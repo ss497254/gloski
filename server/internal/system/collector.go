@@ -148,36 +148,69 @@ func (c *Collector) getCPUStats() CPUStats {
 		return stats
 	}
 
-	// Calculate deltas
-	totalDelta := float64(current.Total - c.prevCPU.Total)
-	if totalDelta > 0 {
-		stats.User = float64(current.User-c.prevCPU.User) / totalDelta * 100
-		stats.System = float64(current.System-c.prevCPU.System) / totalDelta * 100
-		stats.Idle = float64(current.Idle-c.prevCPU.Idle) / totalDelta * 100
-		stats.IOWait = float64(current.IOWait-c.prevCPU.IOWait) / totalDelta * 100
-		stats.UsagePercent = 100 - stats.Idle
-	}
+	stats = cpuStatsFromTimes(current, c.prevCPU, cores, c.prevCores)
+	stats.Cores = runtime.NumCPU()
+	stats.ModelName = c.cpuModel
 
-	// Per-core deltas for the btop-style view.
-	stats.PerCore = make([]float64, len(cores))
-	for i := range cores {
-		if i >= len(c.prevCores) {
-			break
-		}
-		delta := float64(cores[i].Total - c.prevCores[i].Total)
-		if delta <= 0 {
-			continue
-		}
-		idle := float64(cores[i].Idle-c.prevCores[i].Idle) / delta * 100
-		stats.PerCore[i] = clampPercent(100 - idle)
-	}
-
-	// Update previous values
+	// Always advance the baseline, including after a rollback, so the next
+	// sample measures a fresh interval instead of repeating the bad delta.
 	c.prevCPU = current
 	c.prevCores = cores
 	c.prevCPUTime = time.Now()
 
 	return stats
+}
+
+// cpuStatsFromTimes turns two CPU snapshots into percentages. A counter can
+// move backwards when a VM is reset or a kernel counter wraps; treating that as
+// a negative delta produces a huge bogus usage value. On rollback this returns
+// zero values rather than a percentage.
+func cpuStatsFromTimes(current, previous CPUTimes, cores, prevCores []CPUTimes) CPUStats {
+	var stats CPUStats
+
+	totalDelta, ok := counterDelta(current.Total, previous.Total)
+	if !ok || totalDelta == 0 {
+		return stats
+	}
+
+	stats.User = percentDelta(current.User, previous.User, totalDelta)
+	stats.System = percentDelta(current.System, previous.System, totalDelta)
+	stats.Idle = percentDelta(current.Idle, previous.Idle, totalDelta)
+	stats.IOWait = percentDelta(current.IOWait, previous.IOWait, totalDelta)
+	stats.UsagePercent = clampPercent(100 - stats.Idle)
+
+	// Per-core deltas for the btop-style view.
+	stats.PerCore = make([]float64, len(cores))
+	for i := range cores {
+		if i >= len(prevCores) {
+			break
+		}
+		delta, ok := counterDelta(cores[i].Total, prevCores[i].Total)
+		if !ok || delta == 0 {
+			continue
+		}
+		idle := percentDelta(cores[i].Idle, prevCores[i].Idle, delta)
+		stats.PerCore[i] = clampPercent(100 - idle)
+	}
+
+	return stats
+}
+
+// counterDelta reports the increase between two monotonic counters. A decrease
+// means the counter was reset or wrapped, so no rate can be computed.
+func counterDelta(current, previous uint64) (uint64, bool) {
+	if current < previous {
+		return 0, false
+	}
+	return current - previous, true
+}
+
+func percentDelta(current, previous, total uint64) float64 {
+	delta, ok := counterDelta(current, previous)
+	if !ok || total == 0 {
+		return 0
+	}
+	return float64(delta) / float64(total) * 100
 }
 
 func (c *Collector) readCPUTimes() (CPUTimes, []CPUTimes, error) {
@@ -462,10 +495,14 @@ func (c *Collector) getUptime() (int64, int64) {
 }
 
 func byteRate(current, previous uint64, elapsed float64) float64 {
-	if elapsed <= 0 || current < previous {
+	if elapsed <= 0 {
 		return 0
 	}
-	return float64(current-previous) / elapsed
+	delta, ok := counterDelta(current, previous)
+	if !ok {
+		return 0
+	}
+	return float64(delta) / elapsed
 }
 
 func clampPercent(v float64) float64 {
