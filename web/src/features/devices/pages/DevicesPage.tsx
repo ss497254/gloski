@@ -3,7 +3,7 @@ import { cn, formatBytes, formatRelativeTime, formatUptime } from '@/shared/lib/
 import { useTower } from '@/shared/tower'
 import type { FleetDevice } from '@/shared/tower/types'
 import { Button } from '@/ui/button'
-import { EmptyState, UsageBar } from '@/shared/components'
+import { DeployDeviceDialog, EmptyState, UsageBar } from '@/shared/components'
 import { Skeleton } from '@/ui/skeleton'
 import {
   Activity,
@@ -21,7 +21,7 @@ import {
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { devicePath } from '@/app/navigation'
-import { DeployDeviceDialog } from '../components/DeployDeviceDialog'
+import { DiagnoseButton } from '../components/DiagnoseDialog'
 import { useDeviceActions } from '../hooks/useDeviceActions'
 
 function DeviceRow({ device }: { device: FleetDevice }) {
@@ -99,6 +99,7 @@ function DeviceRow({ device }: { device: FleetDevice }) {
       <td className="px-4 py-3 text-xs text-muted-foreground">{formatRelativeTime(device.last_seen)}</td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
+          <DiagnoseButton deviceId={device.id} deviceName={device.name} iconOnly variant="ghost" size="icon-sm" />
           {device.managed && online && (
             <Button
               variant="ghost"

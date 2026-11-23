@@ -5,13 +5,14 @@ import { getDashboard } from '@/shared/tower/client'
 import type { DashboardSummary, FleetDevice } from '@/shared/tower/types'
 import { useTower } from '@/shared/tower'
 import { Button } from '@/ui/button'
-import { EmptyState, UsageBar } from '@/shared/components'
+import { DeployDeviceDialog, EmptyState, UsageBar } from '@/shared/components'
 import { Skeleton } from '@/ui/skeleton'
 import {
   Activity,
   AlertTriangle,
   ArrowUpRight,
   Circle,
+  Copy,
   Cpu,
   ListTodo,
   Plus,
@@ -22,7 +23,6 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { DeployDeviceDialog } from '@/features/devices/components/DeployDeviceDialog'
 
 function Metric({ icon: Icon, label, value, tone }: { icon: typeof Cpu; label: string; value: string; tone?: string }) {
   return (
@@ -82,6 +82,7 @@ export function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [deployOpen, setDeployOpen] = useState(false)
+  const [showAllIssues, setShowAllIssues] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -92,6 +93,27 @@ export function DashboardPage() {
       setLoading(false)
     }
   }, [])
+
+  const copyReport = useCallback(async () => {
+    if (!summary) return
+    const lines = [
+      `Gloski report${info?.name ? ` — ${info.name}` : ''}`,
+      `Generated: ${summary.generated_at}`,
+      `Devices: ${summary.online} online, ${summary.offline} offline`,
+      `Issues: ${summary.issues.length}`,
+      '',
+      ...summary.issues.flatMap((issue) => [
+        `- [${issue.severity}] ${issue.title}: ${issue.detail}`,
+        ...(issue.advice ? [`  Advice: ${issue.advice}`] : []),
+      ]),
+    ]
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'))
+      toast.success('Report copied')
+    } catch {
+      toast.error('Could not copy the report')
+    }
+  }, [summary, info])
 
   useEffect(() => {
     if (mode !== 'tower') return
@@ -125,6 +147,7 @@ export function DashboardPage() {
   }
 
   const issues = summary?.issues ?? []
+  const visibleIssues = showAllIssues ? issues : issues.slice(0, 8)
   const online = summary?.online ?? devices.filter((device) => device.status === 'online').length
   const offline = summary?.offline ?? devices.length - online
 
@@ -134,6 +157,10 @@ export function DashboardPage() {
       description={info?.name ? `${info.name} · overview of your tailnet` : 'Overview of your tailnet'}
       actions={
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => void copyReport()} disabled={!summary}>
+            <Copy className="mr-2 h-4 w-4" />
+            Copy report
+          </Button>
           <Button variant="outline" size="sm" onClick={() => void load()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
@@ -166,10 +193,10 @@ export function DashboardPage() {
             </h2>
           </header>
           <div className="divide-y divide-border/70">
-            {issues.slice(0, 8).map((issue) => (
+            {visibleIssues.map((issue) => (
               <Link
                 key={issue.id}
-                to={issue.device_id ? devicePath(issue.device_id) : '/devices'}
+                to={issue.action ?? (issue.device_id ? devicePath(issue.device_id) : '/devices')}
                 className="flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/40"
               >
                 <Circle
@@ -181,10 +208,21 @@ export function DashboardPage() {
                 <div className="min-w-0">
                   <p className="font-medium text-foreground">{issue.title}</p>
                   <p className="truncate text-xs text-muted-foreground">{issue.detail}</p>
+                  {issue.advice && <p className="mt-1 text-xs text-foreground/80">→ {issue.advice}</p>}
                 </div>
+                <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               </Link>
             ))}
           </div>
+          {issues.length > 8 && (
+            <button
+              type="button"
+              className="w-full border-t border-border px-4 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+              onClick={() => setShowAllIssues((value) => !value)}
+            >
+              {showAllIssues ? 'Show fewer' : `+${issues.length - 8} more`}
+            </button>
+          )}
         </section>
       )}
 

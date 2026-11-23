@@ -17,6 +17,10 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+// agentSignerTimeout bounds the master's conversation with ssh-agent while it
+// lists identities. Keys on disk are always tried as a fallback.
+const agentSignerTimeout = 2 * time.Second
+
 func (i *Installer) connect(ctx context.Context, target Target) (*ssh.Client, error) {
 	auth, cleanup, err := i.authMethods()
 	if err != nil {
@@ -79,10 +83,22 @@ func (i *Installer) authMethods() ([]ssh.AuthMethod, func(), error) {
 	}
 
 	if socket := os.Getenv("SSH_AUTH_SOCK"); socket != "" {
-		conn, err := net.Dial("unix", socket)
+		conn, err := (&net.Dialer{Timeout: agentSignerTimeout}).Dial("unix", socket)
 		if err == nil {
-			methods = append(methods, ssh.PublicKeysCallback(agent.NewClient(conn).Signers))
-			closers = append(closers, conn)
+			// An agent with no identities must not be added as an auth
+			// method: the ssh client then gives up before trying keys from
+			// disk. Ask it for its signers first, with a deadline so a dead
+			// agent (or a hardware token waiting for a touch) cannot stall
+			// a deploy or a diagnosis. Clear it before the handshake signs.
+			_ = conn.SetDeadline(time.Now().Add(agentSignerTimeout))
+			signers, signerErr := agent.NewClient(conn).Signers()
+			_ = conn.SetDeadline(time.Time{})
+			if signerErr == nil && len(signers) > 0 {
+				methods = append(methods, ssh.PublicKeys(signers...))
+				closers = append(closers, conn)
+			} else {
+				_ = conn.Close()
+			}
 		}
 	}
 

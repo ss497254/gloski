@@ -77,6 +77,7 @@ All routes are **auth**.
 | `POST` | `/api/devices/{id}/start` | — | wrapped `{"pid":"...","status":"running"}`; installs over SSH now |
 | `POST` | `/api/devices/{id}/stop` | — | wrapped `{"stopped":<bool>,"status":"stopped"}`; `400` when offline and not deployed over SSH |
 | `POST` | `/api/devices/{id}/trust-host` | — | forgets the stored SSH host key, then starts; same response as start |
+| `POST` | `/api/devices/{id}/diagnose` | — | wrapped `Diagnosis`: `device_id`, `device`, `status`, `headline`, `advice`, `steps`, `generated_at`; `404` when the device does not exist |
 | `GET` | `/api/deployments` | — | wrapped `{"deployments":[Deployment]}` |
 | `GET` | `/api/deployments/{id}` | — | wrapped `Deployment` |
 | `GET` | `/api/tailnet/peers` | — | wrapped `available`, `backend_state`, `self`, `peers`; `available:false` plus `error` when tailscaled is unreachable |
@@ -84,6 +85,14 @@ All routes are **auth**.
 `Device` and `Deployment` fields are defined in `server/internal/fleet/types.go`
 and `server/internal/fleet/deployment.go`. Tokens and machine IDs are never
 returned (`json:"-"`).
+
+`Diagnosis.steps` is ordered from the master outwards: `deployment`, `tailscale`,
+`ssh`, `login`, `install`, `process`, `agent`, `build`. Links that do not apply
+are omitted when the agent is already connected (the answer is already known),
+or present with status `skipped` when a chain stops early; skipped is never
+counted as a failure. Each step has `key`, `title`, `status`, `summary` and optional
+`detail` (raw error) and `advice`. `status` is `ok`, `warning`, `critical` or
+`skipped`. The first critical step's summary becomes the top-level `headline`.
 
 ## Device endpoints
 

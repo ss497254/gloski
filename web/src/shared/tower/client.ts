@@ -2,6 +2,7 @@ import type {
   DashboardSummary,
   Deployment,
   DeployRequest,
+  Diagnosis,
   FleetDevice,
   FleetEvent,
   TailnetResponse,
@@ -94,6 +95,11 @@ export async function stopDevice(id: string): Promise<{ stopped: boolean; status
   return request<{ stopped: boolean; status: string }>(`/api/devices/${encodeURIComponent(id)}/stop`, {
     method: 'POST',
   })
+}
+
+/** Walk the master-to-agent connection chain and explain the first broken link. */
+export async function diagnoseDevice(id: string): Promise<Diagnosis> {
+  return request<Diagnosis>(`/api/devices/${encodeURIComponent(id)}/diagnose`, { method: 'POST' })
 }
 
 /** API prefix to give the SDK when talking to a device through the master. */

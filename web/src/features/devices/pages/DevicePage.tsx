@@ -5,6 +5,7 @@ import { Button } from '@/ui/button'
 import { ArrowLeft, Loader2, Play, Square, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BtopView } from '../components/BtopView'
+import { DiagnoseButton } from '../components/DiagnoseDialog'
 import { useDeviceActions } from '../hooks/useDeviceActions'
 import { useDeviceStats } from '../hooks/useDeviceStats'
 
@@ -47,6 +48,7 @@ export function DevicePage() {
               Devices
             </Link>
           </Button>
+          <DiagnoseButton deviceId={managedDevice.id} deviceName={managedDevice.name} />
           {managedDevice.managed && (
             <Button variant="outline" size="sm" disabled={busy} onClick={() => void run(online ? 'stop' : 'start')}>
               {busy ? (

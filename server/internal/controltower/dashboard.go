@@ -3,6 +3,7 @@ package controltower
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -25,7 +26,34 @@ type dashboardIssue struct {
 	Severity string `json:"severity"`
 	Title    string `json:"title"`
 	Detail   string `json:"detail"`
+	Advice   string `json:"advice,omitempty"`
+	Action   string `json:"action,omitempty"`
 	DeviceID string `json:"device_id,omitempty"`
+
+	// since is only used to sort oldest-first within a severity.
+	since time.Time
+}
+
+// issueRank puts errors before warnings before informational notes. The UI
+// shows the first items, so the most actionable ones must come first.
+func issueRank(severity string) int {
+	switch severity {
+	case "error":
+		return 0
+	case "warning":
+		return 1
+	default:
+		return 2
+	}
+}
+
+func sortIssues(issues []dashboardIssue) {
+	sort.SliceStable(issues, func(i, j int) bool {
+		if rankI, rankJ := issueRank(issues[i].Severity), issueRank(issues[j].Severity); rankI != rankJ {
+			return rankI < rankJ
+		}
+		return issues[i].since.Before(issues[j].since)
+	})
 }
 
 func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
@@ -49,12 +77,19 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		if device.Status == fleet.StatusOnline {
 			online++
 		} else {
+			since := device.LastSeen
+			if since.IsZero() {
+				since = device.CreatedAt
+			}
 			issues = append(issues, dashboardIssue{
 				ID:       "offline-" + device.ID,
 				Severity: "warning",
 				Title:    "Device offline",
 				Detail:   fmt.Sprintf("%s has not sent a heartbeat recently", device.Name),
+				Advice:   "Open Diagnose to find the first broken link between the master and the agent.",
+				Action:   "/devices/" + device.ID,
 				DeviceID: device.ID,
+				since:    since,
 			})
 		}
 		if device.Stats != nil {
@@ -64,7 +99,10 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 					Severity: "warning",
 					Title:    "High CPU usage",
 					Detail:   fmt.Sprintf("%s is at %.0f%% CPU", device.Name, device.Stats.CPU.UsagePercent),
+					Advice:   "Open the device's processes to find what is using the CPU.",
+					Action:   "/devices/" + device.ID,
 					DeviceID: device.ID,
+					since:    device.LastSeen,
 				})
 			}
 			if device.Stats.Memory.UsedPercent > highMemoryPercent {
@@ -73,7 +111,10 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 					Severity: "warning",
 					Title:    "High memory usage",
 					Detail:   fmt.Sprintf("%s is at %.0f%% memory", device.Name, device.Stats.Memory.UsedPercent),
+					Advice:   "Open the device's processes; a stuck task may need to be stopped.",
+					Action:   "/devices/" + device.ID,
 					DeviceID: device.ID,
+					since:    device.LastSeen,
 				})
 			}
 		}
@@ -85,6 +126,9 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			Severity: "error",
 			Title:    "Master agent not connected",
 			Detail:   "The agent on the master device has no live gRPC session",
+			Advice:   "The master's own agent carries every session. Check the master log or restart the master.",
+			Action:   "/devices",
+			since:    t.startedAt,
 		})
 	}
 
@@ -94,12 +138,19 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	} else {
 		for _, deployment := range deployments {
 			if deployment.Status == fleet.DeployFailed {
+				action := "/devices"
+				if deployment.DeviceID != "" {
+					action = "/devices/" + deployment.DeviceID
+				}
 				issues = append(issues, dashboardIssue{
 					ID:       "deploy-" + deployment.ID,
 					Severity: "error",
 					Title:    "Deployment failed",
 					Detail:   fmt.Sprintf("%s: %s", deployment.Name, firstLine(deployment.Error, maxIssueDetail)),
+					Advice:   "Open Diagnose for the exact SSH or install failure, then press Start or Trust new key.",
+					Action:   action,
 					DeviceID: deployment.DeviceID,
+					since:    deployment.UpdatedAt,
 				})
 			}
 		}
@@ -118,12 +169,19 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			if job.Error != "" {
 				detail += " — " + firstLine(job.Error, maxJobDetail)
 			}
+			advice := "Open the task log to see why it failed."
+			if job.Status == agents.JobAbandoned {
+				advice = "The agent disappeared while this task was running. Diagnose the device, then run it again."
+			}
 			issues = append(issues, dashboardIssue{
 				ID:       "job-" + job.ID,
 				Severity: severity,
 				Title:    "Task did not finish",
 				Detail:   detail,
+				Advice:   advice,
+				Action:   "/devices/" + job.DeviceID + "/jobs",
 				DeviceID: job.DeviceID,
+				since:    job.CreatedAt,
 			})
 		}
 	}
@@ -133,6 +191,8 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		logger.Warn("Dashboard could not load recent jobs: %v", err)
 		recentJobs = []agents.Job{}
 	}
+
+	sortIssues(issues)
 
 	httpapi.SuccessWithMessage(w, map[string]interface{}{
 		"devices":      len(list),

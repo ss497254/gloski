@@ -33,6 +33,27 @@ export interface Deployment {
   updated_at: string
 }
 
+export type DiagnosisStatus = 'ok' | 'warning' | 'critical' | 'skipped'
+
+export interface DiagnosisStep {
+  key: string
+  title: string
+  status: DiagnosisStatus
+  summary: string
+  detail?: string
+  advice?: string
+}
+
+export interface Diagnosis {
+  device_id: string
+  device: string
+  status: DiagnosisStatus
+  headline: string
+  advice?: string
+  steps: DiagnosisStep[]
+  generated_at: string
+}
+
 export interface FleetDevice {
   id: string
   name: string
@@ -80,6 +101,8 @@ export interface DashboardIssue {
   severity: 'error' | 'warning' | 'info'
   title: string
   detail: string
+  advice?: string
+  action?: string
   device_id?: string
 }
 

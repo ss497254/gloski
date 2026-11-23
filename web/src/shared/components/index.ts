@@ -1,4 +1,5 @@
 export { ConfirmDialog } from './ConfirmDialog'
+export { DeployDeviceDialog } from './DeployDeviceDialog'
 export { EmptyState } from './empty-state'
 export { FilterSidebar, type FilterItem, type FilterSection } from './filter-sidebar'
 export { LoadingSpinner, PageLoader } from './loading-spinner'
