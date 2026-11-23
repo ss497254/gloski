@@ -16,6 +16,7 @@ func (t *Tower) routes() http.Handler {
 	})
 	mux.HandleFunc("GET /api/tower/info", t.handleTowerInfo)
 	mux.Handle("GET /api/dashboard", t.userAuth(http.HandlerFunc(t.handleDashboard)))
+	mux.Handle("GET /api/system/self-test", t.userAuth(http.HandlerFunc(t.handleSelfTest)))
 	mux.Handle("GET /api/fleet/ws", t.userAuth(http.HandlerFunc(t.handleFleetWS)))
 
 	// Fleet API. If the operator configured an API key or JWT, require it.

@@ -62,6 +62,19 @@ Errors are always the **error** shape.
 | `GET` | `/api/health` | raw `{"status":"ok"}` |
 | `GET` | `/api/tower/info` | wrapped object: `mode`, `name`, `version`, `started_at`, `devices`, `online`, `heartbeat_interval`, `port`, `deploy_available`, `agent_builds`, `tailscale_available`, `tailscale_socket` |
 
+## System
+
+All routes are **auth**.
+
+| Method | Path | Response |
+|---|---|---|
+| `GET` | `/api/system/self-test` | wrapped `SelfTestResult`: `status` (`ok`, `warning`, `critical`), ordered `lines` (`key`, `title`, `status`, `summary`, optional `detail`), `generated_at` |
+
+The self-test only reads state; its one write is a probe file in the data
+directory that is deleted in the same call. Checks that cannot apply yet
+(backups, log files) are present with status `skipped` and do not affect the
+overall status.
+
 ## Fleet and deployments
 
 All routes are **auth**.

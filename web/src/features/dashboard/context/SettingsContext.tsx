@@ -2,7 +2,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 import { useSettingsStore } from '../stores/settings'
 
-export type SettingsTab = 'appearance' | 'about'
+export type SettingsTab = 'appearance' | 'about' | 'health'
 
 interface SettingsContextValue {
   activeTab: SettingsTab
@@ -16,7 +16,9 @@ interface SettingsContextValue {
 const SettingsContext = createContext<SettingsContextValue | null>(null)
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() =>
+    new URLSearchParams(window.location.search).get('tab') === 'health' ? 'health' : 'appearance'
+  )
   const theme = useSettingsStore((state) => state.theme)
   const setTheme = useSettingsStore((state) => state.setTheme)
   const sidebarCollapsed = useSettingsStore((state) => state.sidebarCollapsed)

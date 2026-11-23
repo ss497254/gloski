@@ -17,6 +17,7 @@ renames are in [code-quality-plan.md](code-quality-plan.md).
 | **job** | A command the master owns and one agent executes. | `agents.Job` |
 | **session** | One live `Agent.Connect` gRPC stream for a device. | `agents.connection` |
 | **diagnosis** | An ordered chain of facts from the master outwards, with the first broken link as the headline. | `controltower/diagnose.go` |
+| **self-test** | A read-only checklist of the master's own health, shown under Settings → Master health. | `controltower/selftest.go` |
 | **check** | A saved command whose exit code is a verdict, run on a schedule yet to be built. | `internal/checks` (result model) |
 | **check result** | One run of one check on one device: verdict, summary, details, timing. | `checks.Result`, `check_results` |
 | **stale** | A result older than twice its schedule. Recomputed when read, never stored as a final answer. | `checks.Result.StaleAt` |

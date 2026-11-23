@@ -14,6 +14,7 @@ import (
 	"github.com/ss497254/gloski/internal/agentdist"
 	"github.com/ss497254/gloski/internal/agentdist/builds"
 	"github.com/ss497254/gloski/internal/auth"
+	"github.com/ss497254/gloski/internal/checks"
 	"github.com/ss497254/gloski/internal/config"
 	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/database"
@@ -58,6 +59,15 @@ type Tower struct {
 	// transfers holds file transfers the agent still has to answer on HTTP.
 	transfersMu sync.Mutex
 	transfers   map[string]*transfer
+
+	checkStore *checks.Store
+
+	// Read-only state for the self-test. Maintenance records whether its last
+	// run succeeded; self-test runs keep three runtime points for a trend.
+	maintenanceMu      sync.Mutex
+	lastMaintenance    time.Time
+	lastMaintenanceErr error
+	runtimeSamples     []runtimeSample
 }
 
 // New opens the database and wires the HTTP API, gRPC listeners, and local agent.
@@ -125,6 +135,7 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		agentService:    agentService,
 		agentGRPCServer: grpcServer,
 		transfers:       make(map[string]*transfer),
+		checkStore:      checks.NewStore(db),
 	}
 
 	fleetSvc.SetOnChange(func() {

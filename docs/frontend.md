@@ -89,6 +89,13 @@ The dashboard's issues use the same advice-first shape: `DashboardIssue.action`
 is the destination route and `advice` is the one-line explanation shown under
 the detail. Both the dashboard and the diagnosis dialog have "Copy report".
 
+`getSelfTest()` calls `GET /api/system/self-test`. Settings has a "Master
+health" tab (`?tab=health`) with `MasterHealthSettings`: it re-runs the
+read-only checklist, shows each line's summary and detail, and copies a report.
+The dashboard shows a small Master health card only when the overall status is
+`warning` or `critical`, linking to that tab. A skipped line is never shown as
+a failure.
+
 ## Theming
 
 `web/src/index.css` defines one semantic token set (background, foreground,

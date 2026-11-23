@@ -36,6 +36,14 @@ func (d *Database) migrate() error {
 	return nil
 }
 
+// LatestVersion is the highest migration the master knows about.
+func LatestVersion() int {
+	if len(migrations) == 0 {
+		return 0
+	}
+	return migrations[len(migrations)-1].version
+}
+
 type migration struct {
 	version int
 	name    string

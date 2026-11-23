@@ -4,6 +4,7 @@ import type {
   DeployRequest,
   Diagnosis,
   FleetDevice,
+  SelfTestResult,
   FleetEvent,
   TailnetResponse,
   TowerInfo,
@@ -45,6 +46,11 @@ export async function detectTower(): Promise<TowerInfo | null> {
 
 export async function getDashboard(): Promise<DashboardSummary> {
   return request<DashboardSummary>('/api/dashboard')
+}
+
+/** Read-only health checks of the master itself. */
+export async function getSelfTest(): Promise<SelfTestResult> {
+  return request<SelfTestResult>('/api/system/self-test')
 }
 
 export async function listDevices(): Promise<FleetDevice[]> {

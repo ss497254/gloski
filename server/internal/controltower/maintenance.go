@@ -1,8 +1,10 @@
 package controltower
 
 import (
+	"context"
 	"time"
 
+	"github.com/ss497254/gloski/internal/checks"
 	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/logger"
 )
@@ -28,14 +30,40 @@ func (t *Tower) maintenanceLoop() {
 	}
 }
 
-// pruneJobs removes finished jobs past the retention window.
+// pruneJobs removes finished jobs past the retention window and thins check
+// history. The result is recorded for the self-test, which must not repeat the
+// work or report a guess about the last run.
 func (t *Tower) pruneJobs() {
-	removed, err := t.agentService.PruneJobs(agents.JobRetention)
+	err := func() error {
+		removed, err := t.agentService.PruneJobs(agents.JobRetention)
+		if err != nil {
+			return err
+		}
+		if removed > 0 {
+			logger.Info("Deleted %d jobs finished more than %s ago", removed, agents.JobRetention)
+		}
+		pruned, err := t.checkStore.Prune(context.Background(), checks.HistoryLimit)
+		if err != nil {
+			return err
+		}
+		if pruned > 0 {
+			logger.Info("Deleted %d old check results", pruned)
+		}
+		return nil
+	}()
+
+	t.maintenanceMu.Lock()
+	t.lastMaintenance = time.Now().UTC()
+	t.lastMaintenanceErr = err
+	t.maintenanceMu.Unlock()
+
 	if err != nil {
-		logger.Warn("Failed to prune old jobs: %v", err)
-		return
+		logger.Warn("Maintenance failed: %v", err)
 	}
-	if removed > 0 {
-		logger.Info("Deleted %d jobs finished more than %s ago", removed, agents.JobRetention)
-	}
+}
+
+func (t *Tower) maintenanceState() (time.Time, error) {
+	t.maintenanceMu.Lock()
+	defer t.maintenanceMu.Unlock()
+	return t.lastMaintenance, t.lastMaintenanceErr
 }

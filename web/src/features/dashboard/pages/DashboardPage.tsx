@@ -1,8 +1,8 @@
 import { PageLayout } from '@/layouts'
 import { devicePath } from '@/app/navigation'
 import { cn, formatBytes, formatRelativeTime, formatUptime } from '@/shared/lib/utils'
-import { getDashboard } from '@/shared/tower/client'
-import type { DashboardSummary, FleetDevice } from '@/shared/tower/types'
+import { getDashboard, getSelfTest } from '@/shared/tower/client'
+import type { DashboardSummary, FleetDevice, SelfTestResult } from '@/shared/tower/types'
 import { useTower } from '@/shared/tower'
 import { Button } from '@/ui/button'
 import { DeployDeviceDialog, EmptyState, UsageBar } from '@/shared/components'
@@ -80,18 +80,21 @@ function DeviceCard({ device }: { device: FleetDevice }) {
 export function DashboardPage() {
   const { mode, devices, info } = useTower()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
+  const [health, setHealth] = useState<SelfTestResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [deployOpen, setDeployOpen] = useState(false)
   const [showAllIssues, setShowAllIssues] = useState(false)
 
   const load = useCallback(async () => {
+    // The health card is optional; a slow quick_check must not delay the
+    // dashboard itself.
+    void getSelfTest().then(setHealth).catch(() => undefined)
     try {
       setSummary(await getDashboard())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load dashboard')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }, [])
 
   const copyReport = useCallback(async () => {
@@ -183,6 +186,36 @@ export function DashboardPage() {
           tone={issues.length ? 'text-warning' : undefined}
         />
       </div>
+
+      {health && health.status !== 'ok' && (
+        <Link
+          to="/settings?tab=health"
+          className="mt-5 block rounded-lg border border-warning/30 bg-warning/5 p-4 transition-colors hover:border-warning/60"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Activity className="h-4 w-4 text-warning" />
+                Master health
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {health.status === 'critical' ? 'A master check failed.' : 'A master check needs a look.'}
+              </p>
+              <ul className="mt-2 space-y-1">
+                {health.lines
+                  .filter((line) => line.status === 'warning' || line.status === 'critical')
+                  .slice(0, 2)
+                  .map((line) => (
+                    <li key={line.key} className="truncate text-xs text-foreground/80">
+                      {line.title}: {line.summary}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </div>
+        </Link>
+      )}
 
       {issues.length > 0 && (
         <section className="mt-5 rounded-lg border border-border bg-card">

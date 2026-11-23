@@ -54,6 +54,20 @@ export interface Diagnosis {
   generated_at: string
 }
 
+export interface SelfTestLine {
+  key: string
+  title: string
+  status: DiagnosisStatus
+  summary: string
+  detail?: string
+}
+
+export interface SelfTestResult {
+  status: DiagnosisStatus
+  lines: SelfTestLine[]
+  generated_at: string
+}
+
 export interface FleetDevice {
   id: string
   name: string
