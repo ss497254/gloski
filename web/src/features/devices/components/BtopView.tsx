@@ -1,7 +1,8 @@
 import type { ProcessInfo, SystemStats } from '@/shared/api'
-import { ProgressBar, StatusDot, toneSurface } from '@/shared/components'
+import { MetricsChart, ProgressBar, StatusDot, toneSurface } from '@/shared/components'
+import { chartCeiling, pointsForMetric } from '@/features/devices/lib/history'
 import { cn, formatBytes, formatUptime } from '@/shared/lib/utils'
-import type { FleetDevice } from '@/shared/tower'
+import type { FleetDevice, MetricSample } from '@/shared/tower'
 import { Badge } from '@/ui/badge'
 import { Card } from '@/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table'
@@ -21,6 +22,17 @@ interface BtopViewProps {
   stats: SystemStats | null
   processes: ProcessInfo[]
   connected: boolean
+  history?: MetricSample[]
+}
+
+// Metric names are defined by the master's metrics package; keep them in one
+// place here so a rename only needs one edit on each side.
+const metric = {
+  cpu: 'cpu',
+  memory: 'memory',
+  rx: 'network_rx',
+  tx: 'network_tx',
+  disk: (mount: string) => `disk:${mount}`,
 }
 
 function Stat({
@@ -56,7 +68,7 @@ function usageTone(percent: number): StatusTone {
   return 'success'
 }
 
-export function BtopView({ device, stats, processes, connected }: BtopViewProps) {
+export function BtopView({ device, stats, processes, connected, history = [] }: BtopViewProps) {
   if (!stats) {
     return (
       <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
@@ -67,6 +79,12 @@ export function BtopView({ device, stats, processes, connected }: BtopViewProps)
 
   const cpu = stats.cpu.usage_percent
   const memory = stats.memory.used_percent
+  const cpuHistory = pointsForMetric(history, metric.cpu)
+  const memoryHistory = pointsForMetric(history, metric.memory)
+  const rxHistory = pointsForMetric(history, metric.rx)
+  const txHistory = pointsForMetric(history, metric.tx)
+  const firstDisk = stats.disks.find((disk) => disk.total > 0)
+  const diskHistory = firstDisk ? pointsForMetric(history, metric.disk(firstDisk.mount_point)) : []
 
   return (
     <div className="space-y-4">
@@ -109,6 +127,38 @@ export function BtopView({ device, stats, processes, connected }: BtopViewProps)
           value={`${stats.disks.length}`}
           detail={`${stats.processes} running processes`}
         />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <MetricsChart title="CPU" data={cpuHistory} dataKey="value" color="hsl(221, 83%, 53%)" unit="%" />
+        <MetricsChart title="Memory" data={memoryHistory} dataKey="value" color="hsl(142, 71%, 45%)" unit="%" />
+        <MetricsChart
+          title="Network in"
+          data={rxHistory}
+          dataKey="value"
+          color="hsl(199, 89%, 48%)"
+          unit="B/s"
+          formatValue={(value) => formatBytes(value)}
+          max={chartCeiling(rxHistory, 1024)}
+        />
+        <MetricsChart
+          title="Network out"
+          data={txHistory}
+          dataKey="value"
+          color="hsl(262, 83%, 58%)"
+          unit="B/s"
+          formatValue={(value) => formatBytes(value)}
+          max={chartCeiling(txHistory, 1024)}
+        />
+        {firstDisk && (
+          <MetricsChart
+            title={`Disk ${firstDisk.mount_point}`}
+            data={diskHistory}
+            dataKey="value"
+            color="hsl(38, 92%, 50%)"
+            unit="%"
+          />
+        )}
       </div>
 
       <Card className="gap-0 overflow-hidden py-0">

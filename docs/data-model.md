@@ -35,6 +35,7 @@ Migrations live in `server/internal/database/migrations.go`.
 | 8 | `devices.machine_id` |
 | 9 | `check_results` |
 | 10 | `device_actions` |
+| 11 | `metric_samples` |
 
 The job tables are **not** migrations. `agents.NewJobStore` creates
 `agent_jobs` and `agent_job_logs` with `CREATE TABLE IF NOT EXISTS` and adds
@@ -107,6 +108,26 @@ The index is `(check_id, device_id, ran_at DESC, id DESC)` so the latest result
 and a short history are cheap to read. `checks.Store.Prune` keeps the newest 20
 rows per pair by default (`HistoryLimit`); it is intended for the daily
 maintenance pass.
+
+### `metric_samples`
+
+One row per metric value recorded from a device heartbeat. The master writes
+one sample per (device, metric) at most every five minutes; the agent's in-memory ring is
+separate and is not sent to the master.
+
+| Column | Meaning |
+|---|---|
+| `device_id`, `metric` | The series this value belongs to |
+| `ts` | When the master sampled it (UTC) |
+| `day` | `ts` formatted as `YYYY-MM-DD`; stored explicitly because the SQLite driver's time format is not understood by `date()` |
+| `value` | The metric value; percentages for CPU, memory, swap and disks, load1, and bytes/sec for network rates |
+
+Metric names are stable: `cpu`, `memory`, `swap`, `load1`, `network_rx`,
+`network_tx` and `disk:<mount_point>`. There are two indexes:
+`(device_id, metric, ts DESC)` for chart reads and
+`(device_id, ts DESC)` for the throttle's newest-timestamp lookup. The daily maintenance pass keeps full
+resolution for 7 days, then one sample per (device, metric, day) up to 365 days,
+and deletes older rows. It never touches job or check retention.
 
 ### `device_actions`
 

@@ -99,6 +99,14 @@ export interface FleetDevice {
   deployment?: Deployment | null
 }
 
+/** One metric value recorded by the master from a device heartbeat. */
+export interface MetricSample {
+  device_id: string
+  metric: string
+  ts: string
+  value: number
+}
+
 export interface TailnetNode {
   hostname: string
   dns_name: string

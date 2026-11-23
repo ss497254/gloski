@@ -13,6 +13,7 @@ import (
 	"github.com/ss497254/gloski/internal/database"
 	"github.com/ss497254/gloski/internal/fleet"
 	"github.com/ss497254/gloski/internal/logger"
+	"github.com/ss497254/gloski/internal/metrics"
 	"github.com/ss497254/gloski/internal/system"
 	"github.com/ss497254/gloski/proto/agentv1"
 	"google.golang.org/grpc/codes"
@@ -35,6 +36,7 @@ type Service struct {
 
 	fleetSvc *fleet.Registry
 	jobs     *JobStore
+	metrics  *metrics.Store
 	version  string
 	interval int
 
@@ -50,7 +52,7 @@ type Service struct {
 }
 
 // New creates the master-side stream service and its job store.
-func New(db *database.Database, fleetSvc *fleet.Registry, version string, interval int) (*Service, error) {
+func New(db *database.Database, fleetSvc *fleet.Registry, metricStore *metrics.Store, version string, interval int) (*Service, error) {
 	jobs, err := NewJobStore(db)
 	if err != nil {
 		return nil, err
@@ -61,6 +63,7 @@ func New(db *database.Database, fleetSvc *fleet.Registry, version string, interv
 	return &Service{
 		fleetSvc:    fleetSvc,
 		jobs:        jobs,
+		metrics:     metricStore,
 		version:     version,
 		interval:    interval,
 		connections: make(map[string]*connection),
@@ -201,7 +204,9 @@ func (svc *Service) handle(conn *connection, message *agentv1.AgentMessage) {
 		stats := decodeStats(payload.Heartbeat.GetStatsJson())
 		if _, err := svc.fleetSvc.Heartbeat(conn.token, fleet.HeartbeatRequest{Stats: stats}); err != nil {
 			logger.Warn("Heartbeat from %s rejected: %v", conn.deviceID, err)
+			break
 		}
+		svc.recordMetrics(conn.deviceID, stats)
 	case *agentv1.AgentMessage_JobOutput:
 		if err := svc.jobs.AppendLog(message.RequestId, payload.JobOutput.GetSeq(), payload.JobOutput.GetChunk(), payload.JobOutput.GetStderr()); err != nil {
 			logger.Warn("Failed to store job output for %s: %v", message.RequestId, err)
@@ -227,6 +232,20 @@ func (svc *Service) handle(conn *connection, message *agentv1.AgentMessage) {
 		conn.respond(message.RequestId, message)
 	case *agentv1.AgentMessage_TerminalOutput:
 		conn.terminalOutput(message.RequestId, payload.TerminalOutput)
+	}
+}
+
+// recordMetrics persists one sample per metric, at most once every
+// metrics.SampleInterval. The timeout keeps a busy database from stalling the
+// heartbeat dispatch loop.
+func (svc *Service) recordMetrics(deviceID string, stats *system.Stats) {
+	if svc.metrics == nil || stats == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err := svc.metrics.Record(ctx, deviceID, time.Now().UTC(), metrics.SamplesFromStats(stats)); err != nil {
+		logger.Warn("Failed to record metrics for %s: %v", deviceID, err)
 	}
 }
 

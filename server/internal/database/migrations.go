@@ -247,4 +247,21 @@ var migrations = []migration{
 			CREATE INDEX idx_device_actions_recent ON device_actions(device_id, created_at DESC);
 		`,
 	},
+	{
+		version: 11,
+		name:    "add_metric_samples",
+		sql: `
+			CREATE TABLE metric_samples (
+				device_id TEXT NOT NULL,
+				metric TEXT NOT NULL,
+				ts DATETIME NOT NULL,
+				day TEXT NOT NULL,
+				value REAL NOT NULL
+			);
+			CREATE INDEX idx_metric_samples_series ON metric_samples(device_id, metric, ts DESC);
+			-- The sample throttle looks up the newest ts for a device on every
+			-- heartbeat, without knowing the metric yet.
+			CREATE INDEX idx_metric_samples_latest ON metric_samples(device_id, ts DESC);
+		`,
+	},
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/ss497254/gloski/internal/fleet"
 	"github.com/ss497254/gloski/internal/httpapi"
 	"github.com/ss497254/gloski/internal/logger"
+	"github.com/ss497254/gloski/internal/metrics"
 	"github.com/ss497254/gloski/internal/provisioning"
 	"github.com/ss497254/gloski/internal/tailnet"
 	"github.com/ss497254/gloski/proto/agentv1"
@@ -63,6 +64,7 @@ type Tower struct {
 
 	checkStore  *checks.Store
 	actionStore *actions.Store
+	metricStore *metrics.Store
 
 	// Read-only state for the self-test. Maintenance records whether its last
 	// run succeeded; self-test runs keep three runtime points for a trend.
@@ -98,7 +100,8 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		hostname = "gloski-tower"
 	}
 
-	agentService, err := agents.New(db, fleetSvc, version, cfg.Master.HeartbeatInterval)
+	metricStore := metrics.NewStore(db)
+	agentService, err := agents.New(db, fleetSvc, metricStore, version, cfg.Master.HeartbeatInterval)
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize agent service: %w", err)
@@ -139,6 +142,7 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		transfers:       make(map[string]*transfer),
 		checkStore:      checks.NewStore(db),
 		actionStore:     actions.NewStore(db),
+		metricStore:     metricStore,
 	}
 
 	fleetSvc.SetOnChange(func() {

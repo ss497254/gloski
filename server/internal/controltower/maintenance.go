@@ -30,9 +30,9 @@ func (t *Tower) maintenanceLoop() {
 	}
 }
 
-// pruneJobs removes finished jobs past the retention window and thins check
-// history. The result is recorded for the self-test, which must not repeat the
-// work or report a guess about the last run.
+// pruneJobs removes finished jobs past the retention window, thins check
+// history and metric samples. The result is recorded for the self-test, which
+// must not repeat the work or report a guess about the last run.
 func (t *Tower) pruneJobs() {
 	err := func() error {
 		removed, err := t.agentService.PruneJobs(agents.JobRetention)
@@ -48,6 +48,13 @@ func (t *Tower) pruneJobs() {
 		}
 		if pruned > 0 {
 			logger.Info("Deleted %d old check results", pruned)
+		}
+		thinned, err := t.metricStore.Thin(context.Background(), time.Now())
+		if err != nil {
+			return err
+		}
+		if thinned > 0 {
+			logger.Info("Deleted %d old metric samples", thinned)
 		}
 		return nil
 	}()

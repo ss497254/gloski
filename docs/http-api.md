@@ -105,6 +105,7 @@ All routes are **auth**.
 | `POST` | `/api/devices/{id}/diagnose` | — | wrapped `Diagnosis`: `device_id`, `device`, `status`, `headline`, `advice`, `steps`, `generated_at`; `404` when the device does not exist |
 | `GET` | `/api/devices/{id}/actions` | — | wrapped `{"actions":[DeviceAction]}`, newest first, at most 20 |
 | `POST` | `/api/devices/{id}/actions/{actionId}/undo` | — | wrapped `{"undone":true}`; `400` when the action is not reversible or was already undone |
+| `GET` | `/api/devices/{id}/history` | `metric` (empty = all), `range` (default `24h`), `limit` | wrapped `{"samples":[MetricSample],"metric":"...","range":"24h0m0s"}`; `400` for a bad range or limit, `404` for an unknown device |
 
 | `GET` | `/api/deployments` | — | wrapped `{"deployments":[Deployment]}` |
 | `GET` | `/api/deployments/{id}` | — | wrapped `Deployment` |
@@ -116,6 +117,12 @@ A `DeviceAction` has `id`, `device_id`, `kind`, `target`, `from`, `to`, `result`
 `trust_host` and `undo`. Only successful agent start/stop/restart actions are
 undoable, because the master knows the previous wanted state; a trust-host
 change is logged but cannot be reversed.
+
+A `MetricSample` has `device_id`, `metric`, `ts` and `value`. Samples are
+recorded by the master from heartbeats, at most once every five minutes per
+device and metric; the chart metrics are `cpu`, `memory`, `swap`, `load1`, `network_rx`,
+`network_tx` and `disk:<mount_point>` (percent used). Results are ordered
+oldest first, so they can be passed straight to a chart.
 
 `Device` and `Deployment` fields are defined in `server/internal/fleet/types.go`
 and `server/internal/fleet/deployment.go`. Tokens and machine IDs are never

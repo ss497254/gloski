@@ -131,6 +131,14 @@ already been undone; after an undo the card and the fleet state are reloaded.
 Logging a failed action is deliberate: a failure is still a reason a person
 may need to act.
 
+`getDeviceHistory(id, { metric, range, limit })` calls
+`GET /api/devices/{id}/history`. `useDeviceHistory` polls it once a minute and
+`BtopView` renders the CPU, memory, network and first-disk series with the
+shared `MetricsChart`. The pure adapter is
+`features/devices/lib/history.ts`; it selects one series and computes a stable
+axis ceiling, with colocated `bun:test` tests. History is independent of the
+live stats WebSocket, which still drives the current-value cards.
+
 Every call made through `shared/tower/client.ts` logs a request id, method,
 path, duration and capped JSON bodies to the browser console. The same id is
 sent as `X-Request-ID` and returned by the master, so a console line can be

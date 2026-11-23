@@ -7,10 +7,19 @@ code. It is ordered by project need, not by how interesting the source code is.
 
 - **Batch 1 — done** (commit `72720cc`): counter-rollback guards in the stats
   collector, `collector_test.go`, the sourcebook, README credit.
+- **Batch 2 — storage, sampling, endpoint and charts done**; trend flags (step
+  5) deferred until a real check needs them. `metric_samples` is migration 11,
+  `internal/metrics` owns the store, heartbeats are sampled on the master, the
+  daily maintenance pass thins history, and `GET /api/devices/{id}/history`
+  feeds charts on the device page.
 - **Current project state:** check result model, read-only master self-test and
   device action log are in. `docs/ideas-from-smdwin.md` says the next ideas are
   **history and the fleet matrix**, so those come first here too.
-- **Not done:** batches 2–7 below. Nothing in this plan is committed yet.
+- **Decisions made (2026-11-23):** 5-minute samples with 7-day full / 365-day
+  daily retention; native probes will cover TCP/HTTP/DNS/TLS first, ICMP later;
+  chart colour/palette polish waits until history charts exist (now done);
+  `gopsutil/v4` stays parked with batch 7.
+- **Not done:** batch 2 step 5 and batches 3–7 below.
 
 ## Ground rules for every batch
 
@@ -45,7 +54,7 @@ not cry wolf. Sources: `docs/ideas-from-smdwin.md` §5 and
 | 2 | Sample on the master when a heartbeat arrives, at most once per metric per 5 minutes. Do not write on every 2-second stats push. Keep the write in one small function with a unit test. |
 | 3 | Extend `maintenance.pruneJobs()` (rename to `prune` if clearer): full resolution for 7 days, then one sample per day up to 365, thinning in the existing daily pass. Keep the existing 30-day job retention and check-history pruning untouched. |
 | 4 | Add `GET /api/devices/{id}/api/system/history?metric=&range=` and feed the device page charts. Reuse the Chart.js components already present; the gap is storage, not charting. |
-| 5 | Trend flags: compare latest value to a 30-day reference, not the previous sample; call it degradation only on monotonic growth above an absolute threshold (disk free, swap, temperature). No alerts — the chart/check turns red. |
+| 5 | **Deferred.** Trend flags: compare latest value to a 30-day reference, not the previous sample; call it degradation only on monotonic growth above an absolute threshold (disk free, swap, temperature). No alerts — the chart/check turns red. |
 
 Likely files: `server/internal/database/migrations.go`,
 `server/internal/controltower/maintenance.go`, a new history store under

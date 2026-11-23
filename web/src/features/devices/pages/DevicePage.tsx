@@ -9,6 +9,7 @@ import { BtopView } from '../components/BtopView'
 import { DiagnoseButton } from '../components/DiagnoseDialog'
 import { RecentChanges } from '../components/RecentChanges'
 import { useDeviceActions } from '../hooks/useDeviceActions'
+import { useDeviceHistory } from '../hooks/useDeviceHistory'
 import { useDeviceStats } from '../hooks/useDeviceStats'
 
 export function DevicePage() {
@@ -17,6 +18,7 @@ export function DevicePage() {
   const navigate = useNavigate()
   const device = devices.find((item) => item.id === deviceId)
   const live = useDeviceStats(device?.id, mode === 'tower' && device?.status === 'online')
+  const history = useDeviceHistory(device?.id, mode === 'tower')
   const { run, busy } = useDeviceActions(device, () => navigate('/devices'))
 
   if (mode === 'standalone' || !device) {
@@ -82,6 +84,7 @@ export function DevicePage() {
           stats={live.stats ?? managedDevice.stats ?? null}
           processes={live.processes}
           connected={live.connected}
+          history={history}
         />
         <RecentChanges deviceId={managedDevice.id} />
       </div>

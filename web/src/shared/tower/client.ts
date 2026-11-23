@@ -5,6 +5,7 @@ import type {
   Diagnosis,
   DeviceAction,
   FleetDevice,
+  MetricSample,
   SelfTestResult,
   FleetEvent,
   TailnetResponse,
@@ -185,6 +186,25 @@ export async function undoDeviceAction(id: string, actionId: string): Promise<{ 
     `/api/devices/${encodeURIComponent(id)}/actions/${encodeURIComponent(actionId)}/undo`,
     { method: 'POST' }
   )
+}
+
+/**
+ * Metric history recorded by the master. An empty metric means every series;
+ * samples are oldest first.
+ */
+export async function getDeviceHistory(
+  id: string,
+  params: { metric?: string; range?: string; limit?: number } = {},
+): Promise<MetricSample[]> {
+  const query = new URLSearchParams()
+  if (params.metric) query.set('metric', params.metric)
+  if (params.range) query.set('range', params.range)
+  if (params.limit) query.set('limit', String(params.limit))
+  const suffix = query.toString()
+  const data = await request<{ samples: MetricSample[] }>(
+    `/api/devices/${encodeURIComponent(id)}/history${suffix ? `?${suffix}` : ''}`,
+  )
+  return data.samples ?? []
 }
 
 /** API prefix to give the SDK when talking to a device through the master. */

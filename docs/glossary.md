@@ -22,6 +22,7 @@ renames are in [code-quality-plan.md](code-quality-plan.md).
 | **undo** | Restoring the wanted state recorded in a reversible device action. | `POST /api/devices/{id}/actions/{actionId}/undo` |
 | **check** | A saved command whose exit code is a verdict, run on a schedule yet to be built. | `internal/checks` (result model) |
 | **check result** | One run of one check on one device: verdict, summary, details, timing. | `checks.Result`, `check_results` |
+| **metric sample** | One metric value recorded by the master from a heartbeat, at most once every five minutes per device and metric. | `metrics.Sample`, `metric_samples` |
 | **stale** | A result older than twice its schedule. Recomputed when read, never stored as a final answer. | `checks.Result.StaleAt` |
 | **skipped** | A check that does not apply to a device. Not a failure. | `checks.StatusSkipped` |
 | **unknown** | A check that has not run, or ran without a usable result. Not a failure. | `checks.StatusUnknown` |
