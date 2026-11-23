@@ -11,7 +11,11 @@ code. It is ordered by project need, not by how interesting the source code is.
   5) deferred until a real check needs them. `metric_samples` is migration 11,
   `internal/metrics` owns the store, heartbeats are sampled on the master, the
   daily maintenance pass thins history, and `GET /api/devices/{id}/history`
-  feeds charts on the device page.
+  feeds charts on the device page. Verified live on 2026-11-23 with a scratch
+  master and its local agent: the first heartbeat wrote all metric series,
+  later heartbeats added no rows inside the sample interval, the history
+  endpoint returned wrapped samples, and bad `range`/`limit` values returned
+  `400` while an unknown device returned `404`.
 - **Current project state:** check result model, read-only master self-test and
   device action log are in. `docs/ideas-from-smdwin.md` says the next ideas are
   **history and the fleet matrix**, so those come first here too.
@@ -53,7 +57,7 @@ not cry wolf. Sources: `docs/ideas-from-smdwin.md` §5 and
 | 1 | Migration 11: `metric_samples(device_id, metric, ts, value)` with an index on `(device_id, metric, ts DESC)`. |
 | 2 | Sample on the master when a heartbeat arrives, at most once per metric per 5 minutes. Do not write on every 2-second stats push. Keep the write in one small function with a unit test. |
 | 3 | Extend `maintenance.pruneJobs()` (rename to `prune` if clearer): full resolution for 7 days, then one sample per day up to 365, thinning in the existing daily pass. Keep the existing 30-day job retention and check-history pruning untouched. |
-| 4 | Add `GET /api/devices/{id}/api/system/history?metric=&range=` and feed the device page charts. Reuse the Chart.js components already present; the gap is storage, not charting. |
+| 4 | Add `GET /api/devices/{id}/history?metric=&range=` and feed the device page charts. Reuse the Chart.js components already present; the gap is storage, not charting. |
 | 5 | **Deferred.** Trend flags: compare latest value to a 30-day reference, not the previous sample; call it degradation only on monotonic growth above an absolute threshold (disk free, swap, temperature). No alerts — the chart/check turns red. |
 
 Likely files: `server/internal/database/migrations.go`,

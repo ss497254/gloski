@@ -6,6 +6,7 @@ package metrics
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/ss497254/gloski/internal/database"
@@ -40,6 +41,12 @@ type Sample struct {
 // Store persists metric samples in the master database.
 type Store struct {
 	db *sql.DB
+
+	// mu makes the check-then-insert atomic across overlapping heartbeat
+	// handlers, for example when an agent reconnects while its old stream is
+	// still winding down. Volume is tiny: one write per metric per five
+	// minutes, so one lock for the whole store is enough.
+	mu sync.Mutex
 }
 
 // NewStore creates a metric history store backed by the master database.
@@ -83,6 +90,8 @@ func (s *Store) Record(ctx context.Context, deviceID string, ts time.Time, sampl
 	if len(samples) == 0 || deviceID == "" {
 		return false, nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	ts = ts.UTC()
 	cutoff := ts.Add(-SampleInterval)
 

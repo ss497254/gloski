@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -85,6 +86,27 @@ func TestRecordThrottlesBySampleInterval(t *testing.T) {
 	written, err = store.Record(ctx, "other", now, samples)
 	if err != nil || !written {
 		t.Fatalf("other device record = %v, %v; want true", written, err)
+	}
+}
+
+func TestRecordIsAtomicUnderConcurrentCalls(t *testing.T) {
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	samples := []Sample{{Metric: MetricCPU, Value: 1}, {Metric: MetricMemory, Value: 2}}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := store.Record(context.Background(), "dev", now, samples); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	if got := count(t, store); got != 2 {
+		t.Fatalf("rows after concurrent records = %d, want 2", got)
 	}
 }
 
