@@ -50,8 +50,13 @@ web/src/
 The wrapper exists because `bunx shadcn@latest add` imports `cn` from an npm
 package, re-adds that dependency on every call, and overwrites `button.tsx` and
 `input.tsx` (losing our Button shadow and Badge/Card tweaks). The wrapper fixes
-all of that and then runs type-check, lint and `review-checks.sh`, which also
-guard those conventions. If a generated file exports a `cva` variant alongside
+all of that and then runs type-check, lint and `review-checks.sh`.
+
+The conventions are enforced by `web/tests/ui-conventions.test.ts`. It runs as
+part of `bun test`, and `bun run build` runs it first via `prebuild`, so even
+`make build-web` fails if the CLI's `cn` import or dependency returns, or if a
+local Button/Badge/Card tweak is overwritten. The pre-commit hook and
+`review-checks.sh` run the same test. If a generated file exports a `cva` variant alongside
 a component, move the variant into its own file (`toggle-variants.ts`) or lint's
 `react-refresh/only-export-components` rule fails.
 

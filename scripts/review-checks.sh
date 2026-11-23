@@ -94,26 +94,14 @@ else
 fi
 
 section "shadcn conventions"
-# The CLI rewrites cn imports and overwrites button.tsx on every add. These
-# checks catch the side effects even when the caller did not use add-shadcn.sh.
-if cn_files=$(grep -rlE "from ['\"]cn['\"]" web/src --include='*.tsx' --include='*.ts' 2>/dev/null); then
-	note "FAILED: cn imported from npm instead of @/shared/lib/utils"
-	show "$cn_files"
-	failed=$((failed + 1))
-elif grep -q '"cn":' web/package.json; then
-	note "FAILED: stray 'cn' npm dependency in web/package.json"
-	failed=$((failed + 1))
-elif ! grep -q 'shadow-sm hover:bg-primary/90' web/src/ui/button.tsx; then
-	note "FAILED: Button's local shadow tweak was overwritten; re-run scripts/add-shadcn.sh or restore it"
-	failed=$((failed + 1))
-elif ! grep -q 'success:' web/src/ui/badge.tsx; then
-	note "FAILED: Badge's status variants were overwritten"
-	failed=$((failed + 1))
-elif ! grep -q 'shadow-surface' web/src/ui/card.tsx; then
-	note "FAILED: Card's surface shadow was overwritten"
-	failed=$((failed + 1))
+# A real test reports every violation at once. bun run build also runs it via
+# prebuild, so `make build-web` enforces this without the git hook.
+if output=$(cd web && bun test tests/ui-conventions.test.ts 2>&1); then
+	note "OK (also enforced by bun run build via prebuild)"
 else
-	note "OK"
+	note "FAILED"
+	show "$output"
+	failed=$((failed + 1))
 fi
 
 section "reminders from the diff"

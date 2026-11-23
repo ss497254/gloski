@@ -94,10 +94,12 @@ Machine and test traps worth checking (Medium unless they break the build):
 - shadcn primitives must come from `scripts/add-shadcn.sh`, not a raw
   `bunx shadcn@latest add`. The CLI imports `cn` from an npm package, re-adds
   the `cn` dependency on every call, and overwrites `button.tsx`/`input.tsx`,
-  losing our Button shadow and Badge/Card tweaks. `review-checks.sh` checks
-  these; flag any UI change that reintroduces them or hand-rolls a control a
-  primitive already covers (form labels/selects, alerts, breadcrumbs, progress,
-  empty states, status dots/badges).
+  losing our Button shadow and Badge/Card tweaks. `web/tests/ui-conventions.test.ts`
+  fails the build on all of these (via `prebuild` and `review-checks.sh`); flag
+  any UI change that reintroduces them or hand-rolls a control a primitive
+  already covers (form labels/selects, alerts, breadcrumbs, progress, empty
+  states, status dots/badges). The pre-commit hook is opt-in per clone, so the
+  build-time test is the enforcement that always runs.
 - A generated shadcn file that exports a `cva` variant next to a component
   fails `react-refresh/only-export-components`; the variant belongs in its own
   file (see `toggle-variants.ts`). Do not silence the lint rule.
