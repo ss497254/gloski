@@ -25,9 +25,9 @@ code. It is ordered by project need, not by how interesting the source code is.
   `gopsutil/v4` stays parked with batch 7.
 - **Batch 3 — fleet check matrix done**: `checks.Store.LatestForAllDevices`,
   the Go matrix builder and the dashboard component are in; `check_matrix`
-  rides on the existing `/api/dashboard` response. Step 4 (Beszel's
-  View/Layout/Sort/Fields control) was done in batch 6 with existing shadcn
-  primitives. Verified with
+  rides on the existing `/api/dashboard` response. Step 4 was done in part in
+  batch 6: Sort/Fields/page size with existing shadcn primitives; the Grid
+  Layout view was skipped. Verified with
   seeded ok/warning/critical/skipped/stale results and a live master.
 - **Batch 4 — installer and SPA discipline done**: named install phases,
   config-preserving reinstall (merged in Go), staged binary replacement with
