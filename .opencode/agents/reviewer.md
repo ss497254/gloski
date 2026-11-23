@@ -89,6 +89,10 @@ Machine and test traps worth checking (Medium unless they break the build):
 - A terminal test marker must be computed, because the typed command is
   echoed back.
 - `python3` is absent on this machine; scripts use awk, perl or bun.
+- The git index is shared by every agent in a checkout. Flag a commit that
+  contains files outside the change under review — a bare `git commit` can
+  sweep in another agent's staged work. Use `scripts/commit-only.sh` or a
+  separate worktree; `pre-commit` already checks only the committed paths.
 - `make` may be unavailable here; use the direct Go, protoc and bun commands
   in `AGENTS.md` when verifying.
 - shadcn primitives must come from `scripts/add-shadcn.sh`, not a raw

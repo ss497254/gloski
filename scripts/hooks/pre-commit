@@ -11,7 +11,9 @@ if [ "${GLOSKI_SKIP_REVIEW:-}" = "1" ]; then
 fi
 
 echo "pre-commit: running mechanical checks" >&2
-scripts/review-checks.sh || {
+# Check only what this commit contains; another agent may have staged work in
+# the same clone that is none of this commit's business.
+GLOSKI_CHECK_STAGED=1 scripts/review-checks.sh || {
 	echo "pre-commit: fix the failed checks or set GLOSKI_SKIP_REVIEW=1" >&2
 	exit 1
 }

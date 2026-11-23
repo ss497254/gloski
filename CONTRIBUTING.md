@@ -159,6 +159,22 @@ You can also run `/review` in OpenCode at any time, or
 `.opencode/agents/reviewer.md`. When the same kind of mistake shows up twice,
 add a rule there so the next review catches it.
 
+### When another agent shares the clone
+
+The git index belongs to the whole checkout, not to one agent. A bare
+`git add -A` or `git commit` commits files another agent staged, and their
+half-finished edits can fail your pre-commit checks. Prefer one worktree per
+agent (`worktree_create` and `session_move` in OpenCode). If agents must share
+a checkout, never run a bare `git commit` — use:
+
+```bash
+scripts/commit-only.sh "type: message" path/to/file.ts other/path.go
+```
+
+It runs `git commit --only` for exactly those paths. The pre-commit hook then
+checks only the files in that commit (`GLOSKI_CHECK_STAGED=1`), so unrelated
+staged work cannot block you or ride along.
+
 ### Commit Message Format
 
 ```

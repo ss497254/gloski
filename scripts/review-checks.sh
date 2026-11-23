@@ -22,8 +22,18 @@ section "changed files"
 changed | sed 's/^/    /'
 note "$(changed | wc -l | tr -d ' ') file(s)"
 
-section "whitespace (git diff --check)"
-if output=$(git diff --check 2>&1) && [ -z "$output" ]; then
+# Under `git commit --only` the pre-commit hook sees a temporary index holding
+# only the paths being committed. Checking the worktree there would fail on
+# another agent's unrelated staged/unstaged files in the same clone.
+if [ "${GLOSKI_CHECK_STAGED:-}" = "1" ]; then
+	whitespace_cmd="git diff --cached --check"
+	whitespace_label="git diff --cached --check (commit scope)"
+else
+	whitespace_cmd="git diff --check"
+	whitespace_label="git diff --check"
+fi
+section "whitespace ($whitespace_label)"
+if output=$($whitespace_cmd 2>&1) && [ -z "$output" ]; then
 	note "OK"
 else
 	note "FAILED"
