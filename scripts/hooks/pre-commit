@@ -1,0 +1,49 @@
+#!/bin/sh
+# Pre-commit review gate. Installed by scripts/install-git-hooks.sh.
+# Set GLOSKI_SKIP_REVIEW=1 only for a genuine emergency commit.
+set -eu
+
+cd "$(dirname "$0")/../.."
+
+if [ "${GLOSKI_SKIP_REVIEW:-}" = "1" ]; then
+	echo "pre-commit: review skipped (GLOSKI_SKIP_REVIEW=1)" >&2
+	exit 0
+fi
+
+echo "pre-commit: running mechanical checks" >&2
+scripts/review-checks.sh || {
+	echo "pre-commit: fix the failed checks or set GLOSKI_SKIP_REVIEW=1" >&2
+	exit 1
+}
+
+if ! command -v opencode >/dev/null 2>&1; then
+	echo "pre-commit: opencode not found; mechanical checks only" >&2
+	exit 0
+fi
+
+model=${GLOSKI_REVIEW_MODEL:-openai/gpt-5.6-luna-fast}
+echo "pre-commit: running reviewer agent ($model)" >&2
+status=0
+output=$(opencode run --standalone --auto --agent reviewer --model "$model" \
+	"Review the current uncommitted changes. Follow your full checklist, read AGENTS.md and CONTRIBUTING.md, and run scripts/review-checks.sh if you need the mechanical results. Report findings in severity order with path:line references. End with exactly one final line: VERDICT: PASS, VERDICT: COMMENT, or VERDICT: BLOCK. Use BLOCK for any High finding." 2>&1) || status=$?
+
+clean=$(printf '%s\n' "$output" | sed -e 's/\x1b\[[0-9;]*[mK]//g')
+printf '%s\n' "$clean" >&2
+if [ "$status" -ne 0 ]; then
+	echo "pre-commit: reviewer agent failed to run" >&2
+	exit 1
+fi
+
+verdict=$(printf '%s\n' "$clean" | grep '^VERDICT:' | tail -1 | awk '{print $2}')
+case "$verdict" in
+PASS) ;;
+COMMENT) ;;
+BLOCK)
+	echo "pre-commit: reviewer blocked this commit" >&2
+	exit 1
+	;;
+*)
+	echo "pre-commit: reviewer returned no valid VERDICT line" >&2
+	exit 1
+	;;
+esac

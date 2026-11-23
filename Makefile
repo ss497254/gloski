@@ -61,6 +61,9 @@ install-agent: build-agent ## Install only the device agent binary
 	cp bin/gloski-agent ~/.local/bin/
 	@echo "$(GREEN)Installed to ~/.local/bin/gloski-agent$(NC)"
 
+install-hooks: ## Enable the checked-in pre-commit review hook for this clone
+	@sh scripts/install-git-hooks.sh
+
 install-service: ## Install systemd service (user)
 	mkdir -p ~/.config/systemd/user
 	mkdir -p ~/.config/gloski

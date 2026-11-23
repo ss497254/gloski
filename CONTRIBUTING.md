@@ -145,17 +145,19 @@ branches, pull requests or force-pushes. Do not push unless the owner asks.
 
 1. Make the change on `main`.
 2. Run the backend and frontend checks below.
-3. Run `/review` in OpenCode. The read-only `reviewer` subagent checks the
-   recurring project rules and runs `scripts/review-checks.sh`, which repeats
-   the mechanical checks the same way every time. Fix High findings before
-   committing. The script can also be run on its own:
-   `scripts/review-checks.sh`.
-4. Commit with a clear message.
-5. Keep `main` buildable after every commit. Split unrelated work into
+3. Commit with a clear message. The `pre-commit` hook runs
+   `scripts/review-checks.sh` and then the read-only `reviewer` subagent; it
+   fails the commit on a check failure or a `VERDICT: BLOCK`. Enable it once
+   per clone with `scripts/install-git-hooks.sh` (or `make install-hooks`). For
+   an emergency, `GLOSKI_SKIP_REVIEW=1 git commit ...` bypasses it; say why
+   when you do.
+4. Keep `main` buildable after every commit. Split unrelated work into
    separate commits.
 
-The reviewer's checklist lives in `.opencode/agents/reviewer.md`. When the same
-kind of mistake shows up twice, add a rule there so the next review catches it.
+You can also run `/review` in OpenCode at any time, or
+`scripts/review-checks.sh` on its own. The reviewer's checklist lives in
+`.opencode/agents/reviewer.md`. When the same kind of mistake shows up twice,
+add a rule there so the next review catches it.
 
 ### Commit Message Format
 

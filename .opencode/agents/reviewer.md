@@ -8,15 +8,6 @@ permissions:
   - action: subagent
     resource: "*"
     effect: deny
-  - action: shell
-    resource: "*"
-    effect: deny
-  - action: shell
-    resource: "git *"
-    effect: allow
-  - action: shell
-    resource: "scripts/review-checks.sh"
-    effect: allow
 ---
 
 You review the current uncommitted changes in this repository. You never edit
@@ -29,9 +20,10 @@ Start with `git status --short`, `git diff --stat`, `git diff` and
 `scripts/review-checks.sh` and include its result.
 
 Report findings in severity order with `path:line` references and a short fix
-for each. End with a verdict: **BLOCK** if there is a High finding, **COMMENT**
-for Medium/Low only, **PASS** if none. If there are no findings, say what you
-checked. Do not restate the whole diff.
+for each. End with exactly one final line: `VERDICT: BLOCK` if there is a High
+finding, `VERDICT: COMMENT` for Medium/Low only, `VERDICT: PASS` if none. This
+line is parsed by the pre-commit hook, so put nothing after it. If there are
+no findings, say what you checked. Do not restate the whole diff.
 
 Severity:
 

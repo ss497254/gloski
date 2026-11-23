@@ -137,6 +137,14 @@ cd web && bun run type-check && bun test && bun run build
 Run `gofmt` on changed Go files. Verify changes against a live master and agent,
 not only unit tests; the earlier batches found real bugs that way.
 
+Before committing, run `/review` in OpenCode (or `scripts/review-checks.sh`
+directly). The read-only `reviewer` subagent in `.opencode/agents/reviewer.md`
+checks the recurring rules above; fix High findings before committing. When a
+mistake recurs, add it to that checklist instead of relying on memory. A
+`pre-commit` hook in `scripts/hooks/` enforces this: it runs the mechanical
+checks and the reviewer agent, and blocks on a failed check or `VERDICT:
+BLOCK`. Enable it per clone with `scripts/install-git-hooks.sh`.
+
 Live test recipe:
 
 - Run `bin/gloski` with `GLOSKI_DATA_DIR` set to a scratch directory,
