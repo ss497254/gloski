@@ -16,12 +16,12 @@ code. It is ordered by project need, not by how interesting the source code is.
   later heartbeats added no rows inside the sample interval, the history
   endpoint returned wrapped samples, and bad `range`/`limit` values returned
   `400` while an unknown device returned `404`.
-- **Current project state:** check result model, read-only master self-test and
-  device action log are in. `docs/ideas-from-smdwin.md` says the next ideas are
-  **history and the fleet matrix**, so those come first here too.
+- **Starting point:** check result model, read-only master self-test and device
+  action log were in; **history and the fleet matrix** were the next ideas and
+  are now built.
 - **Decisions made (2026-11-23):** 5-minute samples with 7-day full / 365-day
-  daily retention; native probes will cover TCP/HTTP/DNS/TLS first, ICMP later;
-  chart colour/palette polish waits until history charts exist (now done);
+  daily retention; native probes cover TCP/HTTP/DNS/TLS, not ICMP; generated
+  series colours and a command palette were skipped as low-value polish;
   `gopsutil/v4` stays parked with batch 7.
 - **Batch 3 — fleet check matrix done**: `checks.Store.LatestForAllDevices`,
   the Go matrix builder and the dashboard component are in; `check_matrix`

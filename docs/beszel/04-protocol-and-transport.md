@@ -175,9 +175,9 @@ protocol version: `MinVersionCbor` 0.12.0, `MinVersionAgentResponse` 0.13.0,
 `MinVersionMonitorIPVersion` 0.22.0. The frontend hides chart ranges whose
 `minVersion` exceeds the connected agent's version.
 
-Gloski has one `ProtocolVersion` (3). Keep it while features are few; split it
-the same way when a new capability needs an older-agent fallback rather than a
-full reinstall.
+Gloski has one `ProtocolVersion` (4, raised for native check probes). Keep it
+while features are few; split it the same way when a new capability needs an
+older-agent fallback rather than a full reinstall.
 
 ## Credentials, TLS and proxy details (C)
 

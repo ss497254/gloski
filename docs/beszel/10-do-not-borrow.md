@@ -38,8 +38,9 @@ there.
 - Job logs capped at 10 MB and 30-day retention.
 - per-device WebSocket stats fanout, process listing, file transfers on a
   separate HTTP connection, PTY terminal, file editor.
-- Chart.js charts and a btop-style device overview — the gap is *history*, not
-  charting.
+- Chart.js charts and a btop-style device overview — this was borrowed and the
+  history gap it identified is now filled by `metric_samples` and the device
+  charts.
 
 ## Licensing reminders
 

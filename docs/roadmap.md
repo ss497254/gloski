@@ -63,8 +63,9 @@ Only where a list of command output is not good enough:
 - **Services:** systemd units, failed ones first, restart, recent log lines.
 - **Power:** reboot and shut down a device; wake a sleeping one with
   Wake-on-LAN sent from another device on the same network.
-- **History:** keep metrics for days instead of minutes, so you can see when a
-  disk started filling or a machine started swapping.
+- ~~**History:** keep metrics for days instead of minutes, so you can see when a
+  disk started filling or a machine started swapping.~~ (done: 5-minute samples,
+  7 days full then daily rollups to 365 days, charts on the device page)
 
 ## Ideas parked
 
