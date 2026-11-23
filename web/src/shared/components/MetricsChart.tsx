@@ -19,7 +19,8 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler)
 // ============================================================================
 
 interface DataPoint {
-  [key: string]: string | number
+  // null marks a gap where no sample was recorded.
+  [key: string]: string | number | null
 }
 
 interface MetricsChartProps {
@@ -178,7 +179,7 @@ export const MetricsChart = memo(function MetricsChart({
         if (value > max) max = value
         sum += value
         validCount++
-        if (i === data.length - 1) current = value
+        current = value
       }
     }
 
@@ -196,17 +197,22 @@ export const MetricsChart = memo(function MetricsChart({
 
   // Prepare chart data
   const chartData = useMemo(() => {
-    const values: number[] = []
+    const values: Array<number | null> = []
 
     for (let i = 0; i < data.length; i++) {
-      const value = data[i][dataKey] as number
-      values.push(isValidNumber(value) ? value : 0)
+      const value = data[i][dataKey]
+      values.push(isValidNumber(value) ? value : null)
     }
 
     return {
-      labels: Array.from({ length: data.length }, (_, i) => i.toString()),
+      labels: data.map((point, i) =>
+        typeof point.ts === 'string'
+          ? new Date(point.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : i.toString(),
+      ),
       datasets: [
         {
+          spanGaps: false,
           data: values,
           borderColor: color,
           backgroundColor: hslToRgba(color, 0.15),

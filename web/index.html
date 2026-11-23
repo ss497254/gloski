@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gloski</title>
+    <script>
+      // Apply the saved theme before paint so the first frame never flashes
+      // the wrong theme. The Zustand store stays the source of truth.
+      ;(function () {
+        var theme = 'dark'
+        try {
+          var saved = JSON.parse(localStorage.getItem('gloski-settings') || 'null')?.state?.theme
+          if (saved) theme = saved
+        } catch (_) {}
+        var dark = theme === 'system'
+          ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          : theme === 'dark'
+        document.documentElement.classList.toggle('dark', dark)
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

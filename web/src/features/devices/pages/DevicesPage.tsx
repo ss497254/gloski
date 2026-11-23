@@ -16,15 +16,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/ui/table'
-import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, UsageBar } from '@/shared/components'
+import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, TableControls, UsageBar } from '@/shared/components'
 import { Activity, ArrowUpRight, CircleAlert, Play, Plus, Radar, RefreshCw, RotateCw, Square, Trash2, Wifi } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DiagnoseButton } from '../components/DiagnoseDialog'
 import { useDeviceActions } from '../hooks/useDeviceActions'
 
-function DeviceRow({ device }: { device: FleetDevice }) {
+function DeviceRow({ device, hidden }: { device: FleetDevice; hidden: string[] }) {
   const navigate = useNavigate()
+  const show = (field: string) => !hidden.includes(field)
   const { run, busy } = useDeviceActions(device)
   const online = device.status === 'online'
   const stats = device.stats
@@ -74,23 +75,33 @@ function DeviceRow({ device }: { device: FleetDevice }) {
           </div>
         </div>
       </TableCell>
-      <TableCell className="px-4 py-3">
-        <StatusBadge status={status} label={online ? 'Online' : stopped ? 'Stopped' : 'Offline'} />
-      </TableCell>
-      <TableCell className="px-4 py-3">
-        <div className="space-y-1.5">
-          <UsageBar label="cpu" value={stats?.cpu.usage_percent ?? 0} />
-          <UsageBar label="mem" value={stats?.memory.used_percent ?? 0} />
-        </div>
-      </TableCell>
-      <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
-        <div className="text-success">↓ {formatBytes(stats?.network.rx_rate ?? 0)}/s</div>
-        <div className="text-info">↑ {formatBytes(stats?.network.tx_rate ?? 0)}/s</div>
-      </TableCell>
-      <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
-        {stats ? formatUptime(stats.uptime) : '—'}
-      </TableCell>
-      <TableCell className="px-4 py-3 text-xs text-muted-foreground">{formatRelativeTime(device.last_seen)}</TableCell>
+      {show('status') && (
+        <TableCell className="px-4 py-3">
+          <StatusBadge status={status} label={online ? 'Online' : stopped ? 'Stopped' : 'Offline'} />
+        </TableCell>
+      )}
+      {show('usage') && (
+        <TableCell className="px-4 py-3">
+          <div className="space-y-1.5">
+            <UsageBar label="cpu" value={stats?.cpu.usage_percent ?? 0} />
+            <UsageBar label="mem" value={stats?.memory.used_percent ?? 0} />
+          </div>
+        </TableCell>
+      )}
+      {show('network') && (
+        <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
+          <div className="text-success">↓ {formatBytes(stats?.network.rx_rate ?? 0)}/s</div>
+          <div className="text-info">↑ {formatBytes(stats?.network.tx_rate ?? 0)}/s</div>
+        </TableCell>
+      )}
+      {show('uptime') && (
+        <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
+          {stats ? formatUptime(stats.uptime) : '—'}
+        </TableCell>
+      )}
+      {show('seen') && (
+        <TableCell className="px-4 py-3 text-xs text-muted-foreground">{formatRelativeTime(device.last_seen)}</TableCell>
+      )}
       <TableCell className="px-4 py-3">
         <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
           <DiagnoseButton deviceId={device.id} deviceName={device.name} iconOnly variant="ghost" size="icon-sm" />
@@ -138,6 +149,33 @@ export function DevicesPage() {
   const { mode, info, devices, connected, error, refresh } = useTower()
   const [deployOpen, setDeployOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [sort, setSort] = useState('name')
+  const [hidden, setHidden] = useState<string[]>([])
+  const [pageSize, setPageSize] = useState(25)
+  const [page, setPage] = useState(0)
+
+  const sorted = useMemo(() => {
+    const list = [...devices]
+    list.sort((a, b) => {
+      switch (sort) {
+        case 'status':
+          return a.status.localeCompare(b.status) || a.name.localeCompare(b.name)
+        case 'seen':
+          return b.last_seen.localeCompare(a.last_seen)
+        case 'uptime':
+          return (b.stats?.uptime ?? 0) - (a.stats?.uptime ?? 0)
+        default:
+          return a.name.localeCompare(b.name)
+      }
+    })
+    return list
+  }, [devices, sort])
+  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize))
+  const currentPage = Math.min(page, pageCount - 1)
+  const visible = sorted.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+
+  const toggleField = (field: string) =>
+    setHidden((current) => (current.includes(field) ? current.filter((item) => item !== field) : [...current, field]))
 
   if (mode === 'loading') {
     return (
@@ -174,6 +212,30 @@ export function DevicesPage() {
       description={`${online} of ${devices.length} devices online${info?.name ? ` · tower ${info.name}` : ''}`}
       actions={
         <div className="flex items-center gap-2">
+          <TableControls
+            sort={sort}
+            sortOptions={[
+              { value: 'name', label: 'Name' },
+              { value: 'status', label: 'Status' },
+              { value: 'uptime', label: 'Uptime' },
+              { value: 'seen', label: 'Last seen' },
+            ]}
+            onSortChange={setSort}
+            visibleFields={['status', 'usage', 'network', 'uptime', 'seen'].filter((field) => !hidden.includes(field))}
+            fieldOptions={[
+              { value: 'status', label: 'Status' },
+              { value: 'usage', label: 'Usage' },
+              { value: 'network', label: 'Network' },
+              { value: 'uptime', label: 'Uptime' },
+              { value: 'seen', label: 'Seen' },
+            ]}
+            onToggleField={toggleField}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setPage(0)
+            }}
+          />
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <StatusDot status={connected ? 'online' : 'offline'} />
             {connected ? 'live' : 'reconnecting'}
@@ -223,36 +285,72 @@ export function DevicesPage() {
         </Card>
       ) : (
         <Card className="gap-0 overflow-hidden py-0">
-          <Table className="min-w-[900px]">
-            <TableHeader className="bg-muted/50 hover:bg-muted/50">
-              <TableRow>
-                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Device
-                </TableHead>
-                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Status
-                </TableHead>
-                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Usage
-                </TableHead>
-                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Network
-                </TableHead>
-                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Uptime
-                </TableHead>
-                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  Seen
-                </TableHead>
-                <TableHead className="px-4 py-2.5" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {devices.map((device) => (
-                <DeviceRow key={device.id} device={device} />
-              ))}
-            </TableBody>
-          </Table>
+          <div className="max-h-[70vh] overflow-auto">
+            <Table className="min-w-[900px]">
+              <TableHeader className="sticky top-0 z-10 bg-muted/50 hover:bg-muted/50">
+                <TableRow>
+                  <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Device
+                  </TableHead>
+                  {!hidden.includes('status') && (
+                    <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </TableHead>
+                  )}
+                  {!hidden.includes('usage') && (
+                    <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Usage
+                    </TableHead>
+                  )}
+                  {!hidden.includes('network') && (
+                    <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Network
+                    </TableHead>
+                  )}
+                  {!hidden.includes('uptime') && (
+                    <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Uptime
+                    </TableHead>
+                  )}
+                  {!hidden.includes('seen') && (
+                    <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Seen
+                    </TableHead>
+                  )}
+                  <TableHead className="px-4 py-2.5" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visible.map((device) => (
+                  <DeviceRow key={device.id} device={device} hidden={hidden} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex items-center justify-between border-t border-border px-4 py-2 text-xs text-muted-foreground">
+            <span>
+              {sorted.length === 0 ? 0 : currentPage * pageSize + 1}–{Math.min((currentPage + 1) * pageSize, sorted.length)} of{' '}
+              {sorted.length}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === 0}
+                onClick={() => setPage(Math.max(0, currentPage - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage >= pageCount - 1}
+                onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </Card>
       )}
 

@@ -108,6 +108,7 @@ The browser never talks to an agent directly. A command crosses the gRPC stream.
 | Native probes and scheduling | `server/internal/checks/probes.go`, `controltower/probes.go`, `worker/agent_checks.go`, `proto/agentv1/agent.proto` |
 | Frontend routes and pages | `web/src/App.tsx`, `web/src/features/` |
 | Frontend API client | `web/src/shared/api/`, `web/src/shared/tower/client.ts` |
+| Table controls and gap-aware charts | `web/src/shared/components/table-controls.tsx`, `web/src/features/devices/lib/history.ts` |
 
 ## Verify a change
 

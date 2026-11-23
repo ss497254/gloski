@@ -47,7 +47,13 @@ code. It is ordered by project need, not by how interesting the source code is.
   live: TCP, HTTP and DNS probes produced ok results in the matrix; the idle
   boundary and scheduling are covered by tests, as are the master/agent
   request-response and timeout paths and the agent's typed reply.
-- **Not done:** batch 2 step 5 and batches 6–7 below.
+- **Batch 6 — useful frontend work done**: pre-paint theme script, a single
+  shadcn-based table control for sort/fields/page size and pagination on the
+  devices table, sticky headers on both tables, and gap markers in the
+  history charts. Skipped as low-value polish with no call site: semver and
+  filter-group helpers, generated HSL series colours and Total tooltips, the
+  command palette and a masked join token (nothing displays a token today).
+- **Not done:** batch 2 step 5 and batch 7 below.
 
 ## Ground rules for every batch
 
@@ -163,7 +169,7 @@ probes only for things a shell command cannot answer cleanly.
 | 1 | Port pure TypeScript helpers + their tests into `web/src/shared/lib/`: formatting, debounce, semver, filter groups, uptime. Extend the existing `utils.ts`; do not duplicate `formatBytes`. |
 | 2 | Gap-aware chart data (`appendData`) and `fixedDomainTicks`/axis math; adapt to Chart.js. |
 | 3 | Generated HSL series colours and Total tooltip row for many-series charts. |
-| 4 | Table View/Layout/Sort/Fields dropdown, per-device page-size pagination, sticky headers. |
+| 4 | Done in part: one Sort/Fields/page-size dropdown, sticky headers and pagination. Skipped the grid Layout view. |
 | 5 | Command palette (Cmd/Ctrl+K), pre-paint theme script, masked join token. |
 
 Likely files: `web/src/shared/lib/`, device charts and tables, app shell,

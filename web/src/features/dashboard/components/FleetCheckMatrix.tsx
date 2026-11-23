@@ -23,9 +23,9 @@ export function FleetCheckMatrix({ matrix }: { matrix: CheckMatrix }) {
           Red first. Grey means skipped, stale or never run — not a failure. Click a block for details.
         </p>
       </header>
-      <div className="overflow-x-auto">
+      <div className="max-h-[70vh] overflow-auto">
         <Table className="text-xs">
-          <TableHeader className="bg-muted/40 hover:bg-muted/40">
+          <TableHeader className="sticky top-0 z-10 bg-muted/40 hover:bg-muted/40">
             <TableRow>
               <TableHead className="min-w-36 px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
                 Device

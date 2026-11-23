@@ -116,6 +116,17 @@ The dashboard's issues use the same advice-first shape: `DashboardIssue.action`
 is the destination route and `advice` is the one-line explanation shown under
 the detail. Both the dashboard and the diagnosis dialog have "Copy report".
 
+The devices table and the fleet check matrix share one `TableControls`
+dropdown (`shared/components/table-controls.tsx`) for sort, visible fields and
+page size; the devices table also has sticky headers and pagination. The
+control is built from the existing shadcn dropdown primitives — no table
+library was added.
+
+Device history charts mark long gaps in the samples with a break rather than
+drawing a continuous line; the pure helper is `fillGaps` beside
+`pointsForMetric`. A small inline script in `index.html` applies the saved
+theme before first paint, using the same `gloski-settings` key as the store.
+
 The dashboard's `check_matrix` payload is rendered by
 `features/dashboard/components/FleetCheckMatrix.tsx` between "Needs attention"
 and the device cards. Devices are rows, check groups are columns, and each block

@@ -1,6 +1,6 @@
 import type { ProcessInfo, SystemStats } from '@/shared/api'
 import { MetricsChart, ProgressBar, StatusDot, toneSurface } from '@/shared/components'
-import { chartCeiling, pointsForMetric } from '@/features/devices/lib/history'
+import { chartCeiling, fillGaps, pointsForMetric } from '@/features/devices/lib/history'
 import { cn, formatBytes, formatUptime } from '@/shared/lib/utils'
 import type { FleetDevice, MetricSample } from '@/shared/tower'
 import { Badge } from '@/ui/badge'
@@ -79,12 +79,14 @@ export function BtopView({ device, stats, processes, connected, history = [] }: 
 
   const cpu = stats.cpu.usage_percent
   const memory = stats.memory.used_percent
-  const cpuHistory = pointsForMetric(history, metric.cpu)
-  const memoryHistory = pointsForMetric(history, metric.memory)
-  const rxHistory = pointsForMetric(history, metric.rx)
-  const txHistory = pointsForMetric(history, metric.tx)
+  // Five-minute samples: insert a visible break when a series has a real gap.
+  const sampleInterval = 5 * 60 * 1000
+  const cpuHistory = fillGaps(pointsForMetric(history, metric.cpu), sampleInterval, 500)
+  const memoryHistory = fillGaps(pointsForMetric(history, metric.memory), sampleInterval, 500)
+  const rxHistory = fillGaps(pointsForMetric(history, metric.rx), sampleInterval, 500)
+  const txHistory = fillGaps(pointsForMetric(history, metric.tx), sampleInterval, 500)
   const firstDisk = stats.disks.find((disk) => disk.total > 0)
-  const diskHistory = firstDisk ? pointsForMetric(history, metric.disk(firstDisk.mount_point)) : []
+  const diskHistory = firstDisk ? fillGaps(pointsForMetric(history, metric.disk(firstDisk.mount_point)), sampleInterval, 500) : []
 
   return (
     <div className="space-y-4">
