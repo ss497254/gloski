@@ -53,7 +53,12 @@ code. It is ordered by project need, not by how interesting the source code is.
   history charts. Skipped as low-value polish with no call site: semver and
   filter-group helpers, generated HSL series colours and Total tooltips, the
   command palette and a masked join token (nothing displays a token today).
-- **Not done:** batch 2 step 5 and batch 7 below.
+- **Plan complete for the useful work.** The two remaining items are
+  deliberate deferrals, not unfinished tasks: batch 2 step 5 (trend flags)
+  waits until a real check needs a 30-day reference, and batch 7 (collector
+  expansion with `gopsutil/v4`) waits until a device reports a metric a shell
+  command cannot answer. Adding either now would introduce a mechanism without
+  a caller.
 
 ## Ground rules for every batch
 
@@ -177,7 +182,7 @@ Likely files: `web/src/shared/lib/`, device charts and tables, app shell,
 **Verify with:** `bun run type-check && bun test && bun run build`, plus visual
 comparison against the live master.
 
-## Batch 7 — Collector expansion (parked)
+## Batch 7 — Collector expansion (parked by decision)
 
 Only start when a real device needs a metric a shell command cannot answer.
 Take one collector at a time — LXC cgroup helpers first, then diskstats wrap
