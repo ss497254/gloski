@@ -16,6 +16,12 @@ renames are in [code-quality-plan.md](code-quality-plan.md).
 | **deployment** | The SSH record of how an agent was installed on a device. | `fleet.Deployment` |
 | **job** | A command the master owns and one agent executes. | `agents.Job` |
 | **session** | One live `Agent.Connect` gRPC stream for a device. | `agents.connection` |
+| **diagnosis** | An ordered chain of facts from the master outwards, with the first broken link as the headline. | `controltower/diagnose.go` |
+| **check** | A saved command whose exit code is a verdict, run on a schedule yet to be built. | `internal/checks` (result model) |
+| **check result** | One run of one check on one device: verdict, summary, details, timing. | `checks.Result`, `check_results` |
+| **stale** | A result older than twice its schedule. Recomputed when read, never stored as a final answer. | `checks.Result.StaleAt` |
+| **skipped** | A check that does not apply to a device. Not a failure. | `checks.StatusSkipped` |
+| **unknown** | A check that has not run, or ran without a usable result. Not a failure. | `checks.StatusUnknown` |
 | **dashboard** | The React single-page app. | `web/` |
 | **file transfer** | A download or upload of file contents over HTTP on the agent port. | `controltower/file_transfer.go` |
 | **transfer id** | A one-time id that lets one agent HTTP request reach its transfer. | `agentv1.FileTransfer` |
