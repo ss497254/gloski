@@ -31,5 +31,5 @@
     "noUncheckedSideEffectImports": true
   },
   "include": ["src"],
-  "exclude": ["src/shared/api/__tests__"]
+  "exclude": ["src/shared/api/__tests__", "src/shared/tower/__tests__"]
 }
