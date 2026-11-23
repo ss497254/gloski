@@ -78,7 +78,16 @@ web/src/
 `Result<T>`; pages use `unwrap()` and handle errors at the call site.
 
 `shared/tower/client.ts` contains master-level endpoints: detection, fleet
-WebSocket, tailnet peers, deployment, and device lifecycle.
+WebSocket, tailnet peers, deployment, and device lifecycle. `diagnoseDevice(id)`
+calls `POST /api/devices/{id}/diagnose` and returns a `Diagnosis`: an overall
+status, a headline, one sentence of advice and an ordered list of `steps`. Step
+statuses are `ok`, `warning`, `critical` and `skipped`; skipped is neutral. The
+`DiagnoseButton` in `features/devices/components/DiagnoseDialog.tsx` opens a
+dialog that runs the diagnosis on open, shows the headline and advice first,
+then each step's summary with its raw detail, and can re-run or copy the report.
+The dashboard's issues use the same advice-first shape: `DashboardIssue.action`
+is the destination route and `advice` is the one-line explanation shown under
+the detail. Both the dashboard and the diagnosis dialog have "Copy report".
 
 ## Theming
 

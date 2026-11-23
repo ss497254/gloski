@@ -294,3 +294,22 @@ Two differences from the original design:
   Diagnosis dialog has the same button for the per-device chain.
 - The "N checks not run" line is deliberately absent until a checks system
   exists; an issue list cannot honestly claim checks have run.
+
+### Live verification
+
+Verified against a scratch master (`GLOSKI_PORT=18080`,
+`GLOSKI_MASTER_AGENT_GRPC_HOST=127.0.0.1`) and the test SSH server from
+`internal/provisioning/sshtest/sshd`:
+
+- healthy local agent → `status: ok`, build hash matches;
+- registered agent killed → critical headline with no session;
+- deployed agent started, stopped on purpose → warning "stopped on purpose";
+- SSH server stopped → critical SSH port step with `connection refused`;
+- SSH host key changed after restarting the test server → critical login step
+  with the "Trust new key" advice, and the trust action repaired it;
+- installed binary deleted → critical install step naming `/tmp/gloski`;
+- a failed deployment → dashboard issue with advice and a route.
+
+Each path was checked by calling the endpoint and reading the JSON, not only by
+unit tests. Two bugs found this way (duplicate `login` step, blank install
+directory) are fixed and covered by tests.
