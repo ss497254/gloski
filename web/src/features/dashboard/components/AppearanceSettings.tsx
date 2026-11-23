@@ -25,11 +25,12 @@ export function AppearanceSettings() {
           <ToggleGroup
             type="single"
             variant="outline"
+            spacing={3}
             value={theme}
             onValueChange={(value) => {
               if (value) setTheme(value as typeof theme)
             }}
-            className="w-full gap-3"
+            className="w-full"
           >
             {themes.map((t) => (
               <ToggleGroupItem

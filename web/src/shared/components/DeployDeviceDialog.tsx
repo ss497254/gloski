@@ -298,7 +298,7 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
           </p>
 
           {deployment && status === 'deploying' && (
-            <Alert className="text-xs">
+            <Alert role="status" className="text-xs">
               <Spinner className="text-success" />
               <AlertDescription>{statusLabel(deployment.status)}</AlertDescription>
             </Alert>

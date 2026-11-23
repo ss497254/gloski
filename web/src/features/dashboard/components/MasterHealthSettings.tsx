@@ -125,6 +125,7 @@ export function MasterHealthSettings() {
 
       {result && (
         <Alert
+          role={result.status === 'warning' || result.status === 'critical' ? 'alert' : 'status'}
           variant={result.status === 'critical' ? 'destructive' : result.status === 'warning' ? 'warning' : 'default'}
           className={cn('items-start', toneClasses[result.status])}
         >

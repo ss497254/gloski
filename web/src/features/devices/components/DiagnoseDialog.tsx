@@ -133,7 +133,7 @@ export function DiagnoseButton({
           </DialogHeader>
 
           {loading && (
-            <Alert className="text-sm text-muted-foreground">
+            <Alert role="status" className="text-sm text-muted-foreground">
               <Spinner />
               <AlertDescription>Checking Tailscale, SSH and the agent…</AlertDescription>
             </Alert>
@@ -148,6 +148,7 @@ export function DiagnoseButton({
           {result && !loading && (
             <div className="space-y-4">
               <Alert
+                role={result.status === 'warning' || result.status === 'critical' ? 'alert' : 'status'}
                 variant={
                   result.status === 'critical' ? 'destructive' : result.status === 'warning' ? 'warning' : 'default'
                 }

@@ -103,6 +103,13 @@ Machine and test traps worth checking (Medium unless they break the build):
 - A generated shadcn file that exports a `cva` variant next to a component
   fails `react-refresh/only-export-components`; the variant belongs in its own
   file (see `toggle-variants.ts`). Do not silence the lint rule.
+- Use primitive props instead of fighting their defaults: `ToggleGroup`
+  `spacing` (not a `gap-*` class — `spacing=0` adds joined-border styles),
+  `BreadcrumbPage` for the current crumb, and `role="status"` on an `Alert`
+  that is informational or a progress update (the primitive defaults to
+  `role="alert"`, which interrupts screen readers). Keep `role="alert"` for
+  errors, warnings and critical results — only ok/skipped verdicts and
+  in-progress states should be polite.
 
 Do **not** report these as findings; they are known and accepted:
 

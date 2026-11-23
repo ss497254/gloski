@@ -205,6 +205,7 @@ export function DashboardPage() {
       {health && health.status !== 'ok' && (
         <Link to="/settings?tab=health" className="mt-5 block">
           <Alert
+            role="alert"
             variant={health.status === 'critical' ? 'destructive' : 'warning'}
             className="transition-[filter] hover:brightness-[0.97] dark:hover:brightness-110"
           >

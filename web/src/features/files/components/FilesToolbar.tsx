@@ -5,6 +5,7 @@ import {
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,
+  BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/ui/breadcrumb'
 import { Button } from '@/ui/button'
@@ -142,16 +143,20 @@ export function FilesToolbar() {
                   <Fragment key={index}>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem className="shrink-0">
-                      <BreadcrumbLink asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigateTo(pathParts.slice(0, index + 1).join('/'))}
-                          className="max-w-40 truncate"
-                        >
-                          {part}
-                        </Button>
-                      </BreadcrumbLink>
+                      {index === pathParts.length - 1 ? (
+                        <BreadcrumbPage className="max-w-40 truncate">{part}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigateTo(pathParts.slice(0, index + 1).join('/'))}
+                            className="max-w-40 truncate"
+                          >
+                            {part}
+                          </Button>
+                        </BreadcrumbLink>
+                      )}
                     </BreadcrumbItem>
                   </Fragment>
                 ))}
