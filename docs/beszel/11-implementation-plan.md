@@ -190,12 +190,12 @@ handling, sensor timeout guards, SMART/ZFS parsers. Requires the `gopsutil/v4`
 decision and the fixture/self-reexec test pattern from
 [09 — Testing and quality](09-testing-and-quality.md).
 
-## Decisions still open
+## Decision record (settled)
 
-1. **History resolution:** 5-minute samples with 7-day full / 365-day daily
-   retention (smdwin rule) — confirm before migration 11.
-2. **Checks:** native probes for which protocols, and is ICMP worth the raw
-   socket complexity? Recommend TCP/HTTP/DNS/TLS first, ICMP later.
-3. **Frontend:** adopt the generated HSL series colours and command palette now,
-   or wait until history charts exist to judge them?
-4. **gopsutil/v4:** stays parked unless batch 7 is approved.
+1. **History resolution:** 5-minute samples, 7 days full then one per day up to
+   365 days. Implemented in migration 11 and the daily maintenance pass.
+2. **Checks:** TCP, HTTP, DNS and TLS probes; ICMP skipped as not worth raw
+   sockets. Results reuse `check_results` and the existing gRPC stream.
+3. **Frontend:** no generated HSL series colours, Total tooltip or command
+   palette — there is no many-series chart or missing navigation today.
+4. **`gopsutil/v4`:** parked with batch 7 until a real metric need appears.
