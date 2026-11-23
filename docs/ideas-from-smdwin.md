@@ -254,8 +254,8 @@ chain was chosen first because it needs no checks system and answers the
 1. **Diagnose chain** — done (2026-11-23).
 2. **Attention list with advice** — done (2026-11-23).
 3. **Check result model** — done (2026-11-23).
-4. **Master self-test** — next.
-5. **Action log with undo**.
+4. **Master self-test** — done (2026-11-23).
+5. **Action log with undo** — next.
 6. **History and fleet matrix** — with roadmap steps 3 and 4.
 
 ### What task 1 built
@@ -332,4 +332,27 @@ directory) are fixed and covered by tests.
   the reader recomputes `stale` against now, so an old result stays old.
 
 This is the foundation only. There is no saved-check definition, runner or UI
-yet, so the model has no endpoint until roadmap step 3 builds those.
+yet, so the model has no endpoint until roadmap step 3 builds those. The daily
+maintenance pass now calls `Prune` through `Tower.checkStore`.
+
+### What task 4 built
+
+- `GET /api/system/self-test` is read-only and returns an overall status plus
+  ordered lines with a title, status, factual summary and optional raw detail.
+  Skipped lines (backups, logs) do not affect the verdict.
+- It checks `PRAGMA quick_check`, the migration version, a write/delete probe
+  in the data directory, the join token's existence and mode, free space, the
+  local agent's session and build hash, the three embedded agent builds, and
+  the last maintenance result. Database/WAL sizes and a three-point runtime
+  trend are reported as facts, not thresholds.
+- Maintenance now records its own success or failure in the tower, and prunes
+  check history through `checks.Store`, so the self-test reports a fact rather
+  than repeating the work.
+- Settings has a "Master health" tab with re-run and Copy report. The dashboard
+  shows a small card only when something is wrong, linking to that tab.
+
+Live verification against a scratch master with its local agent connected:
+three consecutive calls returned `status: ok` with all 11 lines present; the
+runtime line showed one, two then three samples and only then a trend verdict;
+deleting `master-join-token` made the next call `status: critical` with the
+join-token line as the cause. No probe files were left in the data directory.
