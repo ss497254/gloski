@@ -62,16 +62,20 @@ Hard rules. A violation is High unless the item says otherwise:
    existing rows; a new migration alone is not enough.
 8. **Concurrency.** One `SendMsg` at a time on a gRPC stream. Long file
    transfers or slow browsers must not block heartbeats, jobs or terminals.
-9. **Docs travel with code.** A new or changed HTTP route updates
+9. **Logs and user flow.** API calls carry the same `X-Request-ID` in browser
+   console and master log. Logged bodies are capped, JSON only, and redact
+   tokens/passwords/keys; never log file contents, multipart uploads or
+   terminal traffic. Reads are debug, writes and failures info.
+10. **Docs travel with code.** A new or changed HTTP route updates
    `docs/http-api.md`; schema or status changes update `docs/data-model.md`;
    new terms update `docs/glossary.md`; a moved responsibility updates
    `docs/where-to-change-what.md`; a new page or client updates
    `docs/frontend.md`. Check the CONTRIBUTING.md documentation checklist.
-10. **Tests and live verification.** Changed behaviour needs a test and a
+11. **Tests and live verification.** Changed behaviour needs a test and a
     live master+agent check when the change could affect transport,
     lifecycle, jobs, files or terminal. Go files are gofmt'd. `bun run
     type-check`, `bun test` and `bun run build` cover the frontend.
-11. **Git workflow.** Work commits straight to `main`, no branches, no push.
+12. **Git workflow.** Work commits straight to `main`, no branches, no push.
     Unrelated work is in separate commits. The working tree must build after
     each commit. Never turn a review into a commit.
 
