@@ -193,13 +193,21 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		recentJobs = []agents.Job{}
 	}
 
-	sortIssues(issues)
-
 	matrixResults, err := t.checkStore.LatestForAllDevices(r.Context())
 	if err != nil {
 		logger.Warn("Dashboard could not load check results: %v", err)
 		matrixResults = []checks.Result{}
+		issues = append(issues, dashboardIssue{
+			ID:       "check-results-unavailable",
+			Severity: "warning",
+			Title:    "Check results unavailable",
+			Detail:   "The saved check results could not be read: " + firstLine(err.Error(), maxIssueDetail),
+			Advice:   "The check matrix is empty until the master can read its results again.",
+			since:    time.Now(),
+		})
 	}
+
+	sortIssues(issues)
 
 	httpapi.SuccessWithMessage(w, map[string]interface{}{
 		"devices":      len(list),

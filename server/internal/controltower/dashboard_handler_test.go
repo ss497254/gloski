@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/ss497254/gloski/internal/checks"
+	"github.com/ss497254/gloski/internal/database"
 	"github.com/ss497254/gloski/internal/fleet"
 )
 
@@ -60,4 +62,42 @@ func TestDashboardIncludesCheckMatrix(t *testing.T) {
 	if len(envelope.Data.CheckMatrix.Groups) < 5 {
 		t.Fatalf("matrix groups = %v", envelope.Data.CheckMatrix.Groups)
 	}
+}
+
+func TestDashboardReportsUnreadableCheckResults(t *testing.T) {
+	tower := newRoutesTower(t)
+	// Only the check store is broken; the fleet read must still work so the
+	// dashboard reaches the matrix load.
+	badDB, err := database.Open(filepath.Join(t.TempDir(), "bad.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := badDB.Close(); err != nil {
+		t.Fatal(err)
+	}
+	tower.checkStore = checks.NewStore(badDB)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/dashboard", nil)
+	request.Host = "127.0.0.1:8080"
+	response := httptest.NewRecorder()
+	tower.Router().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("dashboard status = %d", response.Code)
+	}
+	var envelope struct {
+		Data struct {
+			Issues []struct {
+				ID string `json:"id"`
+			} `json:"issues"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&envelope); err != nil {
+		t.Fatal(err)
+	}
+	for _, issue := range envelope.Data.Issues {
+		if issue.ID == "check-results-unavailable" {
+			return
+		}
+	}
+	t.Fatalf("check result failure was not reported: %s", response.Body.String())
 }
