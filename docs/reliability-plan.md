@@ -55,6 +55,17 @@ If one of these cases actually bites, add it then.
   tests. Not yet exercised: an incompatible agent being refused (the check is
   in place but no old-protocol agent was run against it), a real device, and a
   32-bit ARM board.
+- Installer safety: install failures now name their phase (platform, prepare,
+  binary, config, replace, start) and that text reaches the deployment record
+  and the diagnose view. The master reads the device's existing `agent.json`
+  and overlays only the fields it owns, so a reinstall keeps operator settings
+  such as a custom port. The binary is staged with `mktemp`, checked for size
+  and SHA-256, and swapped atomically; a trap restores the previous binary and
+  config and restarts the agent if it was running. Verified with the test SSH
+  server, including a reinstall that preserved a custom port and heartbeat
+  interval, and with a shell-level test that rejects a bad checksum and checks
+  the restored files and the absence of backups or stale uploads, plus a
+  fresh-install failure case that leaves no partial agent behind.
 - File transfers: done and verified live on a unix socket and over TCP:
   whole-file download, a byte-range download, and upload. A 200 MB download
   throttled to 1 MB/s did not delay a job, which finished in 10 ms.

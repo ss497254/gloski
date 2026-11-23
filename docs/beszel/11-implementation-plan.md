@@ -28,7 +28,17 @@ code. It is ordered by project need, not by how interesting the source code is.
   rides on the existing `/api/dashboard` response. Step 4 (Beszel's
   View/Layout/Sort/Fields control) is deferred to batch 6. Verified with
   seeded ok/warning/critical/skipped/stale results and a live master.
-- **Not done:** batch 2 step 5 and batches 4–7 below.
+- **Batch 4 — installer and SPA discipline done**: named install phases,
+  config-preserving reinstall (merged in Go), staged binary replacement with
+  checksum, size check and rollback, and a `404` status for unknown SPA routes
+  while still serving the SPA body. Verified over the test SSH server,
+  including a reinstall that kept a custom port and heartbeat interval.
+  **Skipped on purpose:** base-path rewriting and runtime config injection
+  (no base-path deployment; the dashboard already detects the tower through
+  `/api/tower/info`) and trusted-proxy CIDR parsing (security hardening is not
+  a priority, and narrowing proxy trust could break the existing basic-auth
+  proxy; `GLOSKI_ALLOWED_ORIGINS=*` remains the escape hatch).
+- **Not done:** batch 2 step 5 and batches 5–7 below.
 
 ## Ground rules for every batch
 
@@ -102,8 +112,8 @@ stale; visual check that unknown never looks like failure.
 | 2 | Config-preserving reinstall: only overwrite fields the master explicitly supplies (the `*_PROVIDED` idea). A reinstall must never clobber the token or port. |
 | 3 | Staged replacement: `mktemp` on the destination filesystem, keep `.bak`, atomic `mv`, trap-driven rollback. Simplify Beszel's version — no service-manager branch, since our agents are plain processes in `/tmp`. |
 | 4 | Checksum manifest lookup by filename, `tar -tzf` pre-flight, non-empty binary check (adapt to our embedded builds). |
-| 5 | SPA serving: 404 status for unknown routes while still rendering the SPA page, base-path rewriting and runtime config injection. |
-| 6 | Trusted-proxy IP/CIDR parsing with `net/netip`; invalid entries narrow the allowlist; warn when unrestricted. |
+| 5 | Done in part: 404 status for unknown routes while still rendering the SPA page. Skipped base-path rewriting and runtime config injection (not needed here). |
+| 6 | **Skipped** (owner priority: no security hardening unprompted; narrowing proxy trust could block legitimate use). `GLOSKI_ALLOWED_ORIGINS=*` remains the documented escape hatch. |
 
 Likely files: `server/internal/agentdist/install-agent.sh`,
 `server/internal/provisioning/{scripts,installer}.go`,

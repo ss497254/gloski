@@ -100,7 +100,7 @@ The browser never talks to an agent directly. A command crosses the gRPC stream.
 | The master half of the gRPC stream | `server/internal/controltower/agents/` |
 | Device-side jobs, files, terminal | `server/internal/worker/` |
 | Devices, deployments, fleet events | `server/internal/fleet/` |
-| SSH install and uninstall | `server/internal/provisioning/` |
+| SSH install and uninstall | `server/internal/provisioning/` (config merge), `server/internal/agentdist/install-agent.sh` (phases, staging, rollback) |
 | Agent builds served by the master | `server/internal/agentdist/` |
 | Stats collection | `server/internal/system/` |
 | Metric history and retention | `server/internal/metrics/`, `controltower/device_history.go`, `controltower/maintenance.go` |

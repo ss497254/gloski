@@ -98,6 +98,10 @@ type InstallParams struct {
 	JoinToken string
 	Name      string
 	DeployID  string
+	// ConfigJSON, when set, is written verbatim instead of generating one from
+	// the fields above. The master uses it to keep operator-supplied settings
+	// across a reinstall.
+	ConfigJSON string
 	// Force restarts the agent even when nothing changed.
 	Force bool
 }
@@ -113,14 +117,17 @@ func (d *Dist) InstallScript(p InstallParams) string {
 		}
 		return ""
 	}
-	config, _ := json.MarshalIndent(map[string]any{
-		"agent": map[string]any{
-			"master_url": p.MasterURL,
-			"join_token": p.JoinToken,
-			"name":       oneLine(p.Name),
-			"deploy_id":  p.DeployID,
-		},
-	}, "", "  ")
+	config := []byte(p.ConfigJSON)
+	if len(config) == 0 {
+		config, _ = json.MarshalIndent(map[string]any{
+			"agent": map[string]any{
+				"master_url": p.MasterURL,
+				"join_token": p.JoinToken,
+				"name":       oneLine(p.Name),
+				"deploy_id":  p.DeployID,
+			},
+		}, "", "  ")
+	}
 	force := "0"
 	if p.Force {
 		force = "1"

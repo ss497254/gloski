@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"net"
@@ -152,6 +153,54 @@ func TestInstallOverSSH(t *testing.T) {
 	}
 	if _, err := os.Stat(f.dir); !os.IsNotExist(err) {
 		t.Fatal("Remove() left the install directory behind")
+	}
+}
+
+func TestReinstallPreservesUnmanagedConfigFields(t *testing.T) {
+	f := newSSHFixture(t)
+	if result := f.install(t, false); !result.Started {
+		t.Fatalf("first install = %+v, want a started agent", result)
+	}
+
+	configPath := filepath.Join(f.dir, "agent.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Agent map[string]any `json:"agent"`
+	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	config.Agent["port"] = 19999
+	config.Agent["heartbeat_interval"] = 7
+	edited, err := json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, edited, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if result := f.install(t, true); !result.Started {
+		t.Fatalf("reinstall = %+v, want a started agent", result)
+	}
+	data, err = os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var after struct {
+		Agent map[string]any `json:"agent"`
+	}
+	if err := json.Unmarshal(data, &after); err != nil {
+		t.Fatal(err)
+	}
+	if after.Agent["port"] != float64(19999) || after.Agent["heartbeat_interval"] != float64(7) {
+		t.Fatalf("reinstall dropped operator settings: %+v", after.Agent)
+	}
+	if after.Agent["join_token"] != f.target.JoinToken {
+		t.Fatalf("reinstall lost the master's token: %+v", after.Agent)
 	}
 }
 

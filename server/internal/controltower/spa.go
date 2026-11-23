@@ -18,8 +18,14 @@ func (t *Tower) serveSPA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clean := path.Clean("/" + r.URL.Path)
+	status := http.StatusOK
+	if clean != "/" && !isAppRoute(clean) {
+		// Still serve the SPA so the browser can render its own not-found
+		// page, but tell crawlers and proxies the route does not exist.
+		status = http.StatusNotFound
+	}
 	if clean == "/" {
-		t.writeIndex(w)
+		t.writeIndex(w, status)
 		return
 	}
 
@@ -39,10 +45,26 @@ func (t *Tower) serveSPA(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	t.writeIndex(w)
+	t.writeIndex(w, status)
 }
 
-func (t *Tower) writeIndex(w http.ResponseWriter) {
+// isAppRoute mirrors the browser routes in web/src/App.tsx. Keep the two in
+// sync when a page is added; an unknown path still gets the SPA body, but with
+// a 404 status.
+func isAppRoute(clean string) bool {
+	switch clean {
+	case "/", "/devices", "/fleet", "/settings":
+		return true
+	}
+	for _, prefix := range []string{"/devices/", "/fleet/", "/servers/"} {
+		if strings.HasPrefix(clean, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Tower) writeIndex(w http.ResponseWriter, status int) {
 	// The dashboard can be rebuilt while the master is running. Always read
 	// index.html from disk so asset hashes stay in sync with web/dist; the
 	// startup copy is only a fallback.
@@ -54,11 +76,13 @@ func (t *Tower) writeIndex(w http.ResponseWriter) {
 	}
 	if len(index) == 0 {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(status)
 		fmt.Fprint(w, placeholderHTML)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
+	w.WriteHeader(status)
 	w.Write(index)
 }
 

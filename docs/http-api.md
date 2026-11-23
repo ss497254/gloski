@@ -39,6 +39,11 @@ returns `415`. Writes are same-origin only (see `httpapi.SameOrigin`); set
 `GLOSKI_ALLOWED_ORIGINS=*` to disable that check behind a proxy that rewrites
 `Host`.
 
+The SPA fallback knows the browser's routes. A known route returns `200` with
+`index.html`; an unknown extensionless path returns `404` **with the SPA body**
+so the browser can render its own not-found page. Missing assets and unknown
+`/api/*` paths return `404` without the SPA.
+
 ## Request logs and correlation
 
 The dashboard sends `X-Request-ID` on every API call. The master copies it into

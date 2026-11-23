@@ -5,6 +5,7 @@ package provisioning
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -127,14 +128,21 @@ func (i *Installer) Install(ctx context.Context, target Target, force bool) (Res
 	if err := target.Validate(); err != nil {
 		return Result{}, err
 	}
-	script := i.Dist.InstallScript(agentdist.InstallParams{
+	params := agentdist.InstallParams{
 		Dir:       target.RemoteBase,
 		MasterURL: target.MasterURL,
 		JoinToken: target.JoinToken,
 		Name:      target.Name,
 		DeployID:  target.DeployID,
 		Force:     force,
+	}
+	params.ConfigJSON = i.mergedConfig(ctx, target, map[string]any{
+		"master_url": target.MasterURL,
+		"join_token": target.JoinToken,
+		"name":       target.Name,
+		"deploy_id":  target.DeployID,
 	})
+	script := i.Dist.InstallScript(params)
 
 	output, err := i.runScript(ctx, target, script)
 	if arch := field(output, "GLOSKI_NEED_UPLOAD", "arch"); err != nil && arch != "" {
@@ -160,6 +168,37 @@ func (i *Installer) Install(ctx context.Context, target Target, force bool) (Res
 		return Result{}, fmt.Errorf("unexpected installer output %q", output)
 	}
 	return result, nil
+}
+
+// mergedConfig overlays the fields the master owns on the config already on
+// the device. Reinstalling must not wipe settings nobody asked us to change,
+// such as a custom agent port or heartbeat interval. A device we cannot read
+// simply gets the supplied fields.
+func (i *Installer) mergedConfig(ctx context.Context, target Target, supplied map[string]any) string {
+	configPath := path.Join(target.RemoteBase, "agent.json")
+	output, err := i.runCommand(ctx, target, "cat "+quote(configPath)+" 2>/dev/null || true", nil)
+	existing := map[string]any{}
+	if err == nil && strings.TrimSpace(output) != "" {
+		// A corrupt file is treated as absent; the master's fields win.
+		_ = json.Unmarshal([]byte(output), &existing)
+	}
+	agent, _ := existing["agent"].(map[string]any)
+	if agent == nil {
+		agent = map[string]any{}
+	}
+	for key, value := range supplied {
+		agent[key] = value
+	}
+	if len(existing) == 0 {
+		existing = map[string]any{"agent": agent}
+	} else {
+		existing["agent"] = agent
+	}
+	merged, err := json.MarshalIndent(existing, "", "  ")
+	if err != nil {
+		merged, _ = json.Marshal(map[string]any{"agent": supplied})
+	}
+	return string(merged)
 }
 
 // Stop stops the remote agent and its self-heal but leaves it installed. The

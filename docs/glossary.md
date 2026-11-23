@@ -14,6 +14,7 @@ renames are in [code-quality-plan.md](code-quality-plan.md).
 | **local agent** | The agent on the master host, started and supervised by the master. | `controltower/local_agent.go` |
 | **remote agent** | An agent on another device, reached over h2c on the Tailnet. | `controltower/agent_transport.go` |
 | **deployment** | The SSH record of how an agent was installed on a device. | `fleet.Deployment` |
+| **install phase** | The named stage in an install error: platform, prepare, binary, config, replace or start. It travels in the error text, not a separate field. | `agentdist/install-agent.sh` |
 | **job** | A command the master owns and one agent executes. | `agents.Job` |
 | **session** | One live `Agent.Connect` gRPC stream for a device. | `agents.connection` |
 | **diagnosis** | An ordered chain of facts from the master outwards, with the first broken link as the headline. | `controltower/diagnose.go` |

@@ -177,3 +177,7 @@ bun run build
 ```
 
 The production build is served by the master; there is no separate static host.
+The master knows the browser's route list (`controltower/spa.go` mirrors
+`App.tsx`): known routes get `200`, unknown extensionless paths get `404` while
+still returning `index.html` so the router can render its not-found page. Keep
+the two lists in sync when adding a page.
