@@ -10,6 +10,7 @@ import { Button } from '@/ui/button'
 import { Card } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
 import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, UsageBar, type StatusTone, toneSurface } from '@/shared/components'
+import { FleetCheckMatrix } from '../components'
 import {
   Activity,
   AlertTriangle,
@@ -267,6 +268,8 @@ export function DashboardPage() {
           )}
         </Card>
       )}
+
+      {summary?.check_matrix && <FleetCheckMatrix matrix={summary.check_matrix} />}
 
       <section className="mt-6">
         <div className="mb-3 flex items-center justify-between">

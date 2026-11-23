@@ -32,6 +32,34 @@ func sample(checkID, deviceID string, ranAt time.Time, status Status) Result {
 	}
 }
 
+func TestStoreLatestForAllDevices(t *testing.T) {
+	ctx := context.Background()
+	store := newTestStore(t)
+	now := time.Now()
+	old := sample("disk", "dev1", now.Add(-3*time.Minute), StatusOK)
+	fresh := sample("disk", "dev1", now.Add(-10*time.Second), StatusCritical)
+	other := sample("ping", "dev2", now, StatusSkipped)
+	for _, result := range []Result{old, fresh, other} {
+		if err := store.Save(ctx, result); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := store.LatestForAllDevices(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("results = %d, want 2", len(got))
+	}
+	if got[0].DeviceID != "dev1" || got[0].CheckID != "disk" || got[0].Status != StatusCritical {
+		t.Fatalf("first result = %+v, want dev1/disk/critical", got[0])
+	}
+	if got[1].DeviceID != "dev2" || got[1].CheckID != "ping" || got[1].Status != StatusSkipped {
+		t.Fatalf("second result = %+v, want dev2/ping/skipped", got[1])
+	}
+}
+
 func TestStoreLatestHistoryAndPrune(t *testing.T) {
 	ctx := context.Background()
 	store := newTestStore(t)

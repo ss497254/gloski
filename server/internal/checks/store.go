@@ -80,6 +80,26 @@ func (s *Store) LatestForDevice(ctx context.Context, deviceID string) ([]Result,
 	return scanResults(rows)
 }
 
+// LatestForAllDevices returns one result per (check, device) pair across the
+// fleet, sorted by device then check. Staleness is recomputed on read like
+// every other result query.
+func (s *Store) LatestForAllDevices(ctx context.Context) ([]Result, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT r.check_id, r.device_id, r.status, r.summary, r.details_json, r.ran_at, r.duration_ms, r.interval_ns
+		FROM check_results r
+		WHERE r.id = (
+			SELECT id FROM check_results
+			WHERE check_id = r.check_id AND device_id = r.device_id
+			ORDER BY ran_at DESC, id DESC LIMIT 1
+		)
+		ORDER BY r.device_id, r.check_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanResults(rows)
+}
+
 // History returns the last limit results for one check on one device.
 func (s *Store) History(ctx context.Context, checkID, deviceID string, limit int) ([]Result, error) {
 	if limit <= 0 {

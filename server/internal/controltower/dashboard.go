@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ss497254/gloski/internal/checks"
 	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/fleet"
 	"github.com/ss497254/gloski/internal/httpapi"
@@ -194,11 +195,18 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	sortIssues(issues)
 
+	matrixResults, err := t.checkStore.LatestForAllDevices(r.Context())
+	if err != nil {
+		logger.Warn("Dashboard could not load check results: %v", err)
+		matrixResults = []checks.Result{}
+	}
+
 	httpapi.SuccessWithMessage(w, map[string]interface{}{
 		"devices":      len(list),
 		"online":       online,
 		"offline":      len(list) - online,
 		"issues":       issues,
+		"check_matrix": buildCheckMatrix(list, matrixResults),
 		"recent_jobs":  recentJobs,
 		"generated_at": time.Now().UTC(),
 	})

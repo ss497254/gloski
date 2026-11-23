@@ -116,6 +116,14 @@ The dashboard's issues use the same advice-first shape: `DashboardIssue.action`
 is the destination route and `advice` is the one-line explanation shown under
 the detail. Both the dashboard and the diagnosis dialog have "Copy report".
 
+The dashboard's `check_matrix` payload is rendered by
+`features/dashboard/components/FleetCheckMatrix.tsx` between "Needs attention"
+and the device cards. Devices are rows, check groups are columns, and each block
+is one check on one device. Rows sort red first; skipped, stale and never-run
+blocks are grey, and clicking a block expands its summary, details and run time.
+Group assignment lives in the master (`controltower/check_matrix.go`), so the UI
+only maps a status to a tone using `shared/lib/status.ts`.
+
 `getSelfTest()` calls `GET /api/system/self-test`. Settings has a "Master
 health" tab (`?tab=health`) with `MasterHealthSettings`: it re-runs the
 read-only checklist, shows each line's summary and detail, and copies a report.

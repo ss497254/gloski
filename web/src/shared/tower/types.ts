@@ -142,11 +142,40 @@ export interface DashboardIssue {
   device_id?: string
 }
 
+export type CheckStatus = 'ok' | 'warning' | 'critical' | 'skipped' | 'unknown'
+
+export interface CheckBlock {
+  check_id: string
+  status: CheckStatus
+  summary: string
+  stale: boolean
+  ran_at: string
+  details?: Array<{ key: string; value: string }>
+}
+
+export interface CheckGroupCell {
+  group: string
+  checks: CheckBlock[]
+}
+
+export interface CheckMatrixRow {
+  device_id: string
+  device_name: string
+  device_status: string
+  cells: CheckGroupCell[]
+}
+
+export interface CheckMatrix {
+  groups: string[]
+  rows: CheckMatrixRow[]
+}
+
 export interface DashboardSummary {
   devices: number
   online: number
   offline: number
   issues: DashboardIssue[]
+  check_matrix: CheckMatrix
   recent_jobs: Array<{
     id: string
     device_id: string

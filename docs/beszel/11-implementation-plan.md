@@ -23,7 +23,12 @@ code. It is ordered by project need, not by how interesting the source code is.
   daily retention; native probes will cover TCP/HTTP/DNS/TLS first, ICMP later;
   chart colour/palette polish waits until history charts exist (now done);
   `gopsutil/v4` stays parked with batch 7.
-- **Not done:** batch 2 step 5 and batches 3–7 below.
+- **Batch 3 — fleet check matrix done**: `checks.Store.LatestForAllDevices`,
+  the Go matrix builder and the dashboard component are in; `check_matrix`
+  rides on the existing `/api/dashboard` response. Step 4 (Beszel's
+  View/Layout/Sort/Fields control) is deferred to batch 6. Verified with
+  seeded ok/warning/critical/skipped/stale results and a live master.
+- **Not done:** batch 2 step 5 and batches 4–7 below.
 
 ## Ground rules for every batch
 
@@ -79,7 +84,7 @@ maintenance run.
 | 1 | Query the latest check result per `(device, check)` from `check_results`. |
 | 2 | Dashboard matrix: devices as rows, check groups (Connectivity, Storage, Services, Updates, Backups) as columns, one coloured block per check. Grey for skipped/not run, not red. |
 | 3 | Keep the existing "needs attention" list above the matrix; sort rows with critical cells first; click a cell to expand details. |
-| 4 | Reuse the View/Layout/Sort/Fields pattern from Beszel's systems table rather than inventing a new control. |
+| 4 | **Deferred to batch 6.** Reuse the View/Layout/Sort/Fields pattern from Beszel's systems table rather than inventing a new control. |
 
 Likely files: dashboard components, a new matrix component, check store query.
 **Verify with:** seeded check results covering ok/warning/critical/skipped/

@@ -105,9 +105,11 @@ Neither looks like a failure.
 | `interval_ns` | The check's schedule at run time; staleness is `now - ran_at > 2 × interval` |
 
 The index is `(check_id, device_id, ran_at DESC, id DESC)` so the latest result
-and a short history are cheap to read. `checks.Store.Prune` keeps the newest 20
-rows per pair by default (`HistoryLimit`); it is intended for the daily
-maintenance pass.
+and a short history are cheap to read. `checks.Store.LatestForAllDevices`
+returns one row per pair across the fleet for the dashboard matrix; a device
+with no row has an `unknown` result, which is not a failure. `checks.Store.Prune`
+keeps the newest 20 rows per pair by default (`HistoryLimit`); it is intended
+for the daily maintenance pass.
 
 ### `metric_samples`
 
