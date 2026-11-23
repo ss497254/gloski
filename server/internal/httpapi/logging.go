@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"net"
@@ -27,9 +28,10 @@ const requestIDHeader = "X-Request-ID"
 // It keeps Hijack and Flush so WebSockets and streaming still work.
 type responseWriter struct {
 	http.ResponseWriter
-	status  int
-	body    bytes.Buffer
-	capture bool
+	status    int
+	body      bytes.Buffer
+	capture   bool
+	truncated bool
 }
 
 func (rw *responseWriter) WriteHeader(code int) {
@@ -40,8 +42,12 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 func (rw *responseWriter) Write(p []byte) (int, error) {
-	if rw.capture && rw.body.Len() < maxLoggedBody && strings.HasPrefix(rw.Header().Get("Content-Type"), "application/json") {
-		_, _ = rw.body.Write(p[:min(len(p), maxLoggedBody-rw.body.Len())])
+	if rw.capture && strings.HasPrefix(rw.Header().Get("Content-Type"), "application/json") {
+		remaining := maxLoggedBody - rw.body.Len()
+		if len(p) > remaining {
+			rw.truncated = true
+		}
+		_, _ = rw.body.Write(p[:min(len(p), remaining)])
 	}
 	return rw.ResponseWriter.Write(p)
 }
@@ -59,6 +65,10 @@ func (rw *responseWriter) Flush() {
 	}
 }
 
+// Unwrap lets http.ResponseController reach optional features of the real
+// writer, as gorilla/websocket and streaming handlers expect.
+func (rw *responseWriter) Unwrap() http.ResponseWriter { return rw.ResponseWriter }
+
 func (rw *responseWriter) code() int {
 	if rw.status == 0 {
 		return http.StatusOK
@@ -73,7 +83,7 @@ func (rw *responseWriter) code() int {
 func Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if path == "/api/health" || strings.HasPrefix(path, "/assets/") {
+		if path == "/api/health" || strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/static/") {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -99,7 +109,7 @@ func Logging(next http.Handler) http.Handler {
 			log = logger.Info
 		}
 		log("api id=%s %s %s status=%d %s req=%s res=%s",
-			id, r.Method, path, wrapped.code(), elapsed, requestBody, loggedJSON(wrapped.body.Bytes()))
+			id, r.Method, path, wrapped.code(), elapsed, requestBody, loggedResponse(wrapped))
 	})
 }
 
@@ -129,14 +139,25 @@ func captureRequestBody(r *http.Request) string {
 		return "-"
 	}
 	prefix, err := io.ReadAll(io.LimitReader(r.Body, maxLoggedBody+1))
+	// Restore the handler's body even when the logging read failed, so a
+	// broken capture cannot turn into a broken request.
+	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(prefix), r.Body))
 	if err != nil {
 		return "-"
 	}
-	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(prefix), r.Body))
 	if len(prefix) > maxLoggedBody {
-		prefix = prefix[:maxLoggedBody]
+		return fmt.Sprintf("<json body over %d bytes>", maxLoggedBody)
 	}
 	return loggedJSON(prefix)
+}
+
+// loggedResponse describes a captured body without pretending a truncated
+// JSON prefix is a whole document.
+func loggedResponse(rw *responseWriter) string {
+	if rw.truncated {
+		return fmt.Sprintf("<json body over %d bytes>", maxLoggedBody)
+	}
+	return loggedJSON(rw.body.Bytes())
 }
 
 // loggedJSON redacts secrets and caps the text. A body that is not JSON is

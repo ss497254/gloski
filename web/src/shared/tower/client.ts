@@ -18,7 +18,7 @@ interface Envelope<T> {
 }
 
 const logLimit = 4000
-const secretKey = /(token|password|secret|api_?key|authorization|credential|private_?key)/i
+const secretKey = /(token|password|secret|key|authorization|credential)/i
 
 /** Hide credentials wherever they appear in a logged JSON value. */
 function redact(value: unknown, seen = new WeakSet<object>()): unknown {

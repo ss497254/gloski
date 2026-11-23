@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gorilla/websocket"
 )
 
 func TestLoggedJSONRedactsSecrets(t *testing.T) {
@@ -59,6 +61,47 @@ func TestLogBodiesSkipsContentRoutes(t *testing.T) {
 	}
 	if !logBodies("/api/devices/d/api/jobs") {
 		t.Error("ordinary API route should still log bodies")
+	}
+}
+
+func TestLoggedResponseMarksTruncatedJSON(t *testing.T) {
+	writer := &responseWriter{capture: true, truncated: true}
+	if got := loggedResponse(writer); !strings.Contains(got, "over 4096 bytes") {
+		t.Errorf("loggedResponse() = %q, want a truncation marker", got)
+	}
+}
+
+func TestLoggingAllowsWebSocketUpgrade(t *testing.T) {
+	upgrader := websocket.Upgrader{}
+	server := httptest.NewServer(Logging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Errorf("upgrade through Logging failed: %v", err)
+			return
+		}
+		defer conn.Close()
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		_ = conn.WriteMessage(websocket.TextMessage, message)
+	})))
+	defer server.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	if err != nil {
+		t.Fatalf("dial failed: %v", err)
+	}
+	defer conn.Close()
+	if err := conn.WriteMessage(websocket.TextMessage, []byte("hello")); err != nil {
+		t.Fatal(err)
+	}
+	_, message, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if string(message) != "hello" {
+		t.Errorf("echoed %q, want hello", message)
 	}
 }
 
