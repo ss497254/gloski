@@ -94,7 +94,7 @@ Machine and test traps worth checking (Medium unless they break the build):
 - shadcn primitives must come from `scripts/add-shadcn.sh`, not a raw
   `bunx shadcn@latest add`. The CLI imports `cn` from an npm package, re-adds
   the `cn` dependency on every call, and overwrites `button.tsx`/`input.tsx`,
-  losing our Button shadow and Badge/Card tweaks. `web/tests/ui-conventions.test.ts`
+  losing Badge's status variants. `web/tests/ui-conventions.test.ts`
   fails the build on all of these (via `prebuild` and `review-checks.sh`); flag
   any UI change that reintroduces them or hand-rolls a control a primitive
   already covers (form labels/selects, alerts, breadcrumbs, progress, empty

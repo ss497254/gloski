@@ -48,15 +48,15 @@ web/src/
 `web/src/ui/` holds the shadcn primitives. Add more with
 `scripts/add-shadcn.sh <name>` from the repo root — never call the CLI directly.
 The wrapper exists because `bunx shadcn@latest add` imports `cn` from an npm
-package, re-adds that dependency on every call, and overwrites `button.tsx` and
-`input.tsx` (losing our Button shadow and Badge/Card tweaks). The wrapper fixes
-all of that and then runs type-check, lint and `review-checks.sh`.
+package, re-adds that dependency on every call, and overwrites `badge.tsx`
+(losing its status variants). The wrapper fixes the import and dependency and
+then runs type-check, lint and `review-checks.sh`.
 
 The conventions are enforced by `web/tests/ui-conventions.test.ts`. It runs as
 part of `bun test`, and `bun run build` runs it first via `prebuild`, so even
-`make build-web` fails if the CLI's `cn` import or dependency returns, or if a
-local Button/Badge/Card tweak is overwritten. The pre-commit hook and
-`review-checks.sh` run the same test. If a generated file exports a `cva` variant alongside
+`make build-web` fails if the CLI's `cn` import or dependency returns, or if
+Badge's status variants are lost. The pre-commit hook and `review-checks.sh`
+run the same test. If a generated file exports a `cva` variant alongside
 a component, move the variant into its own file (`toggle-variants.ts`) or lint's
 `react-refresh/only-export-components` rule fails.
 
@@ -143,11 +143,11 @@ credential fields are never printed; see the correlation section in
 `web/src/index.css` defines one semantic token set (background, foreground,
 card, muted, primary, success, warning, info, destructive). Components use those
 tokens rather than hardcoded colors, so light/dark switching applies everywhere.
-The accent is indigo in both themes; `primary` is used for actions, active nav
-items and the brand mark, while success/warning/info keep their own meanings.
-Cards use the `shadow-surface` utility, whose value comes from `--surface-shadow`
-and differs between light and dark. The default theme is dark; `isDarkTheme()`
-in the settings store is shared by theme-dependent code.
+The neutral slate theme is deliberate: `primary` is the same near-black in light
+and near-white in dark, used for actions, active nav items and the brand mark;
+success/warning/info keep their own meanings. Cards use `shadow-sm`. The default
+theme is dark; `isDarkTheme()` in the settings store is shared by
+theme-dependent code.
 
 ## Verification
 

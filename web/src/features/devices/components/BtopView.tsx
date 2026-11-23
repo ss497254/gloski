@@ -37,7 +37,7 @@ function Stat({
   tone?: StatusTone
 }) {
   return (
-    <Card className="gap-0 p-4 transition-shadow hover:shadow-md">
+    <Card className="gap-0 p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className={cn('flex size-7 items-center justify-center rounded-lg', tone ? toneSurface[tone] : 'bg-primary/10 text-primary')}>
           <Icon className="size-3.5" />

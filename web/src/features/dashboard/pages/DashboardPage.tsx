@@ -38,7 +38,7 @@ function Metric({
   tone?: StatusTone
 }) {
   return (
-    <Card className="group gap-0 p-4 transition-all hover:-translate-y-0.5 hover:shadow-md">
+    <Card className="group gap-0 p-4">
       <div className="flex items-center gap-3">
         <div className={cn('flex size-11 items-center justify-center rounded-xl', tone ? toneSurface[tone] : 'bg-primary/10 text-primary')}>
           <Icon className="size-5" />
@@ -57,7 +57,7 @@ function DeviceCard({ device }: { device: FleetDevice }) {
   const stats = device.stats
   return (
     <Link to={devicePath(device.id)} className="group block">
-      <Card className="h-full gap-0 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
+      <Card className="h-full gap-0 p-4 transition-colors hover:border-primary/50">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ function DeviceCard({ device }: { device: FleetDevice }) {
               {device.hostname || 'device'} · {online ? 'online' : 'offline'}
             </p>
           </div>
-          <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+          <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
         </div>
 
         <div className="mt-4 space-y-2">
@@ -270,7 +270,7 @@ export function DashboardPage() {
       <section className="mt-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Devices</h2>
-          <Link to="/devices" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary">
+          <Link to="/devices" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             View all
             <ArrowUpRight className="size-3" />
           </Link>

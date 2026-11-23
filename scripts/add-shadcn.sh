@@ -3,7 +3,8 @@
 #
 # The CLI has three habits that break this app:
 #   1. it imports `cn` from an npm package instead of @/shared/lib/utils,
-#   2. it rewrites button.tsx and input.tsx, dropping our local tweaks,
+#   2. it rewrites button.tsx, input.tsx and badge.tsx, dropping Badge's
+#      status variants,
 #   3. generated files that export a cva variant fail the fast-refresh lint rule.
 #
 # Use this instead of calling `bunx shadcn@latest add` by hand. If a generated
@@ -29,10 +30,8 @@ if grep -q '"cn":' package.json; then
 	bun remove cn >/dev/null 2>&1 || true
 fi
 
-# 2. Restore the local Button default-variant shadow after an overwrite.
-perl -pi -e 's/bg-primary text-primary-foreground hover:bg-primary\/90/bg-primary text-primary-foreground shadow-sm hover:bg-primary\/90 hover:shadow-md/' src/ui/button.tsx
-
-# 3. Catch missing imports, overwritten customisations and variant exports.
+# 2. Catch missing imports, overwritten badge variants and variant exports.
+#    The conventions test reports exactly what the CLI trampled.
 bun run type-check
 bun run lint
 sh ../scripts/review-checks.sh

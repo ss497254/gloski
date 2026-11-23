@@ -19,8 +19,8 @@ describe('shadcn conventions', () => {
     expect(packageJson.dependencies?.cn).toBeUndefined()
   })
 
-  test("Button keeps its local shadow after a CLI overwrite", () => {
-    expect(readUi('button.tsx')).toContain('shadow-sm hover:bg-primary/90')
+  test('Button keeps its default variant after a CLI overwrite', () => {
+    expect(readUi('button.tsx')).toContain('bg-primary text-primary-foreground hover:bg-primary/90')
   })
 
   test('Badge keeps its status variants', () => {
@@ -30,7 +30,7 @@ describe('shadcn conventions', () => {
     expect(badge).toContain('info:')
   })
 
-  test('Card keeps the themed surface shadow', () => {
-    expect(readUi('card.tsx')).toContain('shadow-surface')
+  test('Card keeps the original surface shadow', () => {
+    expect(readUi('card.tsx')).toContain('shadow-sm')
   })
 })
