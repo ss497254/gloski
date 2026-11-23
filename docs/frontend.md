@@ -11,7 +11,7 @@ agents over gRPC.
 | React 19 + TypeScript | UI |
 | Vite | Dev server and production build |
 | TailwindCSS v4 | Styling via theme tokens |
-| shadcn/ui + Radix | Dialogs, menus, tooltips, primitives |
+| shadcn/ui + Radix | Buttons, cards, tables, badges, alerts, dialogs, menus, tooltips |
 | Zustand | Settings and device client list |
 | Valtio | Reactive device status in the sidebar |
 | lucide-react | Icons |
@@ -36,7 +36,7 @@ web/src/
 │   └── Sidebar/               # Nav, device list, device tabs, theme toggle
 ├── shared/
 │   ├── api/                   # SDK: GloskiClient, Result<T>, resources
-│   ├── components/            # Shared UI helpers (UsageBar, ProgressBar, etc.)
+│   ├── components/            # Shared UI helpers (UsageBar, StatusBadge, etc.)
 │   ├── context/DeviceContext  # Resolves current device from route
 │   ├── lib/device.ts          # DeviceClient (per-device API client)
 │   ├── store/devices.ts       # useDevicesStore, synced from master
@@ -44,6 +44,28 @@ web/src/
 │   └── services/              # Legacy health check
 └── ui/                        # shadcn/ui primitives
 ```
+
+`web/src/ui/` holds the shadcn primitives. Add more with
+`scripts/add-shadcn.sh <name>` from the repo root — never call the CLI directly.
+The wrapper exists because `bunx shadcn@latest add` imports `cn` from an npm
+package, re-adds that dependency on every call, and overwrites `button.tsx` and
+`input.tsx` (losing our Button shadow and Badge/Card tweaks). The wrapper fixes
+all of that and then runs type-check, lint and `review-checks.sh`, which also
+guard those conventions. If a generated file exports a `cva` variant alongside
+a component, move the variant into its own file (`toggle-variants.ts`) or lint's
+`react-refresh/only-export-components` rule fails.
+
+The primitives in active use are: button, card, badge, alert, input,
+native-select, label, input-group, switch, toggle-group, table, tabs, dialog,
+alert-dialog, breadcrumb, dropdown-menu, context-menu, tooltip, separator,
+scroll-area, progress, skeleton, spinner, empty and sonner. Prefer them over
+hand-rolled markup: form labels and selects, search fields with icons,
+confirmation dialogs, breadcrumbs, progress bars and empty states all have a
+primitive now. On top of them, `shared/components/status.tsx` provides
+`StatusDot` and `StatusBadge`, and `shared/lib/status.ts` maps the API's status
+strings to a shared `StatusTone`. Use these instead of hand-rolled dots and
+coloured spans so a device looks the same in the sidebar, fleet table,
+dashboard cards and device page.
 
 ## Routes
 
@@ -116,8 +138,11 @@ credential fields are never printed; see the correlation section in
 `web/src/index.css` defines one semantic token set (background, foreground,
 card, muted, primary, success, warning, info, destructive). Components use those
 tokens rather than hardcoded colors, so light/dark switching applies everywhere.
-The default theme is dark; `isDarkTheme()` in the settings store is shared by
-theme-dependent code.
+The accent is indigo in both themes; `primary` is used for actions, active nav
+items and the brand mark, while success/warning/info keep their own meanings.
+Cards use the `shadow-surface` utility, whose value comes from `--surface-shadow`
+and differs between light and dark. The default theme is dark; `isDarkTheme()`
+in the settings store is shared by theme-dependent code.
 
 ## Verification
 

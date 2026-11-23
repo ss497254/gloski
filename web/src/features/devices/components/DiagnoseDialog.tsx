@@ -1,9 +1,11 @@
 import { diagnoseDevice } from '@/shared/tower/client'
 import { cn } from '@/shared/lib/utils'
 import type { Diagnosis, DiagnosisStatus, DiagnosisStep } from '@/shared/tower/types'
+import { Alert, AlertDescription } from '@/ui/alert'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
-import { AlertTriangle, CheckCircle2, CircleDashed, Copy, Loader2, RefreshCw, Stethoscope, XCircle } from 'lucide-react'
+import { Spinner } from '@/ui/spinner'
+import { AlertTriangle, CheckCircle2, CircleDashed, Copy, RefreshCw, Stethoscope, XCircle } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -131,27 +133,32 @@ export function DiagnoseButton({
           </DialogHeader>
 
           {loading && (
-            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-6 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Checking Tailscale, SSH and the agent…
-            </div>
+            <Alert className="text-sm text-muted-foreground">
+              <Spinner />
+              <AlertDescription>Checking Tailscale, SSH and the agent…</AlertDescription>
+            </Alert>
           )}
 
           {error && !loading && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {result && !loading && (
             <div className="space-y-4">
-              <div className={cn('flex gap-3 rounded-md border px-3 py-3', verdictClasses[result.status])}>
+              <Alert
+                variant={
+                  result.status === 'critical' ? 'destructive' : result.status === 'warning' ? 'warning' : 'default'
+                }
+                className={cn('items-start', verdictClasses[result.status])}
+              >
                 <StatusIcon status={result.status} className="mt-0.5 h-5 w-5" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{result.headline}</p>
                   {result.advice && <p className="mt-1 text-sm text-muted-foreground">{result.advice}</p>}
                 </div>
-              </div>
+              </Alert>
 
               <ul className="divide-y divide-border/70 rounded-md border border-border">
                 {result.steps.map((step) => (

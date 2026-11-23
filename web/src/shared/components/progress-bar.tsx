@@ -1,4 +1,5 @@
 import { cn } from '@/shared/lib/utils'
+import { Progress } from '@/ui/progress'
 
 interface ProgressBarProps {
   value: number
@@ -54,19 +55,12 @@ export function ProgressBar({
           {showLabel && <span className="font-medium">{Math.round(percentage)}%</span>}
         </div>
       )}
-      <div
-        role="progressbar"
-        aria-valuenow={Math.round(percentage)}
-        aria-valuemin={0}
-        aria-valuemax={100}
+      <Progress
+        value={percentage}
         aria-label={label || 'Progress'}
-        className={cn('w-full rounded-full bg-muted overflow-hidden', sizes[size])}
-      >
-        <div
-          className={cn('h-full rounded-full transition-all duration-500', getVariantClass(), barClassName)}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
+        className={cn('w-full bg-muted', sizes[size])}
+        indicatorClassName={cn('rounded-full duration-500', getVariantClass(), barClassName)}
+      />
     </div>
   )
 }

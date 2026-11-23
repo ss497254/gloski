@@ -23,9 +23,9 @@ export function PageLayout({
   return (
     <div className={cn('flex flex-col animate-in fade-in duration-200', fullHeight && 'h-full')}>
       {/* Header */}
-      <header className="border-b px-4 h-18 md:px-6 shrink-0 flex items-start md:items-center justify-between gap-3 flex-col sm:flex-row">
+      <header className="border-b border-border bg-card/40 min-h-18 px-4 py-3 md:px-6 shrink-0 flex items-start md:items-center justify-between gap-3 flex-col sm:flex-row backdrop-blur-sm">
         <div className="min-w-0">
-          <h1 className="text-lg md:text-xl font-semibold truncate">{title}</h1>
+          <h1 className="text-lg md:text-xl font-semibold tracking-tight truncate">{title}</h1>
           {description && (
             <p className="text-xs md:text-sm text-muted-foreground mt-0.5 md:mt-1 line-clamp-2">{description}</p>
           )}

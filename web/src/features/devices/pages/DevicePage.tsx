@@ -1,4 +1,5 @@
 import { PageLayout } from '@/layouts'
+import { StatusBadge } from '@/shared/components'
 import { useTower } from '@/shared/tower'
 import type { FleetDevice } from '@/shared/tower/types'
 import { Button } from '@/ui/button'
@@ -43,6 +44,7 @@ export function DevicePage() {
       description={`${managedDevice.hostname || 'device'} · ${managedDevice.url || 'agent URL pending'}`}
       actions={
         <div className="flex items-center gap-2">
+          <StatusBadge status={managedDevice.status} className="mr-1" />
           <Button asChild variant="outline" size="sm">
             <Link to="/devices">
               <ArrowLeft className="mr-2 h-4 w-4" />

@@ -1,17 +1,19 @@
-import { PageLayout } from '@/layouts'
 import { devicePath } from '@/app/navigation'
+import { PageLayout } from '@/layouts'
 import { cn, formatBytes, formatRelativeTime, formatUptime } from '@/shared/lib/utils'
+import { useTower } from '@/shared/tower'
 import { getDashboard, getSelfTest } from '@/shared/tower/client'
 import type { DashboardSummary, FleetDevice, SelfTestResult } from '@/shared/tower/types'
-import { useTower } from '@/shared/tower'
+import { Alert, AlertDescription, AlertTitle } from '@/ui/alert'
+import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
-import { DeployDeviceDialog, EmptyState, UsageBar } from '@/shared/components'
+import { Card } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
+import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, UsageBar, type StatusTone, toneSurface } from '@/shared/components'
 import {
   Activity,
   AlertTriangle,
   ArrowUpRight,
-  Circle,
   Copy,
   Cpu,
   ListTodo,
@@ -24,15 +26,29 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
-function Metric({ icon: Icon, label, value, tone }: { icon: typeof Cpu; label: string; value: string; tone?: string }) {
+function Metric({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof Cpu
+  label: string
+  value: string
+  tone?: StatusTone
+}) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className={cn('h-4 w-4', tone)} />
-        {label}
+    <Card className="group gap-0 p-4 transition-all hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-center gap-3">
+        <div className={cn('flex size-11 items-center justify-center rounded-xl', tone ? toneSurface[tone] : 'bg-primary/10 text-primary')}>
+          <Icon className="size-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+          <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+        </div>
       </div>
-      <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">{value}</p>
-    </div>
+    </Card>
   )
 }
 
@@ -40,39 +56,41 @@ function DeviceCard({ device }: { device: FleetDevice }) {
   const online = device.status === 'online'
   const stats = device.stats
   return (
-    <Link
-      to={devicePath(device.id)}
-      className="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={cn('h-2 w-2 shrink-0 rounded-full', online ? 'bg-success' : 'bg-muted-foreground/40')} />
-            <h3 className="truncate font-medium text-foreground">{device.name}</h3>
-            {device.master && (
-              <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider">
-                Master
-              </span>
-            )}
+    <Link to={devicePath(device.id)} className="group block">
+      <Card className="h-full gap-0 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <StatusDot status={device.status} />
+              <h3 className="truncate font-medium text-foreground">{device.name}</h3>
+              {device.master && (
+                <Badge
+                  variant="outline"
+                  className="border-primary/30 bg-primary/10 px-1.5 py-0 text-[10px] uppercase tracking-wider text-primary"
+                >
+                  Master
+                </Badge>
+              )}
+            </div>
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {device.hostname || 'device'} · {online ? 'online' : 'offline'}
+            </p>
           </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {device.hostname || 'device'} · {online ? 'online' : 'offline'}
-          </p>
+          <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
         </div>
-        <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
-      </div>
 
-      <div className="mt-4 space-y-2">
-        <UsageBar label="cpu" value={stats?.cpu.usage_percent ?? 0} />
-        <UsageBar label="mem" value={stats?.memory.used_percent ?? 0} />
-      </div>
+        <div className="mt-4 space-y-2">
+          <UsageBar label="cpu" value={stats?.cpu.usage_percent ?? 0} />
+          <UsageBar label="mem" value={stats?.memory.used_percent ?? 0} />
+        </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-        <span className="font-mono">
-          ↓ {formatBytes(stats?.network.rx_rate ?? 0)}/s · ↑ {formatBytes(stats?.network.tx_rate ?? 0)}/s
-        </span>
-        <span>{stats ? formatUptime(stats.uptime) : formatRelativeTime(device.last_seen)}</span>
-      </div>
+        <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
+          <span className="font-mono">
+            ↓ {formatBytes(stats?.network.rx_rate ?? 0)}/s · ↑ {formatBytes(stats?.network.tx_rate ?? 0)}/s
+          </span>
+          <span>{stats ? formatUptime(stats.uptime) : formatRelativeTime(device.last_seen)}</span>
+        </div>
+      </Card>
     </Link>
   )
 }
@@ -140,11 +158,13 @@ export function DashboardPage() {
   if (mode === 'standalone') {
     return (
       <PageLayout title="Dashboard" description="No control tower detected">
-        <EmptyState
-          icon={Server}
-          title="Master not available"
-          description="Open the dashboard served by the Gloski master to manage devices on this tailnet."
-        />
+        <Card className="gap-0 py-0">
+          <EmptyState
+            icon={Server}
+            title="Master not available"
+            description="Open the dashboard served by the Gloski master to manage devices on this tailnet."
+          />
+        </Card>
       </PageLayout>
     )
   }
@@ -177,31 +197,22 @@ export function DashboardPage() {
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Metric icon={Server} label="Devices" value={String(devices.length)} />
-        <Metric icon={Wifi} label="Online" value={String(online)} tone="text-success" />
-        <Metric icon={Activity} label="Offline" value={String(offline)} tone={offline ? 'text-warning' : undefined} />
-        <Metric
-          icon={AlertTriangle}
-          label="Issues"
-          value={String(issues.length)}
-          tone={issues.length ? 'text-warning' : undefined}
-        />
+        <Metric icon={Wifi} label="Online" value={String(online)} tone="success" />
+        <Metric icon={Activity} label="Offline" value={String(offline)} tone={offline ? 'warning' : undefined} />
+        <Metric icon={AlertTriangle} label="Issues" value={String(issues.length)} tone={issues.length ? 'warning' : undefined} />
       </div>
 
       {health && health.status !== 'ok' && (
-        <Link
-          to="/settings?tab=health"
-          className="mt-5 block rounded-lg border border-warning/30 bg-warning/5 p-4 transition-colors hover:border-warning/60"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Activity className="h-4 w-4 text-warning" />
-                Master health
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {health.status === 'critical' ? 'A master check failed.' : 'A master check needs a look.'}
-              </p>
-              <ul className="mt-2 space-y-1">
+        <Link to="/settings?tab=health" className="mt-5 block">
+          <Alert
+            variant={health.status === 'critical' ? 'destructive' : 'warning'}
+            className="transition-[filter] hover:brightness-[0.97] dark:hover:brightness-110"
+          >
+            <Activity />
+            <AlertTitle>Master health</AlertTitle>
+            <AlertDescription>
+              <span>{health.status === 'critical' ? 'A master check failed.' : 'A master check needs a look.'}</span>
+              <ul className="mt-1 space-y-0.5">
                 {health.lines
                   .filter((line) => line.status === 'warning' || line.status === 'critical')
                   .slice(0, 2)
@@ -211,18 +222,20 @@ export function DashboardPage() {
                     </li>
                   ))}
               </ul>
-            </div>
-            <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </div>
+            </AlertDescription>
+          </Alert>
         </Link>
       )}
 
       {issues.length > 0 && (
-        <section className="mt-5 rounded-lg border border-border bg-card">
+        <Card className="mt-5 gap-0 overflow-hidden py-0">
           <header className="border-b border-border px-4 py-3">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTriangle className="size-4 text-warning" />
               Needs attention
+              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px] tabular-nums">
+                {issues.length}
+              </Badge>
             </h2>
           </header>
           <div className="divide-y divide-border/70">
@@ -230,44 +243,40 @@ export function DashboardPage() {
               <Link
                 key={issue.id}
                 to={issue.action ?? (issue.device_id ? devicePath(issue.device_id) : '/devices')}
-                className="flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/40"
+                className="group flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
               >
-                <Circle
-                  className={cn(
-                    'mt-1.5 h-2 w-2 shrink-0 fill-current',
-                    issue.severity === 'error' ? 'text-destructive' : 'text-warning'
-                  )}
-                />
+                <StatusDot status={issue.severity === 'error' ? 'destructive' : 'warning'} className="mt-1.5" />
                 <div className="min-w-0">
                   <p className="font-medium text-foreground">{issue.title}</p>
                   <p className="truncate text-xs text-muted-foreground">{issue.detail}</p>
                   {issue.advice && <p className="mt-1 text-xs text-foreground/80">→ {issue.advice}</p>}
                 </div>
-                <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
               </Link>
             ))}
           </div>
           {issues.length > 8 && (
-            <button
-              type="button"
-              className="w-full border-t border-border px-4 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+            <Button
+              variant="ghost"
+              className="w-full justify-start rounded-none border-t border-border text-xs text-muted-foreground hover:text-foreground"
               onClick={() => setShowAllIssues((value) => !value)}
             >
               {showAllIssues ? 'Show fewer' : `+${issues.length - 8} more`}
-            </button>
+            </Button>
           )}
-        </section>
+        </Card>
       )}
 
       <section className="mt-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Devices</h2>
-          <Link to="/devices" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+          <Link to="/devices" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary">
             View all
+            <ArrowUpRight className="size-3" />
           </Link>
         </div>
         {devices.length === 0 ? (
-          <div className="rounded-lg border border-border bg-card">
+          <Card className="gap-0 py-0">
             <EmptyState
               icon={Server}
               title="No devices yet"
@@ -279,7 +288,7 @@ export function DashboardPage() {
                 </Button>
               }
             />
-          </div>
+          </Card>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {devices.map((device) => (
@@ -290,34 +299,23 @@ export function DashboardPage() {
       </section>
 
       {summary && summary.recent_jobs.length > 0 && (
-        <section className="mt-6 rounded-lg border border-border bg-card">
+        <Card className="mt-6 gap-0 overflow-hidden py-0">
           <header className="border-b border-border px-4 py-3">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <ListTodo className="h-4 w-4 text-muted-foreground" />
+              <ListTodo className="size-4 text-muted-foreground" />
               Recent tasks
             </h2>
           </header>
           <div className="divide-y divide-border/70">
             {summary.recent_jobs.slice(0, 6).map((job) => (
               <div key={job.id} className="flex items-center gap-3 px-4 py-2 text-xs">
-                <span
-                  className={cn(
-                    'rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider',
-                    job.status === 'finished'
-                      ? 'bg-success/10 text-success'
-                      : job.status === 'failed'
-                        ? 'bg-destructive/10 text-destructive'
-                        : 'bg-muted text-muted-foreground'
-                  )}
-                >
-                  {job.status}
-                </span>
+                <StatusBadge status={job.status} className="min-w-[4.5rem] justify-center px-1.5 py-0 text-[10px] uppercase tracking-wider" />
                 <code className="min-w-0 flex-1 truncate font-mono text-foreground/80">{job.command}</code>
                 <span className="shrink-0 text-muted-foreground">{formatRelativeTime(job.created_at)}</span>
               </div>
             ))}
           </div>
-        </section>
+        </Card>
       )}
 
       <DeployDeviceDialog open={deployOpen} onOpenChange={setDeployOpen} onDeployed={() => void load()} />

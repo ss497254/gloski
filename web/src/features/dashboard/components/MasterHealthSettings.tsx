@@ -1,8 +1,10 @@
 import { cn } from '@/shared/lib/utils'
 import { getSelfTest } from '@/shared/tower/client'
 import type { DiagnosisStatus, SelfTestLine, SelfTestResult } from '@/shared/tower/types'
+import { Alert, AlertDescription } from '@/ui/alert'
 import { Button } from '@/ui/button'
-import { AlertTriangle, CheckCircle2, CircleDashed, Copy, Loader2, RefreshCw, XCircle } from 'lucide-react'
+import { Spinner } from '@/ui/spinner'
+import { AlertTriangle, CheckCircle2, CircleDashed, Copy, RefreshCw, XCircle } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -109,23 +111,26 @@ export function MasterHealthSettings() {
             Copy report
           </Button>
           <Button size="sm" onClick={() => void run()} disabled={loading}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            {loading ? <Spinner /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Run again
           </Button>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {result && (
-        <div className={cn('flex gap-3 rounded-md border px-3 py-3', toneClasses[result.status])}>
+        <Alert
+          variant={result.status === 'critical' ? 'destructive' : result.status === 'warning' ? 'warning' : 'default'}
+          className={cn('items-start', toneClasses[result.status])}
+        >
           <StatusIcon status={result.status} />
           <p className="text-sm font-medium text-foreground">{verdict(result)}</p>
-        </div>
+        </Alert>
       )}
 
       {result && (

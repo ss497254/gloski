@@ -91,6 +91,16 @@ Machine and test traps worth checking (Medium unless they break the build):
 - `python3` is absent on this machine; scripts use awk, perl or bun.
 - `make` may be unavailable here; use the direct Go, protoc and bun commands
   in `AGENTS.md` when verifying.
+- shadcn primitives must come from `scripts/add-shadcn.sh`, not a raw
+  `bunx shadcn@latest add`. The CLI imports `cn` from an npm package, re-adds
+  the `cn` dependency on every call, and overwrites `button.tsx`/`input.tsx`,
+  losing our Button shadow and Badge/Card tweaks. `review-checks.sh` checks
+  these; flag any UI change that reintroduces them or hand-rolls a control a
+  primitive already covers (form labels/selects, alerts, breadcrumbs, progress,
+  empty states, status dots/badges).
+- A generated shadcn file that exports a `cva` variant next to a component
+  fails `react-refresh/only-export-components`; the variant belongs in its own
+  file (see `toggle-variants.ts`). Do not silence the lint rule.
 
 Do **not** report these as findings; they are known and accepted:
 

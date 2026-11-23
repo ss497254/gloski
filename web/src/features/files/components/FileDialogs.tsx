@@ -1,6 +1,17 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/ui/alert-dialog'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Input } from '@/ui/input'
+import { Label } from '@/ui/label'
 import type { FileEntry } from '@/shared/api'
 
 interface NewFolderDialogProps {
@@ -19,7 +30,11 @@ export function NewFolderDialog({ open, name, onOpenChange, onNameChange, onCrea
           <DialogTitle>Create New Folder</DialogTitle>
           <DialogDescription>Enter a name for the new folder</DialogDescription>
         </DialogHeader>
+        <Label htmlFor="new-folder-name" className="sr-only">
+          Folder name
+        </Label>
         <Input
+          id="new-folder-name"
           placeholder="Folder name"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
@@ -53,7 +68,11 @@ export function NewFileDialog({ open, name, onOpenChange, onNameChange, onCreate
           <DialogTitle>Create New File</DialogTitle>
           <DialogDescription>Enter a name for the new file</DialogDescription>
         </DialogHeader>
+        <Label htmlFor="new-file-name" className="sr-only">
+          File name
+        </Label>
         <Input
+          id="new-file-name"
           placeholder="File name (e.g., index.ts)"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
@@ -79,24 +98,22 @@ interface DeleteDialogProps {
 
 export function DeleteDialog({ entry, onClose, onDelete }: DeleteDialogProps) {
   return (
-    <Dialog open={!!entry} onOpenChange={() => onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete {entry?.type === 'directory' ? 'Folder' : 'File'}</DialogTitle>
-          <DialogDescription>
+    <AlertDialog open={!!entry} onOpenChange={() => onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {entry?.type === 'directory' ? 'Folder' : 'File'}</AlertDialogTitle>
+          <AlertDialogDescription>
             Are you sure you want to delete "{entry?.name}"? This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onDelete}>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={onDelete}>
             Delete
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -122,7 +139,11 @@ export function RenameDialog({ entry, name, onClose, onNameChange, onRename }: R
           <DialogTitle>Rename {entry?.type === 'directory' ? 'Folder' : 'File'}</DialogTitle>
           <DialogDescription>Enter a new name for "{entry?.name}"</DialogDescription>
         </DialogHeader>
+        <Label htmlFor="rename-name" className="sr-only">
+          New name
+        </Label>
         <Input
+          id="rename-name"
           placeholder="New name"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
@@ -151,23 +172,21 @@ interface BulkDeleteDialogProps {
 
 export function BulkDeleteDialog({ count, open, onClose, onDelete }: BulkDeleteDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={() => onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete {count} Items</DialogTitle>
-          <DialogDescription>
+    <AlertDialog open={open} onOpenChange={() => onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {count} Items</AlertDialogTitle>
+          <AlertDialogDescription>
             Are you sure you want to delete {count} selected item{count !== 1 ? 's' : ''}? This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onDelete}>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={onDelete}>
             Delete {count} Item{count !== 1 ? 's' : ''}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

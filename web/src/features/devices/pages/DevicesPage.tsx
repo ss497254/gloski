@@ -1,26 +1,25 @@
+import { devicePath } from '@/app/navigation'
 import { PageLayout } from '@/layouts'
 import { cn, formatBytes, formatRelativeTime, formatUptime } from '@/shared/lib/utils'
 import { useTower } from '@/shared/tower'
 import type { FleetDevice } from '@/shared/tower/types'
+import { Alert, AlertDescription } from '@/ui/alert'
+import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
-import { DeployDeviceDialog, EmptyState, UsageBar } from '@/shared/components'
+import { Card } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
 import {
-  Activity,
-  ArrowUpRight,
-  Circle,
-  Play,
-  Plus,
-  Radar,
-  RefreshCw,
-  RotateCw,
-  Square,
-  Trash2,
-  Wifi,
-} from 'lucide-react'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/ui/table'
+import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, UsageBar } from '@/shared/components'
+import { Activity, ArrowUpRight, CircleAlert, Play, Plus, Radar, RefreshCw, RotateCw, Square, Trash2, Wifi } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { devicePath } from '@/app/navigation'
 import { DiagnoseButton } from '../components/DiagnoseDialog'
 import { useDeviceActions } from '../hooks/useDeviceActions'
 
@@ -33,22 +32,23 @@ function DeviceRow({ device }: { device: FleetDevice }) {
   const problem = !online && device.deployment?.status === 'failed' ? device.deployment.error : undefined
   const hostKeyChanged = problem?.includes('host key changed') ?? false
   const stopped = device.deployment?.status === 'stopped'
+  const status = online ? 'online' : stopped ? 'stopped' : 'offline'
 
   return (
-    <tr
-      className="cursor-pointer border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40"
-      onClick={() => navigate(devicePath(device.id))}
-    >
-      <td className="px-4 py-3">
+    <TableRow className="cursor-pointer" onClick={() => navigate(devicePath(device.id))}>
+      <TableCell className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <span className={cn('h-2 w-2 shrink-0 rounded-full', online ? 'bg-success' : 'bg-muted-foreground/40')} />
+          <StatusDot status={status} />
           <div className="min-w-0">
             <p className="flex items-center gap-2 truncate text-sm font-medium text-foreground">
               {device.name}
               {device.master && (
-                <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-foreground">
+                <Badge
+                  variant="outline"
+                  className="border-primary/30 bg-primary/10 px-1.5 py-0 text-[10px] uppercase tracking-wider text-primary"
+                >
                   Master
-                </span>
+                </Badge>
               )}
             </p>
             <p className="truncate text-xs text-muted-foreground">{device.hostname || device.url}</p>
@@ -73,31 +73,25 @@ function DeviceRow({ device }: { device: FleetDevice }) {
             )}
           </div>
         </div>
-      </td>
-      <td className="px-4 py-3">
-        <span
-          className={cn(
-            'inline-flex items-center gap-1.5 text-xs font-medium',
-            online ? 'text-success' : 'text-muted-foreground'
-          )}
-        >
-          <Circle className="h-2 w-2 fill-current" />
-          {online ? 'Online' : stopped ? 'Stopped' : 'Offline'}
-        </span>
-      </td>
-      <td className="px-4 py-3">
+      </TableCell>
+      <TableCell className="px-4 py-3">
+        <StatusBadge status={status} label={online ? 'Online' : stopped ? 'Stopped' : 'Offline'} />
+      </TableCell>
+      <TableCell className="px-4 py-3">
         <div className="space-y-1.5">
           <UsageBar label="cpu" value={stats?.cpu.usage_percent ?? 0} />
           <UsageBar label="mem" value={stats?.memory.used_percent ?? 0} />
         </div>
-      </td>
-      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+      </TableCell>
+      <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
         <div className="text-success">↓ {formatBytes(stats?.network.rx_rate ?? 0)}/s</div>
         <div className="text-info">↑ {formatBytes(stats?.network.tx_rate ?? 0)}/s</div>
-      </td>
-      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{stats ? formatUptime(stats.uptime) : '—'}</td>
-      <td className="px-4 py-3 text-xs text-muted-foreground">{formatRelativeTime(device.last_seen)}</td>
-      <td className="px-4 py-3">
+      </TableCell>
+      <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">
+        {stats ? formatUptime(stats.uptime) : '—'}
+      </TableCell>
+      <TableCell className="px-4 py-3 text-xs text-muted-foreground">{formatRelativeTime(device.last_seen)}</TableCell>
+      <TableCell className="px-4 py-3">
         <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
           <DiagnoseButton deviceId={device.id} deviceName={device.name} iconOnly variant="ghost" size="icon-sm" />
           {device.managed && online && (
@@ -128,21 +122,15 @@ function DeviceRow({ device }: { device: FleetDevice }) {
               )}
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title="Remove device"
-            disabled={busy}
-            onClick={() => void run('remove')}
-          >
+          <Button variant="ghost" size="icon-sm" title="Remove device" disabled={busy} onClick={() => void run('remove')}>
             <Trash2 className="h-3.5 w-3.5 text-destructive" />
           </Button>
           <Button variant="ghost" size="icon-sm" title="Open device" onClick={() => navigate(devicePath(device.id))}>
             <ArrowUpRight className="h-4 w-4" />
           </Button>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -154,11 +142,11 @@ export function DevicesPage() {
   if (mode === 'loading') {
     return (
       <PageLayout title="Devices" description="Connecting to the control tower…">
-        <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+        <Card className="gap-0 py-0 p-4">
           {[0, 1, 2].map((index) => (
-            <Skeleton key={index} className="h-12 w-full" />
+            <Skeleton key={index} className="mb-2 h-12 w-full last:mb-0" />
           ))}
-        </div>
+        </Card>
       </PageLayout>
     )
   }
@@ -166,11 +154,13 @@ export function DevicesPage() {
   if (mode === 'standalone') {
     return (
       <PageLayout title="Devices" description="Waiting for the control tower">
-        <EmptyState
-          icon={Radar}
-          title="No control tower detected"
-          description="Open the dashboard served by the Gloski master to manage this tailnet's devices."
-        />
+        <Card className="gap-0 py-0">
+          <EmptyState
+            icon={Radar}
+            title="No control tower detected"
+            description="Open the dashboard served by the Gloski master to manage this tailnet's devices."
+          />
+        </Card>
       </PageLayout>
     )
   }
@@ -185,7 +175,7 @@ export function DevicesPage() {
       actions={
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn('h-2 w-2 rounded-full', connected ? 'bg-success' : 'bg-destructive')} />
+            <StatusDot status={connected ? 'online' : 'offline'} />
             {connected ? 'live' : 'reconnecting'}
           </span>
           <Button
@@ -203,12 +193,7 @@ export function DevicesPage() {
             <RefreshCw className={cn('mr-2 h-4 w-4', refreshing && 'animate-spin')} />
             Refresh
           </Button>
-          <Button
-            size="sm"
-            onClick={() => setDeployOpen(true)}
-            disabled={deployDisabled}
-            title={deployDisabled ? "The master has no agent builds; run 'make build'" : undefined}
-          >
+          <Button size="sm" onClick={() => setDeployOpen(true)} disabled={deployDisabled} title={deployDisabled ? "The master has no agent builds; run 'make build'" : undefined}>
             <Plus className="mr-2 h-4 w-4" />
             Deploy agent
           </Button>
@@ -216,13 +201,14 @@ export function DevicesPage() {
       }
     >
       {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </div>
+        <Alert variant="destructive" className="mb-4">
+          <CircleAlert />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {devices.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card">
+        <Card className="gap-0 py-0">
           <EmptyState
             icon={Wifi}
             title="No devices yet"
@@ -234,28 +220,40 @@ export function DevicesPage() {
               </Button>
             }
           />
-        </div>
+        </Card>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-[900px] text-left">
-            <thead className="border-b border-border bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2 font-medium">Device</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Usage</th>
-                <th className="px-4 py-2 font-medium">Network</th>
-                <th className="px-4 py-2 font-medium">Uptime</th>
-                <th className="px-4 py-2 font-medium">Seen</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="gap-0 overflow-hidden py-0">
+          <Table className="min-w-[900px]">
+            <TableHeader className="bg-muted/50 hover:bg-muted/50">
+              <TableRow>
+                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Device
+                </TableHead>
+                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Status
+                </TableHead>
+                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Usage
+                </TableHead>
+                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Network
+                </TableHead>
+                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Uptime
+                </TableHead>
+                <TableHead className="px-4 py-2.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Seen
+                </TableHead>
+                <TableHead className="px-4 py-2.5" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {devices.map((device) => (
                 <DeviceRow key={device.id} device={device} />
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">

@@ -1,5 +1,10 @@
 import { Search, X } from 'lucide-react'
-import { Input } from '@/ui/input'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/ui/input-group'
 import { cn } from '@/shared/lib/utils'
 
 interface SearchInputProps {
@@ -18,18 +23,18 @@ export function SearchInput({
   showClear = true,
 }: SearchInputProps) {
   return (
-    <div className={cn('relative', className)}>
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-      <Input placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} className="pl-9 pr-9" />
+    <InputGroup className={cn('max-w-sm', className)}>
+      <InputGroupAddon>
+        <Search />
+      </InputGroupAddon>
+      <InputGroupInput placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
       {showClear && value && (
-        <button
-          onClick={() => onChange('')}
-          aria-label="Clear search"
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton onClick={() => onChange('')} aria-label="Clear search">
+            <X />
+          </InputGroupButton>
+        </InputGroupAddon>
       )}
-    </div>
+    </InputGroup>
   )
 }

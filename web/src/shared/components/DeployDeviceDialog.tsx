@@ -1,9 +1,13 @@
 import { deployDevice, getDeployment, listTailnetPeers } from '@/shared/tower/client'
 import type { Deployment, TailnetNode } from '@/shared/tower/types'
+import { Alert, AlertDescription } from '@/ui/alert'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Input } from '@/ui/input'
-import { Loader2, Rocket, Server } from 'lucide-react'
+import { Label } from '@/ui/label'
+import { NativeSelect, NativeSelectOption } from '@/ui/native-select'
+import { Spinner } from '@/ui/spinner'
+import { Rocket, Server } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 
@@ -203,36 +207,36 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
         </DialogHeader>
 
         {!peersAvailable && peersError && (
-          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-            Tailnet discovery unavailable ({peersError}). Enter the device address manually.
-          </p>
+          <Alert variant="warning">
+            <AlertDescription>Tailnet discovery unavailable ({peersError}). Enter the device address manually.</AlertDescription>
+          </Alert>
         )}
 
         <form onSubmit={submit} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-peer">
+              <Label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-peer">
                 Tailnet device
-              </label>
-              <select
+              </Label>
+              <NativeSelect
                 id="deploy-peer"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="w-full"
                 value={form.peer}
                 onChange={(event) => choosePeer(event.target.value)}
                 disabled={busy}
               >
-                <option value="">Manual entry</option>
+                <NativeSelectOption value="">Manual entry</NativeSelectOption>
                 {peers.map((peer) => (
-                  <option key={peerKey(peer)} value={peerKey(peer)}>
+                  <NativeSelectOption key={peerKey(peer)} value={peerKey(peer)}>
                     {peer.hostname} · {peer.os} · {peer.online ? 'online' : 'offline'}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-host">
+              <Label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-host">
                 SSH host
-              </label>
+              </Label>
               <Input
                 id="deploy-host"
                 placeholder="100.x.y.z or device.ts.net"
@@ -248,9 +252,9 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-user">
+              <Label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-user">
                 SSH user
-              </label>
+              </Label>
               <Input
                 id="deploy-user"
                 placeholder="root"
@@ -260,9 +264,9 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-name">
+              <Label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-name">
                 Display name
-              </label>
+              </Label>
               <Input
                 id="deploy-name"
                 placeholder="defaults to hostname"
@@ -275,9 +279,9 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-ssh-port">
+              <Label className="text-xs font-medium text-muted-foreground" htmlFor="deploy-ssh-port">
                 SSH port
-              </label>
+              </Label>
               <Input
                 id="deploy-ssh-port"
                 inputMode="numeric"
@@ -294,12 +298,16 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
           </p>
 
           {deployment && status === 'deploying' && (
-            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-success" />
-              <span>{statusLabel(deployment.status)}</span>
-            </div>
+            <Alert className="text-xs">
+              <Spinner className="text-success" />
+              <AlertDescription>{statusLabel(deployment.status)}</AlertDescription>
+            </Alert>
           )}
-          {error && <p className="font-mono text-xs text-destructive">{error}</p>}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription className="font-mono text-xs">{error}</AlertDescription>
+            </Alert>
+          )}
 
           <DialogFooter className="pt-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={status === 'deploying'}>
@@ -307,7 +315,7 @@ export function DeployDeviceDialog({ open, onOpenChange, onDeployed }: DeployDev
             </Button>
             <Button type="submit" disabled={busy || !form.host.trim() || !form.user.trim()}>
               {status === 'deploying' ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner />
               ) : (
                 <Server className="mr-2 h-4 w-4" />
               )}

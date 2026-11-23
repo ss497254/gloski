@@ -1,4 +1,12 @@
+import { SearchInput } from '@/shared/components'
 import { cn } from '@/shared/lib/utils'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbSeparator,
+} from '@/ui/breadcrumb'
 import { Button } from '@/ui/button'
 import {
   DropdownMenu,
@@ -7,12 +15,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/ui/dropdown-menu'
-import { Input } from '@/ui/input'
 import {
   ArrowLeft,
   CheckSquare,
   ChevronDown,
-  ChevronRight,
   Clock,
   Download,
   FilePlus,
@@ -25,13 +31,13 @@ import {
   Loader2,
   Menu,
   RefreshCw,
-  Search,
   SortAsc,
   SortDesc,
   Trash2,
   Upload,
   X,
 } from 'lucide-react'
+import { Fragment } from 'react'
 import { useFiles } from '../context'
 import { getPathParts } from '../lib/file-utils'
 
@@ -122,24 +128,35 @@ export function FilesToolbar() {
             </Button>
 
             {/* Breadcrumb */}
-            <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto scrollbar-none">
-              <Button variant="ghost" size="sm" className="shrink-0" onClick={() => navigateTo('/')}>
-                <Home className="h-4 w-4" />
-              </Button>
-              {pathParts.map((part, index) => (
-                <div key={index} className="flex items-center shrink-0">
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigateTo(pathParts.slice(0, index + 1).join('/'))}
-                    className="truncate max-w-40"
-                  >
-                    {part}
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <Breadcrumb className="min-w-0 flex-1 overflow-x-auto scrollbar-none">
+              <BreadcrumbList className="flex-nowrap">
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Button variant="ghost" size="sm" className="shrink-0" onClick={() => navigateTo('/')}>
+                      <Home className="h-4 w-4" />
+                      <span className="sr-only">Root</span>
+                    </Button>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {pathParts.map((part, index) => (
+                  <Fragment key={index}>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem className="shrink-0">
+                      <BreadcrumbLink asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigateTo(pathParts.slice(0, index + 1).join('/'))}
+                          className="max-w-40 truncate"
+                        >
+                          {part}
+                        </Button>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                  </Fragment>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
 
             {/* Actions */}
             <div className="flex items-center gap-1 shrink-0">
@@ -188,25 +205,7 @@ export function FilesToolbar() {
 
           {/* Search and Sort bar */}
           <div className="flex items-center gap-3 px-4 pb-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Filter files..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9"
-              />
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setSearchQuery('')}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
+            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Filter files..." className="flex-1" />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

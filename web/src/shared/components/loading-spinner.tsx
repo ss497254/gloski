@@ -1,4 +1,5 @@
 import { cn } from '@/shared/lib/utils'
+import { Spinner } from '@/ui/spinner'
 import { Server } from 'lucide-react'
 
 interface LoadingSpinnerProps {
@@ -8,12 +9,12 @@ interface LoadingSpinnerProps {
 
 export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) {
   const sizes = {
-    sm: 'h-4 w-4 border-2',
-    md: 'h-8 w-8 border-2',
-    lg: 'h-12 w-12 border-3',
+    sm: 'size-4',
+    md: 'size-8',
+    lg: 'size-12',
   }
 
-  return <div className={cn('animate-spin rounded-full border-primary border-t-transparent', sizes[size], className)} />
+  return <Spinner className={cn('text-primary', sizes[size], className)} />
 }
 
 interface PageLoaderProps {

@@ -1,6 +1,7 @@
 import { useSettingsStore } from '@/features/dashboard/stores/settings'
 import { NavigationProgress, PageLoader } from '@/shared/components'
 import { useTower } from '@/shared/tower'
+import { Button } from '@/ui/button'
 import { TooltipProvider } from '@/ui/tooltip'
 import { Layers, Menu } from 'lucide-react'
 import { Suspense } from 'react'
@@ -28,13 +29,9 @@ export function AppLayout() {
               </span>
             </div>
           </div>
-          <button
-            onClick={toggleMobileSidebar}
-            className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Open menu"
-          >
+          <Button variant="ghost" size="icon" onClick={toggleMobileSidebar} aria-label="Open menu">
             <Menu className="h-5 w-5" />
-          </button>
+          </Button>
         </header>
 
         <Sidebar className="hidden md:flex" />

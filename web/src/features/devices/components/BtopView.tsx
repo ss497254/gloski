@@ -1,8 +1,20 @@
 import type { ProcessInfo, SystemStats } from '@/shared/api'
-import { ProgressBar } from '@/shared/components'
+import { ProgressBar, StatusDot, toneSurface } from '@/shared/components'
 import { cn, formatBytes, formatUptime } from '@/shared/lib/utils'
 import type { FleetDevice } from '@/shared/tower'
-import { Activity, Cpu, HardDrive, MemoryStick, Network } from 'lucide-react'
+import { Badge } from '@/ui/badge'
+import { Card } from '@/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table'
+import type { StatusTone } from '@/shared/components'
+import { Cpu, HardDrive, MemoryStick, Network } from 'lucide-react'
+
+const toneText: Record<StatusTone, string> = {
+  success: 'text-success',
+  warning: 'text-warning',
+  info: 'text-info',
+  destructive: 'text-destructive',
+  muted: 'text-muted-foreground',
+}
 
 interface BtopViewProps {
   device: FleetDevice
@@ -22,30 +34,32 @@ function Stat({
   label: string
   value: string
   detail: string
-  tone?: string
+  tone?: StatusTone
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <Card className="gap-0 p-4 transition-shadow hover:shadow-md">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className={cn('h-4 w-4', tone)} />
+        <span className={cn('flex size-7 items-center justify-center rounded-lg', tone ? toneSurface[tone] : 'bg-primary/10 text-primary')}>
+          <Icon className="size-3.5" />
+        </span>
         {label}
       </div>
-      <p className={cn('mt-2 text-2xl font-semibold tabular-nums', tone ?? 'text-foreground')}>{value}</p>
+      <p className={cn('mt-2 text-2xl font-semibold tabular-nums', tone ? toneText[tone] : 'text-foreground')}>{value}</p>
       <p className="mt-1 truncate text-[11px] text-muted-foreground">{detail}</p>
-    </div>
+    </Card>
   )
 }
 
-function usageTone(percent: number): string {
-  if (percent > 85) return 'text-destructive'
-  if (percent > 65) return 'text-warning'
-  return 'text-success'
+function usageTone(percent: number): StatusTone {
+  if (percent > 85) return 'destructive'
+  if (percent > 65) return 'warning'
+  return 'success'
 }
 
 export function BtopView({ device, stats, processes, connected }: BtopViewProps) {
   if (!stats) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+      <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
         {device.status === 'online' ? 'Waiting for device statistics…' : 'Device is offline'}
       </div>
     )
@@ -57,8 +71,10 @@ export function BtopView({ device, stats, processes, connected }: BtopViewProps)
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Activity className={cn('h-3.5 w-3.5', connected ? 'text-success' : 'text-muted-foreground')} />
-        <span>{connected ? 'Live metrics' : 'Reconnecting…'}</span>
+        <Badge variant={connected ? 'success' : 'secondary'} className="gap-1.5">
+          <StatusDot status={connected ? 'online' : 'offline'} className="size-1.5" />
+          {connected ? 'Live metrics' : 'Reconnecting…'}
+        </Badge>
         <span className="text-muted-foreground/50">·</span>
         <span>{stats.hostname}</span>
         <span className="text-muted-foreground/50">·</span>
@@ -85,7 +101,7 @@ export function BtopView({ device, stats, processes, connected }: BtopViewProps)
           label="Network"
           value={`↓ ${formatBytes(stats.network.rx_rate)}/s`}
           detail={`↑ ${formatBytes(stats.network.tx_rate)}/s`}
-          tone="text-info"
+          tone="info"
         />
         <Stat
           icon={HardDrive}
@@ -95,48 +111,56 @@ export function BtopView({ device, stats, processes, connected }: BtopViewProps)
         />
       </div>
 
-      <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <Card className="gap-0 overflow-hidden py-0">
         <header className="border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold text-foreground">Top processes</h2>
         </header>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2 font-medium">pid</th>
-                <th className="px-4 py-2 font-medium">user</th>
-                <th className="px-4 py-2 text-right font-medium">cpu%</th>
-                <th className="px-4 py-2 text-right font-medium">mem%</th>
-                <th className="px-4 py-2 text-right font-medium">rss</th>
-                <th className="px-4 py-2 font-medium">command</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {processes.slice(0, 10).map((process) => (
-                <tr key={process.pid} className="hover:bg-muted/40">
-                  <td className="px-4 py-2 font-mono text-muted-foreground">{process.pid}</td>
-                  <td className="px-4 py-2 text-foreground/80">{process.user || '?'}</td>
-                  <td className={cn('px-4 py-2 text-right font-mono tabular-nums', usageTone(process.cpu))}>
-                    {process.cpu.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono tabular-nums text-info">{process.memory.toFixed(1)}</td>
-                  <td className="px-4 py-2 text-right font-mono text-muted-foreground">{formatBytes(process.rss)}</td>
-                  <td className="max-w-0 truncate px-4 py-2 text-foreground/90">{process.command || process.name}</td>
-                </tr>
-              ))}
-              {processes.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-4 text-center text-muted-foreground">
-                    No process data yet
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        <Table className="text-xs">
+          <TableHeader className="bg-muted/40 hover:bg-muted/40">
+            <TableRow>
+              <TableHead className="px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground">pid</TableHead>
+              <TableHead className="px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground">user</TableHead>
+              <TableHead className="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground">
+                cpu%
+              </TableHead>
+              <TableHead className="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground">
+                mem%
+              </TableHead>
+              <TableHead className="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground">
+                rss
+              </TableHead>
+              <TableHead className="px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground">command</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-border/60">
+            {processes.slice(0, 10).map((process) => (
+              <TableRow key={process.pid} className="hover:bg-muted/50">
+                <TableCell className="px-4 py-2 font-mono text-muted-foreground">{process.pid}</TableCell>
+                <TableCell className="px-4 py-2 text-foreground/80">{process.user || '?'}</TableCell>
+                <TableCell className={cn('px-4 py-2 text-right font-mono tabular-nums', toneText[usageTone(process.cpu)])}>
+                  {process.cpu.toFixed(1)}
+                </TableCell>
+                <TableCell className="px-4 py-2 text-right font-mono tabular-nums text-info">
+                  {process.memory.toFixed(1)}
+                </TableCell>
+                <TableCell className="px-4 py-2 text-right font-mono text-muted-foreground">
+                  {formatBytes(process.rss)}
+                </TableCell>
+                <TableCell className="max-w-0 truncate px-4 py-2 text-foreground/90">{process.command || process.name}</TableCell>
+              </TableRow>
+            ))}
+            {processes.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="px-4 py-4 text-center text-muted-foreground">
+                  No process data yet
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
 
-      <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <Card className="gap-0 overflow-hidden py-0">
         <header className="border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold text-foreground">Disks</h2>
         </header>
@@ -155,7 +179,7 @@ export function BtopView({ device, stats, processes, connected }: BtopViewProps)
           ))}
           {stats.disks.length === 0 && <p className="px-4 py-4 text-xs text-muted-foreground">No disks reported</p>}
         </div>
-      </section>
+      </Card>
     </div>
   )
 }

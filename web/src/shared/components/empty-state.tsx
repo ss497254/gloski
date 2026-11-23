@@ -1,4 +1,12 @@
 import { cn } from '@/shared/lib/utils'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/ui/empty'
 import type { LucideIcon } from 'lucide-react'
 
 interface EmptyStateProps {
@@ -28,7 +36,7 @@ export function EmptyState({
       icon: 'text-destructive',
     },
     warning: {
-      container: 'bg-warning',
+      container: 'bg-warning/15',
       icon: 'text-warning',
     },
   }
@@ -36,15 +44,17 @@ export function EmptyState({
   const styles = variantStyles[variant]
 
   return (
-    <div className={cn('flex flex-col items-center justify-center py-12 px-4 text-center', className)}>
-      {Icon && (
-        <div className={cn('mb-4 rounded-2xl p-4', styles.container)}>
-          <Icon className={cn('h-8 w-8', styles.icon)} />
-        </div>
-      )}
-      <h3 className="text-lg font-semibold">{title}</h3>
-      {description && <p className="mt-2 text-sm text-muted-foreground max-w-md leading-relaxed">{description}</p>}
-      {action && <div className="mt-6">{action}</div>}
-    </div>
+    <Empty className={cn('py-12', className)}>
+      <EmptyHeader>
+        {Icon && (
+          <EmptyMedia variant="icon" className={cn('size-14 rounded-2xl', styles.container)}>
+            <Icon className={cn('size-8', styles.icon)} />
+          </EmptyMedia>
+        )}
+        <EmptyTitle>{title}</EmptyTitle>
+        {description && <EmptyDescription>{description}</EmptyDescription>}
+      </EmptyHeader>
+      {action && <EmptyContent>{action}</EmptyContent>}
+    </Empty>
   )
 }

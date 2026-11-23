@@ -2,8 +2,10 @@ import { formatRelativeTime } from '@/shared/lib/utils'
 import { useTower } from '@/shared/tower'
 import { listDeviceActions, undoDeviceAction } from '@/shared/tower/client'
 import type { DeviceAction } from '@/shared/tower/types'
+import { Alert, AlertDescription } from '@/ui/alert'
 import { Button } from '@/ui/button'
-import { History, Loader2, Undo2 } from 'lucide-react'
+import { Card } from '@/ui/card'
+import { CircleAlert, History, Loader2, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -58,7 +60,7 @@ export function RecentChanges({ deviceId }: { deviceId: string }) {
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card">
+    <Card className="gap-0 overflow-hidden py-0">
       <header className="flex items-center gap-2 border-b border-border px-4 py-3">
         <History className="h-4 w-4 text-muted-foreground" />
         <h2 className="text-sm font-semibold text-foreground">Recent changes</h2>
@@ -69,12 +71,15 @@ export function RecentChanges({ deviceId }: { deviceId: string }) {
           Loading changes…
         </div>
       ) : historyError ? (
-        <div className="flex items-center justify-between gap-3 px-4 py-4 text-sm text-destructive">
-          <span>{historyError}</span>
-          <Button variant="outline" size="sm" onClick={() => void load()}>
-            Retry
-          </Button>
-        </div>
+        <Alert variant="destructive" className="m-4">
+          <CircleAlert />
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{historyError}</span>
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       ) : actions.length === 0 ? (
         <p className="px-4 py-6 text-sm text-muted-foreground">No changes recorded yet.</p>
       ) : (
@@ -118,6 +123,6 @@ export function RecentChanges({ deviceId }: { deviceId: string }) {
           })}
         </ul>
       )}
-    </section>
+    </Card>
   )
 }

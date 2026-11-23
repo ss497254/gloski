@@ -1,5 +1,5 @@
 import { PageLayout } from '@/layouts'
-import { cn } from '@/shared/lib/utils'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/tabs'
 import { Activity, Info, Palette } from 'lucide-react'
 import { AboutSettings, AppearanceSettings, MasterHealthSettings } from '../components'
 import { SettingsProvider, useSettings, type SettingsTab } from '../context'
@@ -19,31 +19,37 @@ function SettingsContent() {
 
   return (
     <PageLayout title="Settings" description="Manage your preferences">
-      <div className="flex gap-8 max-w-4xl">
-        {/* Sidebar */}
-        <div className="w-48 shrink-0 space-y-1">
+      <Tabs
+        orientation="vertical"
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as SettingsTab)}
+        className="flex gap-8 max-w-4xl md:flex-row"
+      >
+        <TabsList className="flex h-auto w-full shrink-0 flex-row justify-start gap-1 bg-transparent p-0 md:w-48 md:flex-col">
           {tabs.map((tab) => (
-            <button
+            <TabsTrigger
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                activeTab === tab.id ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50'
-              )}
+              value={tab.id}
+              className="h-auto w-full justify-start gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
-            </button>
+            </TabsTrigger>
           ))}
-        </div>
+        </TabsList>
 
-        {/* Content */}
-        <div className="flex-1 space-y-6">
-          {activeTab === 'appearance' && <AppearanceSettings />}
-          {activeTab === 'health' && <MasterHealthSettings />}
-          {activeTab === 'about' && <AboutSettings />}
+        <div className="min-w-0 flex-1 space-y-6">
+          <TabsContent value="appearance">
+            <AppearanceSettings />
+          </TabsContent>
+          <TabsContent value="health">
+            <MasterHealthSettings />
+          </TabsContent>
+          <TabsContent value="about">
+            <AboutSettings />
+          </TabsContent>
         </div>
-      </div>
+      </Tabs>
     </PageLayout>
   )
 }

@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Layers, Moon, Sun, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, useLocation, useParams } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
+import { Button } from '@/ui/button'
 import { NavItem } from './NavItem'
 import { DeviceNav } from './DeviceNav'
 
@@ -53,17 +54,18 @@ function ThemeToggle({ collapsed }: { collapsed: boolean }) {
   const isDark = isDarkTheme(theme)
 
   return (
-    <button
+    <Button
+      variant="ghost"
       onClick={toggleTheme}
       className={cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+        'h-auto w-full justify-start gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-accent-foreground',
         collapsed && 'justify-center px-2'
       )}
       title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
     >
       {isDark ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
       {!collapsed && <span>{isDark ? 'Light mode' : 'Dark mode'}</span>}
-    </button>
+    </Button>
   )
 }
 
@@ -172,24 +174,24 @@ export function Sidebar({ className }: { className?: string }) {
       <div className="h-18 flex items-center justify-between px-3 border-b border-border">
         <Brand collapsed={sidebarCollapsed} />
         {!sidebarCollapsed && (
-          <button
-            onClick={toggleSidebar}
-            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <Button variant="ghost" size="icon-sm" onClick={toggleSidebar} aria-label="Collapse sidebar">
             <ChevronLeft className="h-4 w-4" />
-          </button>
+          </Button>
         )}
       </div>
 
       <SidebarContent collapsed={sidebarCollapsed} />
 
       {sidebarCollapsed && (
-        <button
+        <Button
+          variant="outline"
+          size="icon-sm"
           onClick={toggleSidebar}
-          className="absolute -right-3 top-6 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-accent transition-colors"
+          aria-label="Expand sidebar"
+          className="absolute -right-3 top-6 size-6 rounded-full bg-background shadow-sm"
         >
           <ChevronRight className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       )}
     </aside>
   )
@@ -227,13 +229,14 @@ export function MobileSidebar() {
       <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] flex flex-col border-r border-border bg-sidebar text-sidebar-foreground shadow-xl animate-in slide-in-from-left duration-200">
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
           <Brand collapsed={false} />
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setMobileSidebarOpen(false)}
-            className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Close menu"
           >
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
         <SidebarContent collapsed={false} />
       </aside>
