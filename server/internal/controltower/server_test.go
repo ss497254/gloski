@@ -50,6 +50,11 @@ func TestUnknownSPARouteReturns404WithIndex(t *testing.T) {
 		"/devices":                  http.StatusOK,
 		"/devices/abc/files":        http.StatusOK,
 		"/settings":                 http.StatusOK,
+		"/fleet/abc":                http.StatusOK,
+		"/servers/abc/anything":     http.StatusOK,
+		"/devices/abc/bogus":        http.StatusNotFound,
+		"/fleet/abc/bogus":          http.StatusNotFound,
+		"/settings/extra":           http.StatusNotFound,
 		"/this-page-does-not-exist": http.StatusNotFound,
 	}
 	for path, want := range cases {

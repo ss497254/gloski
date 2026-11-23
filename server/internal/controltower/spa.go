@@ -52,14 +52,29 @@ func (t *Tower) serveSPA(w http.ResponseWriter, r *http.Request) {
 // sync when a page is added; an unknown path still gets the SPA body, but with
 // a 404 status.
 func isAppRoute(clean string) bool {
-	switch clean {
-	case "/", "/devices", "/fleet", "/settings":
-		return true
-	}
-	for _, prefix := range []string{"/devices/", "/fleet/", "/servers/"} {
-		if strings.HasPrefix(clean, prefix) {
+	parts := strings.Split(strings.Trim(clean, "/"), "/")
+	switch parts[0] {
+	case "":
+		return true // "/"
+	case "devices":
+		switch len(parts) {
+		case 1:
 			return true
+		case 2:
+			return parts[1] != ""
+		case 3:
+			switch parts[2] {
+			case "files", "terminal", "jobs":
+				return true
+			}
 		}
+	case "fleet":
+		return len(parts) <= 2
+	case "servers":
+		// Legacy redirect with a wildcard remainder.
+		return len(parts) >= 2
+	case "settings":
+		return len(parts) == 1
 	}
 	return false
 }
