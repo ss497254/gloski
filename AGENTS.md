@@ -74,6 +74,10 @@ These came from the owner directly. Follow them unless told otherwise.
 - Every device can run Tailscale. By default the master binds the agent port to
   its Tailscale IPs only (`agent_grpc_host` empty) and retries until Tailscale
   is up.
+- Tailscale SSH authenticates deployment without SSH keys: `x/crypto/ssh` tries
+  "none" auth first and the tailnet accepts it. Keys remain a fallback for
+  devices without Tailscale SSH. This is the rescue path when an agent is down
+  and no key is configured; never add a separate SSH fallback for tasks.
 - Workloads: long-running jobs, scheduled jobs, the same command on many
   devices, and quick one-off commands.
 - The master rejects cross-origin writes and WebSocket handshakes
@@ -94,13 +98,15 @@ inside system directories stay legal.
 File contents no longer travel on the gRPC stream. A download or upload sends a
 `FileTransfer` with a one-time id, and the agent makes one HTTP request to
 `/agent/transfer/{id}` on the same agent port (unix socket for the local agent).
-`ProtocolVersion` is 3; agents built before this change are refused and
-reinstalled by the lifecycle. Listing, stat, rename, delete and the editor's
-small text reads stay on gRPC.
+`ProtocolVersion` is 4 (native check probes); agents built before this change
+are refused and reinstalled by the lifecycle. Listing, stat, rename, delete and
+the editor's small text reads stay on gRPC.
 
 Job logs are capped at 10 MB each and a daily maintenance pass in
 `controltower/maintenance.go` deletes finished jobs older than 30 days
-(`agents.JobRetention`).
+(`agents.JobRetention`). Device metric history, the fleet check matrix,
+native TCP/HTTP/DNS/TLS probes and the installer/SPA hardening are in; see
+`docs/beszel/11-implementation-plan.md` for what was done and what stays parked.
 
 The master-owned agent lifecycle is built (`7b936a3`), and the protocol changes
 from `7f86d0a` and `ab0abad` are in. Agents built before those commits must be
@@ -147,6 +153,11 @@ mistake recurs, add it to that checklist instead of relying on memory. A
 `pre-commit` hook in `scripts/hooks/` enforces this: it runs the mechanical
 checks and the reviewer agent, and blocks on a failed check or `VERDICT:
 BLOCK`. Enable it per clone with `scripts/install-git-hooks.sh`.
+
+API calls are correlated with `X-Request-ID`: the dashboard console and the
+master's `api id=...` log line share the id. Bodies in logs are capped, JSON
+only and redacted; file contents and uploads are never logged. Set
+`GLOSKI_LOG_LEVEL=debug` to include read requests.
 
 Live test recipe:
 
