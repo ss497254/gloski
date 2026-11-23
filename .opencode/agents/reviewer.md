@@ -109,7 +109,9 @@ Machine and test traps worth checking (Medium unless they break the build):
   that is informational or a progress update (the primitive defaults to
   `role="alert"`, which interrupts screen readers). Keep `role="alert"` for
   errors, warnings and critical results — only ok/skipped verdicts and
-  in-progress states should be polite.
+  in-progress states should be polite. Do not replace `TabsList`/`TabsTrigger`
+  heights with `h-auto` or strip the `bg-muted` container; the primitive's
+  fixed heights and active styles are the design.
 
 Do **not** report these as findings; they are known and accepted:
 

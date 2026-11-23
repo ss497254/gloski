@@ -20,25 +20,20 @@ function SettingsContent() {
   return (
     <PageLayout title="Settings" description="Manage your preferences">
       <Tabs
-        orientation="vertical"
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as SettingsTab)}
-        className="flex gap-8 max-w-4xl md:flex-row"
+        className="max-w-4xl gap-6"
       >
-        <TabsList className="flex h-auto w-full shrink-0 flex-row justify-start gap-1 bg-transparent p-0 md:w-48 md:flex-col">
+        <TabsList className="w-full justify-start sm:w-auto">
           {tabs.map((tab) => (
-            <TabsTrigger
-              key={tab.id}
-              value={tab.id}
-              className="h-auto w-full justify-start gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none"
-            >
+            <TabsTrigger key={tab.id} value={tab.id} className="gap-2 px-4">
               <tab.icon className="h-4 w-4" />
               {tab.label}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        <div className="min-w-0 flex-1 space-y-6">
+        <div className="min-w-0 space-y-6">
           <TabsContent value="appearance">
             <AppearanceSettings />
           </TabsContent>

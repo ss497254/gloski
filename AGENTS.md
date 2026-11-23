@@ -117,17 +117,6 @@ item of step 1.
 the agent lifecycle and reinstalls over SSH whatever is disconnected or
 outdated. Its Status section says what is verified and how to test it here.
 
-**Connection diagnosis is live** (2026-11-23): `POST /api/devices/{id}/diagnose`
-walks deployment → tailnet → SSH → install → process → gRPC → build and returns
-a headline, advice and per-step states. The devices list and device page have a
-Diagnose button. The build order and implementation notes are in
-`docs/ideas-from-smdwin.md`. Dashboard issues now carry advice, a route and an
-error-first order, and both views can copy a plain-text report. The check
-result model (`internal/checks`, migration 9) and the read-only master
-self-test (`GET /api/system/self-test`, Settings → Master health) and the
-device action log with undo (`device_actions`, Recent changes on the device
-page) are in; next is history and the fleet matrix.
-
 Known gaps not covered by either plan:
 
 - The dashboard's master client does not send the API key.
