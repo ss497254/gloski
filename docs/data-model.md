@@ -33,6 +33,7 @@ Migrations live in `server/internal/database/migrations.go`.
 | 5 | `deployments`, `devices.deploy_id` |
 | 7 | `devices.master` (version 6 was skipped and never existed) |
 | 8 | `devices.machine_id` |
+| 9 | `check_results` |
 
 The job tables are **not** migrations. `agents.NewJobStore` creates
 `agent_jobs` and `agent_job_logs` with `CREATE TABLE IF NOT EXISTS` and adds
@@ -82,6 +83,29 @@ One row per SSH installation. Tokens are never stored here.
 Statuses: `pending` (record created), `running` (install succeeded),
 `stopped` (owner stopped it; the lifecycle loop leaves it alone), `failed`
 (install or stop failed). `uploading` is declared but never set.
+
+### `check_results`
+
+One row per run of a saved check. There is one `check_id` per check definition
+(the definitions themselves are not stored yet); a check that does not apply to
+a device records `skipped`, and a check that has never run has no row at all.
+Neither looks like a failure.
+
+| Column | Meaning |
+|---|---|
+| `id` | Autoincrement; breaks ties within the same `ran_at` |
+| `check_id`, `device_id` | The pair this result belongs to |
+| `status` | `ok`, `warning`, `critical`, `skipped` or `unknown` |
+| `summary` | One factual line from the command's first output line |
+| `details_json` | Ordered key/value details from the remaining output |
+| `ran_at` | When the check ran |
+| `duration_ms` | How long it took |
+| `interval_ns` | The check's schedule at run time; staleness is `now - ran_at > 2 × interval` |
+
+The index is `(check_id, device_id, ran_at DESC, id DESC)` so the latest result
+and a short history are cheap to read. `checks.Store.Prune` keeps the newest 20
+rows per pair by default (`HistoryLimit`); it is intended for the daily
+maintenance pass.
 
 ### `agent_jobs`
 

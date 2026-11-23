@@ -119,8 +119,9 @@ walks deployment → tailnet → SSH → install → process → gRPC → build 
 a headline, advice and per-step states. The devices list and device page have a
 Diagnose button. The build order and implementation notes are in
 `docs/ideas-from-smdwin.md`. Dashboard issues now carry advice, a route and an
-error-first order, and both views can copy a plain-text report; the next idea
-is the check result model.
+error-first order, and both views can copy a plain-text report. The check
+result model (`internal/checks`, migration 9) is in; the next idea is the
+master self-test.
 
 Known gaps not covered by either plan:
 

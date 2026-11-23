@@ -201,4 +201,22 @@ var migrations = []migration{
 			ALTER TABLE devices ADD COLUMN machine_id TEXT;
 		`,
 	},
+	{
+		version: 9,
+		name:    "add_check_results",
+		sql: `
+			CREATE TABLE check_results (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				check_id TEXT NOT NULL,
+				device_id TEXT NOT NULL,
+				status TEXT NOT NULL,
+				summary TEXT NOT NULL,
+				details_json TEXT NOT NULL DEFAULT '[]',
+				ran_at DATETIME NOT NULL,
+				duration_ms INTEGER NOT NULL DEFAULT 0,
+				interval_ns INTEGER NOT NULL DEFAULT 0
+			);
+			CREATE INDEX idx_check_results_latest ON check_results(check_id, device_id, ran_at DESC, id DESC);
+		`,
+	},
 }

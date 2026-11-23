@@ -253,8 +253,8 @@ chain was chosen first because it needs no checks system and answers the
 
 1. **Diagnose chain** — done (2026-11-23).
 2. **Attention list with advice** — done (2026-11-23).
-3. **Check result model** — next; foundation for checks and stale/unknown states.
-4. **Master self-test**.
+3. **Check result model** — done (2026-11-23).
+4. **Master self-test** — next.
 5. **Action log with undo**.
 6. **History and fleet matrix** — with roadmap steps 3 and 4.
 
@@ -313,3 +313,23 @@ Verified against a scratch master (`GLOSKI_PORT=18080`,
 Each path was checked by calling the endpoint and reading the JSON, not only by
 unit tests. Two bugs found this way (duplicate `login` step, blank install
 directory) are fixed and covered by tests.
+
+### What task 3 built
+
+- `internal/checks.Result` carries a status (`ok`, `warning`, `critical`,
+  `skipped`, `unknown`), one factual summary line, ordered key/value details,
+  `ran_at`, duration and a computed `stale`. Skipped and unknown are verdicts,
+  not failures, and a check that never ran has no row at all.
+- `checks.ParseOutput` implements the small shell convention: exit 0/1/2 for
+  ok/warning/critical, any other exit code is unknown, `GLOSKI-SKIP: <reason>`
+  on the first line is skipped and wins over the exit code, the first line is
+  the summary and the rest are details. A command that prints nothing is
+  unknown, not a silent success.
+- `checks.Store` writes to `check_results` (migration 9), keyed by
+  `(check_id, device_id)`, and reads the latest result, one result per check for
+  a device, and a short history. `Prune` keeps the newest 20 per pair.
+- Staleness is never stored as a final answer: the row keeps the schedule and
+  the reader recomputes `stale` against now, so an old result stays old.
+
+This is the foundation only. There is no saved-check definition, runner or UI
+yet, so the model has no endpoint until roadmap step 3 builds those.

@@ -68,6 +68,7 @@ server/
     │   └── agent_dial.go     # Dial master over Unix socket or h2c
     ├── config/               # Config types, defaults, env overrides
     ├── database/             # SQLite migrations
+    ├── checks/               # Check result model and its store
     ├── httpapi/              # JSON responses, auth and logging middleware
     ├── agentdist/            # Agent builds and install scripts
     ├── auth/                 # Optional API key and JWT checks
@@ -88,6 +89,8 @@ server/
 | `provisioning/sshtest` | SSH server for tests that runs commands locally, standing in for a device |
 | `worker.Runtime` | Device-side executor: handles jobs, files, terminal, and heartbeats |
 | `tailnet.Client` | Reads tailnet peers from tailscaled's LocalAPI socket |
+| `checks.Result` | One check run: status, summary, ordered details, timing and staleness |
+| `checks.Store` | Saves results and reads the latest result, per-device results and short history |
 
 `controltower/agents` and `worker` are the two ends of the same gRPC stream:
 the former runs in the master, the latter on each device.
