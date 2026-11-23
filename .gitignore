@@ -37,7 +37,11 @@ config.json
 # Logs
 *.log
 logs/
-.opencode
+# Keep the reusable OpenCode reviewer and its command in the repo; the rest of
+# .opencode (node_modules, plans, local package files) stays local.
+.opencode/*
+!.opencode/agents/
+!.opencode/commands/
 
 # Agent builds embedded into the master
 server/internal/agentdist/builds/gloski-agent-*
