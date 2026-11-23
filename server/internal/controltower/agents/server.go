@@ -27,6 +27,10 @@ const (
 	processRequestTimeout    = 10 * time.Second
 )
 
+// checkRequestTimeout is a var so transport tests can shorten the deadline
+// without waiting ten seconds for a probe that never answers.
+var checkRequestTimeout = 10 * time.Second
+
 // ErrNoAgent means the device has no live agent stream.
 var ErrNoAgent = errors.New("agent is not connected")
 
@@ -37,8 +41,11 @@ type Service struct {
 	fleetSvc *fleet.Registry
 	jobs     *JobStore
 	metrics  *metrics.Store
-	version  string
-	interval int
+	// onHeartbeat, when set, is called off the stream dispatch loop so slow
+	// scheduled work cannot delay job or terminal messages.
+	onHeartbeat func(deviceID string)
+	version     string
+	interval    int
 
 	mu          sync.RWMutex
 	connections map[string]*connection
@@ -69,6 +76,13 @@ func New(db *database.Database, fleetSvc *fleet.Registry, metricStore *metrics.S
 		connections: make(map[string]*connection),
 		stopping:    make(map[string]struct{}),
 	}, nil
+}
+
+// SetHeartbeatHook installs work that should run after a heartbeat is stored.
+// It is called in its own goroutine so the stream dispatch loop never waits on
+// it.
+func (svc *Service) SetHeartbeatHook(fn func(deviceID string)) {
+	svc.onHeartbeat = fn
 }
 
 // Connect handles one agent stream. A reconnecting agent registers again and
@@ -207,6 +221,9 @@ func (svc *Service) handle(conn *connection, message *agentv1.AgentMessage) {
 			break
 		}
 		svc.recordMetrics(conn.deviceID, stats)
+		if svc.onHeartbeat != nil {
+			go svc.onHeartbeat(conn.deviceID)
+		}
 	case *agentv1.AgentMessage_JobOutput:
 		if err := svc.jobs.AppendLog(message.RequestId, payload.JobOutput.GetSeq(), payload.JobOutput.GetChunk(), payload.JobOutput.GetStderr()); err != nil {
 			logger.Warn("Failed to store job output for %s: %v", message.RequestId, err)
@@ -229,6 +246,8 @@ func (svc *Service) handle(conn *connection, message *agentv1.AgentMessage) {
 	case *agentv1.AgentMessage_FileResult:
 		conn.respond(message.RequestId, message)
 	case *agentv1.AgentMessage_ProcessResult:
+		conn.respond(message.RequestId, message)
+	case *agentv1.AgentMessage_CheckResult:
 		conn.respond(message.RequestId, message)
 	case *agentv1.AgentMessage_TerminalOutput:
 		conn.terminalOutput(message.RequestId, payload.TerminalOutput)

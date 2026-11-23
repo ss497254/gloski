@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ss497254/gloski/internal/checks"
 	"github.com/ss497254/gloski/proto/agentv1"
 )
 
@@ -163,6 +164,47 @@ func (svc *Service) Processes(deviceID string, limit int, sortBy string) ([]byte
 		return nil, errors.New("agent returned no process result")
 	}
 	return []byte(result.GetJson()), nil
+}
+
+// Check asks an agent to run one native probe and waits for its result.
+func (svc *Service) Check(deviceID string, definition checks.Definition) (checks.Result, error) {
+	accepted := make([]int32, 0, len(definition.Accepted))
+	for _, code := range definition.Accepted {
+		accepted = append(accepted, int32(code))
+	}
+	reply, err := svc.request(deviceID, &agentv1.MasterMessage{
+		Payload: &agentv1.MasterMessage_CheckRequest{
+			CheckRequest: &agentv1.CheckRequest{
+				CheckId:    definition.ID(),
+				Kind:       string(definition.Kind),
+				Target:     definition.Target,
+				Accepted:   accepted,
+				TimeoutMs:  int32(definition.Timeout.Milliseconds()),
+				SkipVerify: definition.SkipVerify,
+			},
+		},
+	}, checkRequestTimeout)
+	if err != nil {
+		return checks.Result{}, err
+	}
+	payload := reply.GetCheckResult()
+	if payload == nil {
+		return checks.Result{}, errors.New("agent returned no check result")
+	}
+	details := make([]checks.Detail, 0, len(payload.GetDetails()))
+	for _, detail := range payload.GetDetails() {
+		details = append(details, checks.Detail{Key: detail.GetKey(), Value: detail.GetValue()})
+	}
+	return checks.Result{
+		CheckID:    definition.ID(),
+		DeviceID:   deviceID,
+		Status:     checks.Status(payload.GetStatus()),
+		Summary:    payload.GetSummary(),
+		Details:    details,
+		RanAt:      time.Now().UTC(),
+		DurationMS: payload.GetDurationMs(),
+		Interval:   definition.Interval,
+	}, nil
 }
 
 // ShutdownMode says what an agent should do after it stops.

@@ -39,6 +39,7 @@ func decodeJSON[T any](w http.ResponseWriter, r *http.Request, maxBytes int64) (
 }
 
 func (t *Tower) handleDeviceStats(w http.ResponseWriter, r *http.Request) {
+	t.touchStatsAccess()
 	device, err := t.fleetSvc.Get(r.PathValue("id"))
 	if err != nil {
 		httpapi.NotFound(w, "device not found")
@@ -48,6 +49,7 @@ func (t *Tower) handleDeviceStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Tower) handleDeviceStatsWS(w http.ResponseWriter, r *http.Request) {
+	t.touchStatsAccess()
 	deviceID := r.PathValue("id")
 	if _, err := t.fleetSvc.Get(deviceID); err != nil {
 		httpapi.NotFound(w, "device not found")
@@ -62,6 +64,7 @@ func (t *Tower) handleDeviceStatsWS(w http.ResponseWriter, r *http.Request) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
+		t.touchStatsAccess()
 		device, err := t.fleetSvc.Get(deviceID)
 		if err != nil {
 			return

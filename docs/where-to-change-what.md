@@ -105,6 +105,7 @@ The browser never talks to an agent directly. A command crosses the gRPC stream.
 | Stats collection | `server/internal/system/` |
 | Metric history and retention | `server/internal/metrics/`, `controltower/device_history.go`, `controltower/maintenance.go` |
 | Check results and the fleet matrix | `server/internal/checks/`, `controltower/check_matrix.go`, `web/src/features/dashboard/components/FleetCheckMatrix.tsx` |
+| Native probes and scheduling | `server/internal/checks/probes.go`, `controltower/probes.go`, `worker/agent_checks.go`, `proto/agentv1/agent.proto` |
 | Frontend routes and pages | `web/src/App.tsx`, `web/src/features/` |
 | Frontend API client | `web/src/shared/api/`, `web/src/shared/tower/client.ts` |
 

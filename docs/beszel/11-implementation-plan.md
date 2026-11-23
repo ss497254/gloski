@@ -38,7 +38,16 @@ code. It is ordered by project need, not by how interesting the source code is.
   `/api/tower/info`) and trusted-proxy CIDR parsing (security hardening is not
   a priority, and narrowing proxy trust could break the existing basic-auth
   proxy; `GLOSKI_ALLOWED_ORIGINS=*` remains the escape hatch).
-- **Not done:** batch 2 step 5 and batches 5–7 below.
+- **Batch 5 — native probes done**: TCP/HTTP/DNS/TLS probes run on the device
+  through one new proto message pair on the existing gRPC stream; protocol
+  version is 4 and the embedded agents were rebuilt. Results are aggregated in
+  a bounded window and saved to `check_results`, so they appear in the fleet
+  matrix with no frontend change. Probes are opt-in via `GLOSKI_PROBES` and
+  stop after three minutes without a dashboard/device-stats request. Verified
+  live: TCP, HTTP and DNS probes produced ok results in the matrix; the idle
+  boundary and scheduling are covered by tests, as are the master/agent
+  request-response and timeout paths and the agent's typed reply.
+- **Not done:** batch 2 step 5 and batches 6–7 below.
 
 ## Ground rules for every batch
 

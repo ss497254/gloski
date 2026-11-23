@@ -44,9 +44,9 @@ The master and agents use a single bidirectional gRPC `Agent.Connect` stream.
 - Local agent: gRPC over `unix://<data_dir>/agent.sock`.
 - Remote agents: gRPC h2c over Tailnet, port `9090` by default.
 
-Agents send registration, heartbeats/stats, job output, and file/process
-results. The master sends jobs, file operations, transfers, terminal I/O, and
-shutdown. The browser never speaks gRPC; the master translates its HTTP/WS
+Agents send registration, heartbeats/stats, job output, file/process results
+and native check results. The master sends jobs, file operations, transfers,
+terminal I/O, probe requests and shutdown. The browser never speaks gRPC; the master translates its HTTP/WS
 calls into agent commands.
 
 File contents do not travel on the stream. For a download or upload the master

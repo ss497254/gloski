@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -38,6 +39,15 @@ func (c *Config) loadFeatureEnv() {
 	envInt("GLOSKI_DOWNLOADS_MAX_CONCURRENT", &c.Downloads.MaxConcurrent)
 	envBool("GLOSKI_JOBS_ENABLED", &c.Jobs.Enabled)
 	envInt("GLOSKI_JOBS_MAX_JOBS", &c.Jobs.MaxJobs)
+
+	if raw := strings.TrimSpace(os.Getenv("GLOSKI_PROBES")); raw != "" {
+		var probes []ProbeDefinition
+		if err := json.Unmarshal([]byte(raw), &probes); err != nil {
+			fmt.Fprintf(os.Stderr, "gloski: ignoring GLOSKI_PROBES: %v\n", err)
+		} else {
+			c.Probes = probes
+		}
+	}
 }
 
 func (c *Config) loadMasterEnv() {

@@ -104,8 +104,11 @@ Neither looks like a failure.
 | `duration_ms` | How long it took |
 | `interval_ns` | The check's schedule at run time; staleness is `now - ran_at > 2 × interval` |
 
-The index is `(check_id, device_id, ran_at DESC, id DESC)` so the latest result
-and a short history are cheap to read. `checks.Store.LatestForAllDevices`
+Native probes write into this same table: one aggregated result per
+(device, check, interval), computed from a bounded in-memory window of recent
+runs. Probe definitions are not stored yet; they come from `GLOSKI_PROBES`. The
+index is `(check_id, device_id, ran_at DESC, id DESC)` so the latest result and
+a short history are cheap to read. `checks.Store.LatestForAllDevices`
 returns one row per pair across the fleet for the dashboard matrix; a device
 with no row has an `unknown` result, which is not a failure. `checks.Store.Prune`
 keeps the newest 20 rows per pair by default (`HistoryLimit`); it is intended

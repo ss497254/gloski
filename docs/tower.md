@@ -23,8 +23,9 @@ dashboard action goes to the master, which forwards it to the right agent.
   - Remote agents: gRPC h2c on port `9090`, bound to this machine's Tailscale
     addresses only. If Tailscale is not up yet the master retries every 15
     seconds.
-  - The agent sends registration, heartbeats/stats, job output, and file/process
-    results; the master sends jobs, file requests, terminal I/O, and shutdown.
+  - The agent sends registration, heartbeats/stats, job output, file/process
+    results and native check results; the master sends jobs, file requests,
+    terminal I/O, probe requests and shutdown. Protocol version is 4.
 - **Browser → master:** plain HTTP/WS. The master translates those calls into
   gRPC commands. No HTTP agent API exists anymore.
 
@@ -141,6 +142,7 @@ keys come from `SSH_AUTH_SOCK` or `~/.ssh/id_*`.
 | `GLOSKI_TAILSCALE_SOCKET` | auto | tailscaled LocalAPI socket |
 | `GLOSKI_API_KEY` | (none) | Optional dashboard user auth |
 | `GLOSKI_ALLOWED_ORIGINS` | (none) | Comma-separated extra origins allowed to call the API; `*` disables the check |
+| `GLOSKI_PROBES` | (none) | JSON array of native probes: `kind` (`tcp`, `http`, `dns`, `tls`), `target`, optional `accepted`, `interval` (default `5m`), `timeout` (default `5s`, capped at `9s`), `skip_verify` |
 
 ## Control-plane API (browser → master)
 

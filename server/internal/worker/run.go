@@ -320,6 +320,8 @@ func (w *Runtime) handle(message *agentv1.MasterMessage) {
 		go w.handleTransfer(message.RequestId, payload.FileTransfer)
 	case *agentv1.MasterMessage_ProcessRequest:
 		go w.handleProcesses(message.RequestId, payload.ProcessRequest)
+	case *agentv1.MasterMessage_CheckRequest:
+		go w.handleCheck(message.RequestId, payload.CheckRequest)
 	case *agentv1.MasterMessage_TerminalOpen:
 		w.openTerminal(message.RequestId, payload.TerminalOpen)
 	case *agentv1.MasterMessage_TerminalInput:

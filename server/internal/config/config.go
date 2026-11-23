@@ -18,6 +18,17 @@ const (
 	ModeAgent  = "agent"
 )
 
+// ProbeDefinition is one native probe supplied by the master. Kind is tcp,
+// http, dns or tls; interval and timeout are duration strings such as "5m".
+type ProbeDefinition struct {
+	Kind       string `json:"kind"`
+	Target     string `json:"target"`
+	Accepted   []int  `json:"accepted,omitempty"`
+	Interval   string `json:"interval,omitempty"`
+	Timeout    string `json:"timeout,omitempty"`
+	SkipVerify bool   `json:"skip_verify,omitempty"`
+}
+
 // Config is the complete configuration for a master or agent process. Values
 // come from defaults, an optional JSON file, then environment variables.
 type Config struct {
@@ -46,6 +57,10 @@ type Config struct {
 	// means same-origin only; "*" disables the check.
 	AllowedOrigins []string `json:"allowed_origins"`
 	AllowedPaths   []string `json:"allowed_paths"` // empty = allow all
+
+	// Probes are optional native checks run on devices. Empty means no native
+	// checks are scheduled. Set with GLOSKI_PROBES as a JSON array.
+	Probes []ProbeDefinition `json:"probes"`
 
 	// Shell settings
 	Shell string `json:"shell"`

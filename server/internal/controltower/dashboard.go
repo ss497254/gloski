@@ -58,6 +58,7 @@ func sortIssues(issues []dashboardIssue) {
 }
 
 func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	t.touchStatsAccess()
 	list, err := t.fleetSvc.List()
 	if err != nil {
 		httpapi.InternalError(w, "failed to load dashboard", err.Error())

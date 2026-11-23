@@ -3,6 +3,7 @@
 package controltower
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -65,6 +66,11 @@ type Tower struct {
 	checkStore  *checks.Store
 	actionStore *actions.Store
 	metricStore *metrics.Store
+
+	// Last time someone opened the dashboard or a device. Native probes stop
+	// when nobody is watching; metric sampling and heartbeats do not.
+	statsMu         sync.Mutex
+	lastStatsAccess time.Time
 
 	// Read-only state for the self-test. Maintenance records whether its last
 	// run succeeded; self-test runs keep three runtime points for a trend.
@@ -143,6 +149,16 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		checkStore:      checks.NewStore(db),
 		actionStore:     actions.NewStore(db),
 		metricStore:     metricStore,
+	}
+
+	if definitions := probeDefinitions(cfg.Probes); len(definitions) > 0 {
+		runner := newProbeRunner(definitions, t.agentService.Check)
+		agentService.SetHeartbeatHook(func(deviceID string) {
+			if !t.probesActive() {
+				return
+			}
+			runner.run(context.Background(), deviceID, t.checkStore)
+		})
 	}
 
 	fleetSvc.SetOnChange(func() {

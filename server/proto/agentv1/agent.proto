@@ -21,6 +21,7 @@ message AgentMessage {
     FileResult file_result = 6;
     TerminalOutput terminal_output = 7;
     ProcessResult process_result = 8;
+    CheckResult check_result = 9;
   }
 }
 
@@ -39,6 +40,7 @@ message MasterMessage {
     JobAck job_ack = 11;
     TerminalResize terminal_resize = 12;
     FileTransfer file_transfer = 13;
+    CheckRequest check_request = 14;
   }
 }
 
@@ -128,6 +130,30 @@ message JobResume {
 
 message Heartbeat {
   string stats_json = 1;
+}
+
+// CheckRequest asks the device to run one native probe. Results travel back
+// on the same stream, correlated by request_id.
+message CheckRequest {
+  string check_id = 1;
+  string kind = 2;
+  string target = 3;
+  repeated int32 accepted = 4;
+  int32 timeout_ms = 5;
+  bool skip_verify = 6;
+}
+
+message CheckDetail {
+  string key = 1;
+  string value = 2;
+}
+
+message CheckResult {
+  string check_id = 1;
+  string status = 2;
+  string summary = 3;
+  int64 duration_ms = 4;
+  repeated CheckDetail details = 5;
 }
 
 message RunJob {

@@ -118,6 +118,10 @@ Browser ──HTTP/WS──▶ Tower route ──gRPC command──▶ agents.co
 ```
 
 - **Stats** — agent collector → heartbeat → master DB → dashboard and `/api/fleet/ws`.
+- **Native checks** — configured `CheckRequest` sent from the heartbeat hook →
+  agent runs a TCP/HTTP/DNS/TLS probe → `CheckResult` on the same stream →
+  bounded aggregation → `check_results` → fleet matrix. Probes stop after three
+  minutes without a dashboard or device-stats request.
 - **Jobs** — browser POST → master stores job → `RunJob` command → agent executes →
   output chunks stream back → master persists logs in `agent_job_logs`.
 - **Files** — master translates `/api/devices/{id}/api/files/*` into gRPC `FileRequest`

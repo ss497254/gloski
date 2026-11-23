@@ -86,6 +86,22 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
+			name:   "native probes from environment",
+			config: `{}`,
+			envVars: map[string]string{
+				"GLOSKI_PROBES": `[{"kind":"tcp","target":"host:80","interval":"1m"}]`,
+			},
+			wantErr: false,
+			checkFunc: func(t *testing.T, cfg *config.Config) {
+				if len(cfg.Probes) != 1 {
+					t.Fatalf("Probes = %d, want 1", len(cfg.Probes))
+				}
+				if cfg.Probes[0].Kind != "tcp" || cfg.Probes[0].Target != "host:80" || cfg.Probes[0].Interval != "1m" {
+					t.Errorf("unexpected probe: %+v", cfg.Probes[0])
+				}
+			},
+		},
+		{
 			name:    "removed standalone mode",
 			config:  `{"mode": "standalone", "host": "127.0.0.1", "port": 8080}`,
 			wantErr: true,

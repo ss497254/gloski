@@ -23,6 +23,9 @@ renames are in [code-quality-plan.md](code-quality-plan.md).
 | **undo** | Restoring the wanted state recorded in a reversible device action. | `POST /api/devices/{id}/actions/{actionId}/undo` |
 | **check** | A saved command whose exit code is a verdict, run on a schedule yet to be built. | `internal/checks` (result model) |
 | **check result** | One run of one check on one device: verdict, summary, details, timing. | `checks.Result`, `check_results` |
+| **native probe** | A TCP, HTTP, DNS or TLS check run by the agent itself, requested over the existing gRPC stream. | `checks.ProbeKind`, `worker/agent_checks.go` |
+| **stable check ID** | An FNV hash of a probe's kind and target (plus accepted statuses), so reconfiguring a schedule does not split its history. | `checks.StableID` |
+| **idle suppression** | Native probes stop after three minutes with no dashboard or device-stats request; heartbeats and metric sampling continue. | `controltower/probes.go` |
 | **metric sample** | One metric value recorded by the master from a heartbeat, at most once every five minutes per device and metric. | `metrics.Sample`, `metric_samples` |
 | **check group** | A fixed column of the fleet matrix: Connectivity, Storage, Services, Updates, Backups, plus Other for unmatched check IDs. Derived from a check ID prefix, not stored. | `controltower.checkGroup` |
 | **fleet check matrix** | Devices as rows and check groups as columns, one coloured block per check, ordered red first. Grey means skipped, stale or never run. | `controltower/check_matrix.go`, `FleetCheckMatrix.tsx` |
