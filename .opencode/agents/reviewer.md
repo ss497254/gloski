@@ -40,8 +40,10 @@ Hard rules. A violation is High unless the item says otherwise:
    over a special mechanism per failure case. Do not add offline alerts.
 2. **Master owns the agent lifecycle.** Agents are deployed from the dashboard
    over SSH; no manual install path, no SSH fallback for actions, no systemd
-   or cron on devices. An incompatible agent exits and the master reinstalls
-   it. Agents keep no durable state.
+   or cron on devices. Tailscale SSH is the key-less deploy/rescue path; keys
+   are a fallback, never a requirement on a tailnet with Tailscale SSH. An
+   incompatible agent exits and the master reinstalls it. Agents keep no
+   durable state.
 3. **Protocol changes.** If `server/proto/agentv1/agent.proto` changed, the
    checked-in `.pb.go` files must be regenerated. A wire-incompatible change
    must bump `ProtocolVersion`, and the lifecycle must still be able to

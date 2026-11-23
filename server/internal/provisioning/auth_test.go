@@ -10,6 +10,20 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
+func TestAuthMethodsWithoutKeysAreAllowed(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SSH_AUTH_SOCK", "")
+	installer := &Installer{}
+	methods, cleanup, err := installer.authMethods()
+	defer cleanup()
+	if err != nil {
+		t.Fatalf("authMethods() with no credentials = %v, want no error for Tailscale SSH", err)
+	}
+	if len(methods) != 0 {
+		t.Errorf("authMethods() returned %d methods, want none", len(methods))
+	}
+}
+
 func TestEmptySSHAgentFallsBackToDiskKey(t *testing.T) {
 	socket := filepath.Join(t.TempDir(), "agent.sock")
 	listener, err := net.Listen("unix", socket)

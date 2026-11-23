@@ -65,7 +65,7 @@ func (i *Installer) connect(ctx context.Context, target Target) (*ssh.Client, er
 		case errors.As(err, &keyErr):
 			return nil, fmt.Errorf("%w: %s presented a different key than last time (it was probably reinstalled)", ErrHostKeyChanged, addr)
 		case strings.Contains(err.Error(), "unable to authenticate"):
-			return nil, fmt.Errorf("%s refused the master's SSH key for user %q; add the master's public key to that user's authorized_keys", addr, user)
+			return nil, fmt.Errorf("%s refused SSH login for user %q; enable Tailscale SSH on the device or add the master's public key to that user's authorized_keys", addr, user)
 		default:
 			return nil, fmt.Errorf("ssh handshake with %s: %w", addr, err)
 		}
@@ -114,10 +114,11 @@ func (i *Installer) authMethods() ([]ssh.AuthMethod, func(), error) {
 		methods = append(methods, ssh.PublicKeys(signer))
 	}
 
-	if len(methods) == 0 {
-		cleanup()
-		return nil, func() {}, errors.New("no ssh credentials found (start ssh-agent or set GLOSKI_MASTER_SSH_KEY_FILE)")
-	}
+	// No keys is not an error. The SSH protocol tries "none" auth first, and
+	// Tailscale SSH accepts it on tailnet peers that offer Tailscale SSH. That
+	// is the key-less rescue path when an agent is down and this master has no
+	// key to offer; a device that only accepts keys reports an auth failure
+	// below instead.
 	return methods, cleanup, nil
 }
 

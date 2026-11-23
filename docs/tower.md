@@ -79,8 +79,8 @@ deployed device each 15 seconds and runs that same script when:
 
 Failed attempts back off from 1 to 15 minutes. The reason for the last failure
 is stored on the deployment and shown on the device, for example "cannot reach
-host over SSH", "refused the master's SSH key" or "SSH host key changed"; the
-last one has a **Trust new key** button.
+host over SSH", "refused SSH login" or "SSH host key changed"; the last one has
+a **Trust new key** button.
 
 - **Stop** tells the agent to exit and marks the device stopped, so the loop
   leaves it alone until you start it.
@@ -88,8 +88,12 @@ last one has a **Trust new key** button.
 - **Remove device** makes a connected agent delete its own install; for an
   offline device the master removes it over SSH.
 
-The master needs an SSH key the device accepts: `GLOSKI_MASTER_SSH_KEY_FILE`,
-or `~/.ssh/id_ed25519`, `id_ecdsa` or `id_rsa`, or a running ssh-agent.
+On a tailnet with Tailscale SSH enabled, the master needs **no SSH key**: the
+SSH client offers "none" authentication first and Tailscale authenticates the
+connection by tailnet identity. That is the rescue path when an agent is down
+and the master has no key configured. If Tailscale SSH is off on a device, keys
+are still supported: `GLOSKI_MASTER_SSH_KEY_FILE`, `~/.ssh/id_ed25519`,
+`id_ecdsa`, `id_rsa`, or a running ssh-agent.
 
 ## Master-owned state
 
@@ -117,7 +121,8 @@ bin/gloski
 ```
 
 Open the dashboard, choose **Deploy agent**, pick a tailnet peer, and provide
-the SSH user. SSH keys come from `SSH_AUTH_SOCK` or `~/.ssh/id_*`.
+the SSH user. No key is needed when the peer offers Tailscale SSH; otherwise
+keys come from `SSH_AUTH_SOCK` or `~/.ssh/id_*`.
 
 ## Configuration
 
@@ -129,7 +134,7 @@ the SSH user. SSH keys come from `SSH_AUTH_SOCK` or `~/.ssh/id_*`.
 | `GLOSKI_MASTER_WEB_DIR` | `web/dist` | Built SPA |
 | `GLOSKI_MASTER_JOIN_TOKEN` | generated | Agent enrollment token |
 | `GLOSKI_MASTER_AGENT_BINARY` | next to master | Agent binary used only when the master was built without embedded agents |
-| `GLOSKI_MASTER_SSH_KEY_FILE` | (none) | Explicit SSH key |
+| `GLOSKI_MASTER_SSH_KEY_FILE` | (none) | Optional SSH key when Tailscale SSH is not enabled on a device |
 | `GLOSKI_MASTER_AGENT_GRPC_HOST` | Tailscale IPs | Remote agent gRPC bind; set to override |
 | `GLOSKI_MASTER_AGENT_GRPC_PORT` | `9090` | Remote agent gRPC port |
 | `GLOSKI_MASTER_AGENT_GRPC_URL` | auto | Override the agent-facing gRPC URL |

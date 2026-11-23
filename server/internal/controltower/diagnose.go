@@ -494,10 +494,10 @@ func sshLoginAdvice(target provisioning.Target, err error) string {
 	switch {
 	case errors.Is(err, provisioning.ErrHostKeyChanged):
 		return "The device's SSH host key changed (it was probably reinstalled). Press Trust new key to accept it."
-	case strings.Contains(err.Error(), "refused the master's SSH key"):
-		return fmt.Sprintf("Add the master's public key to %s's authorized_keys on the device.", targetUser(target))
+	case strings.Contains(err.Error(), "refused SSH login"):
+		return fmt.Sprintf("Enable Tailscale SSH on the device, or add the master's public key to %s's authorized_keys.", targetUser(target))
 	case strings.Contains(err.Error(), "no ssh credentials"):
-		return "Start ssh-agent on the master, or set GLOSKI_MASTER_SSH_KEY_FILE."
+		return "This master build predates key-less Tailscale SSH; restart or update the master."
 	default:
 		return "Check the SSH user, key and host key on the device."
 	}
