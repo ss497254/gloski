@@ -19,6 +19,7 @@ import {
 import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, TableControls, UsageBar } from '@/shared/components'
 import { Activity, ArrowUpRight, CircleAlert, Play, Plus, Radar, RefreshCw, RotateCw, Square, Trash2, Wifi } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { paginate, sortDevices, type DeviceSort } from '../lib/table'
 import { useNavigate } from 'react-router-dom'
 import { DiagnoseButton } from '../components/DiagnoseDialog'
 import { useDeviceActions } from '../hooks/useDeviceActions'
@@ -154,25 +155,11 @@ export function DevicesPage() {
   const [pageSize, setPageSize] = useState(25)
   const [page, setPage] = useState(0)
 
-  const sorted = useMemo(() => {
-    const list = [...devices]
-    list.sort((a, b) => {
-      switch (sort) {
-        case 'status':
-          return a.status.localeCompare(b.status) || a.name.localeCompare(b.name)
-        case 'seen':
-          return b.last_seen.localeCompare(a.last_seen)
-        case 'uptime':
-          return (b.stats?.uptime ?? 0) - (a.stats?.uptime ?? 0)
-        default:
-          return a.name.localeCompare(b.name)
-      }
-    })
-    return list
-  }, [devices, sort])
-  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize))
-  const currentPage = Math.min(page, pageCount - 1)
-  const visible = sorted.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+  const sorted = useMemo(() => sortDevices(devices, sort as DeviceSort), [devices, sort])
+  const { visible, pageCount, currentPage, first, last } = useMemo(
+    () => paginate(sorted, page, pageSize),
+    [sorted, page, pageSize],
+  )
 
   const toggleField = (field: string) =>
     setHidden((current) => (current.includes(field) ? current.filter((item) => item !== field) : [...current, field]))
@@ -329,8 +316,7 @@ export function DevicesPage() {
           </div>
           <div className="flex items-center justify-between border-t border-border px-4 py-2 text-xs text-muted-foreground">
             <span>
-              {sorted.length === 0 ? 0 : currentPage * pageSize + 1}–{Math.min((currentPage + 1) * pageSize, sorted.length)} of{' '}
-              {sorted.length}
+              {first}–{last} of {sorted.length}
             </span>
             <div className="flex gap-2">
               <Button
