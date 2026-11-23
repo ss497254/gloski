@@ -26,7 +26,8 @@ code. It is ordered by project need, not by how interesting the source code is.
 - **Batch 3 — fleet check matrix done**: `checks.Store.LatestForAllDevices`,
   the Go matrix builder and the dashboard component are in; `check_matrix`
   rides on the existing `/api/dashboard` response. Step 4 (Beszel's
-  View/Layout/Sort/Fields control) is deferred to batch 6. Verified with
+  View/Layout/Sort/Fields control) was done in batch 6 with existing shadcn
+  primitives. Verified with
   seeded ok/warning/critical/skipped/stale results and a live master.
 - **Batch 4 — installer and SPA discipline done**: named install phases,
   config-preserving reinstall (merged in Go), staged binary replacement with
@@ -114,7 +115,7 @@ maintenance run.
 | 1 | Query the latest check result per `(device, check)` from `check_results`. |
 | 2 | Dashboard matrix: devices as rows, check groups (Connectivity, Storage, Services, Updates, Backups) as columns, one coloured block per check. Grey for skipped/not run, not red. |
 | 3 | Keep the existing "needs attention" list above the matrix; sort rows with critical cells first; click a cell to expand details. |
-| 4 | **Deferred to batch 6.** Reuse the View/Layout/Sort/Fields pattern from Beszel's systems table rather than inventing a new control. |
+| 4 | Done in batch 6 with existing shadcn primitives: Sort/Fields/page size on the devices table. The Grid Layout view was skipped. |
 
 Likely files: dashboard components, a new matrix component, check store query.
 **Verify with:** seeded check results covering ok/warning/critical/skipped/
