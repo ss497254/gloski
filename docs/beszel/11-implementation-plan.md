@@ -150,7 +150,7 @@ fragile shell one-liner. Source: [06 — Checks, alerts and monitors](06-checks-
 
 | Step | Concrete work |
 |---|---|
-| 1 | Port probe functions only: TCP connect, HTTP with accepted status ranges, DNS, TLS leaf expiry. ICMP last, if needed. |
+| 1 | Done: TCP connect, HTTP with accepted status ranges, DNS, TLS leaf expiry. ICMP was skipped (not worth raw sockets). |
 | 2 | Bounded result aggregation (61 raw seconds + 61 minute buckets) into the existing `check_results` history, not a new store. |
 | 3 | Idle suppression tied to the heartbeat: stop scheduled probes when nobody has asked for stats for ~3 minutes. |
 | 4 | Stable FNV IDs for idempotent saved checks. |
@@ -159,10 +159,9 @@ fragile shell one-liner. Source: [06 — Checks, alerts and monitors](06-checks-
 Likely files: new `server/internal/checks/probes*.go`, `proto/agentv1/agent.proto`
 (add one check-execute message pair), `server/internal/worker`, check UI.
 
-**Verify with:** a local target that flips up and down; confirm ok/warning/
-critical/skipped states and that no result appears while idle.
-**Decision required:** shell checks first, or native probes now? Recommended:
-probes only for things a shell command cannot answer cleanly.
+**Verified with:** live TCP, HTTP and DNS probes writing results to the fleet
+matrix; ok/warning/critical/skipped conversion, scheduling and the idle
+boundary are covered by tests. No result is written while idle.
 
 ## Batch 6 — Frontend utilities and polish
 

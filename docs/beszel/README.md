@@ -60,7 +60,7 @@ Non-negotiables that override every table (from `AGENTS.md` and `docs/roadmap.md
 
 | # | Item | Source | Class | Where it lands in Gloski |
 |---|---|---|---|---|
-| 1 | Formatting/debounce/semver/filter helpers + tests | `internal/site/src/lib/utils.ts` | A | `web/src/shared/` |
+| 1 | Pure helpers + tests (debounce/semver/filter skipped; gap and table helpers added) | `internal/site/src/lib/utils.ts` | A | `web/src/shared/` |
 | 2 | Gap-aware chart data and axis math | `.../routes/system/chart-data.ts`, `.../ui/chart.tsx` | A/B | device charts |
 | 3 | Network probes + 2-tier history + stable IDs | `agent/network_monitor_*.go` | A | new `internal/checks` |
 | 4 | Verify → stage → rename → rollback binary replacement | `internal/ghupdate/*.go`, `install-agent.sh` | A/B | `internal/provisioning` |
@@ -69,8 +69,8 @@ Non-negotiables that override every table (from `AGENTS.md` and `docs/roadmap.md
 | 7 | LXC cgroup CPU/memory and `/proc/uptime` helpers | `agent/{cpu_linux,memory_linux,uptime_linux}.go` | A | `server/internal/system/` |
 | 8 | Tiered rollups and retention with peak preservation | `internal/records/*.go` | B | `controltower/maintenance.go` |
 | 9 | Deadline/silence rules for slow collectors | `internal/hub/ws/ws.go`, `internal/hub/systems/system.go` | C | heartbeat work |
-| 10 | Table View/Layout/Sort/Fields cluster and pagination | `.../systems-table/*` | B | devices/jobs/files tables |
-| 11 | Command palette, pre-paint theme, runtime config injection | `.../command-palette.tsx`, `index.html`, `server.go` | B | web app shell |
+| 10 | Sort/Fields/page-size dropdown, pagination, sticky headers (Layout skipped) | `.../systems-table/*` | B | devices table, check matrix |
+| 11 | Pre-paint theme (command palette and runtime config injection skipped) | `.../command-palette.tsx`, `index.html`, `server.go` | B | web app shell |
 | 12 | Sensor timeout + inflight guard, defensive SMART parsers | `agent/sensors.go`, `internal/entities/smart/smart.go` | A | agent collector/checks |
 | 13 | Realtime backpressure and generation-stable workers | `internal/hub/systems/system_realtime.go` | B | fleet WS |
 | 14 | Fingerprint with known-bad-UUID guard | `agent/fingerprint.go` | C | closes the `machine_id` gap |
@@ -78,12 +78,17 @@ Non-negotiables that override every table (from `AGENTS.md` and `docs/roadmap.md
 
 ## Suggested borrow order
 
+Status: items 1–5 are implemented (some in part); item 6 stays parked. See the
+Status section of [11 — Implementation plan](11-implementation-plan.md).
+
 1. **Utilities and test patterns** — no product surface, no new dependencies.
 2. **Packaging and reliability discipline** — named install phases, config-preserving
-   reinstall, staged rollback, proxy CIDR parsing, SPA 404/base-path handling.
+   reinstall, staged rollback and SPA 404 handling (proxy CIDRs and base paths
+   were skipped).
 3. **Check result model, then probes** — roadmap step 3; results travel with the
    existing heartbeat.
-4. **Charts and tables** — gap-aware data, generated series colours, View dropdown.
+4. **Charts and tables** — gap-aware data, and a Sort/Fields/page-size dropdown
+   (generated series colours were skipped).
 5. **History and retention** — roadmap step 4; extend the existing daily pass.
 6. **Collector expansion** — only if a real device needs a metric a shell cannot
    answer. Requires `gopsutil/v4` and a deliberate decision.

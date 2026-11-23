@@ -116,11 +116,11 @@ The dashboard's issues use the same advice-first shape: `DashboardIssue.action`
 is the destination route and `advice` is the one-line explanation shown under
 the detail. Both the dashboard and the diagnosis dialog have "Copy report".
 
-The devices table and the fleet check matrix share one `TableControls`
-dropdown (`shared/components/table-controls.tsx`) for sort, visible fields and
-page size; the devices table also has sticky headers and pagination. The
-control is built from the existing shadcn dropdown primitives — no table
-library was added.
+The devices table uses one `TableControls` dropdown
+(`shared/components/table-controls.tsx`) for sort, visible fields and page
+size, plus sticky headers and pagination. The fleet check matrix has a sticky
+header and scroll container but no controls. The control is built from the
+existing shadcn dropdown primitives — no table library was added.
 
 Device history charts mark long gaps in the samples with a break rather than
 drawing a continuous line; the pure helper is `fillGaps` beside
@@ -183,7 +183,7 @@ cd web
 bun run type-check
 bun run format:check
 bun run lint
-bun test src/shared/api
+bun test
 bun run build
 ```
 

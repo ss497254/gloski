@@ -243,5 +243,6 @@ that need a way back.
 3. **Diagnose chain** (3) — biggest reliability win for the owner's pain.
 4. **Master self-test** (4) — protects the single point of failure.
 5. **Action log** (7) — small, useful for step 4.
-6. **History** (5) and **matrix** (6) — with steps 3 and 4.
+6. ~~**History** (5) and **matrix** (6)~~ — done; see the Status section of
+   [11 — Implementation plan](beszel/11-implementation-plan.md).
 
