@@ -27,6 +27,8 @@ func (t *Tower) routes() http.Handler {
 	mux.Handle("POST /api/devices/{id}/start", t.userAuth(http.HandlerFunc(t.handleStartDevice)))
 	mux.Handle("POST /api/devices/{id}/stop", t.userAuth(http.HandlerFunc(t.handleStopDevice)))
 	mux.Handle("POST /api/devices/{id}/diagnose", t.userAuth(http.HandlerFunc(t.handleDiagnoseDevice)))
+	mux.Handle("GET /api/devices/{id}/actions", t.userAuth(http.HandlerFunc(t.handleListDeviceActions)))
+	mux.Handle("POST /api/devices/{id}/actions/{actionId}/undo", t.userAuth(http.HandlerFunc(t.handleUndoAction)))
 	mux.Handle("POST /api/devices/{id}/trust-host", t.userAuth(http.HandlerFunc(t.handleTrustHost)))
 
 	// Browser-facing device API. The master translates each call into gRPC

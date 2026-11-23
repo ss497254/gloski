@@ -96,6 +96,21 @@ The dashboard shows a small Master health card only when the overall status is
 `warning` or `critical`, linking to that tab. A skipped line is never shown as
 a failure.
 
+`listDeviceActions(id)` and `undoDeviceAction(id, actionId)` back the "Recent
+changes" card on the device page (`features/devices/components/RecentChanges.tsx`).
+Each entry shows the kind, the from → to states, the time and the result. An
+Undo button appears only for successful, reversible changes that have not
+already been undone; after an undo the card and the fleet state are reloaded.
+Logging a failed action is deliberate: a failure is still a reason a person
+may need to act.
+
+Every call made through `shared/tower/client.ts` logs a request id, method,
+path, duration and capped JSON bodies to the browser console. The same id is
+sent as `X-Request-ID` and returned by the master, so a console line can be
+matched to the `api id=...` line in the master log. Uploads, downloads and
+credential fields are never printed; see the correlation section in
+[http-api.md](http-api.md).
+
 ## Theming
 
 `web/src/index.css` defines one semantic token set (background, foreground,

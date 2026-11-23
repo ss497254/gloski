@@ -39,6 +39,18 @@ returns `415`. Writes are same-origin only (see `httpapi.SameOrigin`); set
 `GLOSKI_ALLOWED_ORIGINS=*` to disable that check behind a proxy that rewrites
 `Host`.
 
+## Request logs and correlation
+
+The dashboard sends `X-Request-ID` on every API call. The master copies it into
+the response header and writes one `api id=...` line per call with the method,
+path, status, elapsed time and capped JSON request/response bodies. Values of
+fields named like tokens, passwords or keys are replaced with `[redacted]`;
+file downloads, uploads and WebSocket traffic are never included in a body.
+Reads are logged at `debug`, writes and failures at `info`, so
+`GLOSKI_LOG_LEVEL=debug` shows the full flow. In the browser, the same id
+appears in the console arrows (`[gloski] ->` and `<-`), making it possible to
+match a click to a master log line.
+
 ## Common errors
 
 | Status | Meaning |
@@ -91,9 +103,19 @@ All routes are **auth**.
 | `POST` | `/api/devices/{id}/stop` | — | wrapped `{"stopped":<bool>,"status":"stopped"}`; `400` when offline and not deployed over SSH |
 | `POST` | `/api/devices/{id}/trust-host` | — | forgets the stored SSH host key, then starts; same response as start |
 | `POST` | `/api/devices/{id}/diagnose` | — | wrapped `Diagnosis`: `device_id`, `device`, `status`, `headline`, `advice`, `steps`, `generated_at`; `404` when the device does not exist |
+| `GET` | `/api/devices/{id}/actions` | — | wrapped `{"actions":[DeviceAction]}`, newest first, at most 20 |
+| `POST` | `/api/devices/{id}/actions/{actionId}/undo` | — | wrapped `{"undone":true}`; `400` when the action is not reversible or was already undone |
+
 | `GET` | `/api/deployments` | — | wrapped `{"deployments":[Deployment]}` |
 | `GET` | `/api/deployments/{id}` | — | wrapped `Deployment` |
 | `GET` | `/api/tailnet/peers` | — | wrapped `available`, `backend_state`, `self`, `peers`; `available:false` plus `error` when tailscaled is unreachable |
+
+A `DeviceAction` has `id`, `device_id`, `kind`, `target`, `from`, `to`, `result`
+(`ok` or `failed`), optional `error`, `undoable`, optional `undone_at` and
+`created_at`. Kinds today are `agent_start`, `agent_stop`, `agent_restart`,
+`trust_host` and `undo`. Only successful agent start/stop/restart actions are
+undoable, because the master knows the previous wanted state; a trust-host
+change is logged but cannot be reversed.
 
 `Device` and `Deployment` fields are defined in `server/internal/fleet/types.go`
 and `server/internal/fleet/deployment.go`. Tokens and machine IDs are never

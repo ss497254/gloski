@@ -3,6 +3,7 @@ import type {
   Deployment,
   DeployRequest,
   Diagnosis,
+  DeviceAction,
   FleetDevice,
   SelfTestResult,
   FleetEvent,
@@ -16,29 +17,93 @@ interface Envelope<T> {
   error?: string
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
-  })
-  const payload = (await response.json().catch(() => null)) as Envelope<T> | null
-  if (!response.ok || !payload?.success) {
-    throw new Error(payload?.error || `Tower request failed (${response.status})`)
+const logLimit = 4000
+const secretKey = /(token|password|secret|api_?key|authorization|credential|private_?key)/i
+
+/** Hide credentials wherever they appear in a logged JSON value. */
+function redact(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return '[circular]'
+    seen.add(value)
+    return value.map((item) => redact(item, seen))
   }
+  if (value !== null && typeof value === 'object') {
+    if (seen.has(value)) return '[circular]'
+    seen.add(value)
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, secretKey.test(key) ? '[redacted]' : redact(item, seen)]),
+    )
+  }
+  return value
+}
+
+/** One short line describing a body; uploads and binary data are not printed. */
+function describe(body: unknown): string {
+  if (body === undefined || body === null) return '-'
+  if (body instanceof FormData) return '<form-data>'
+  if (body instanceof Blob || body instanceof ArrayBuffer) return '<binary>'
+  let value = body
+  if (typeof body === 'string') {
+    try {
+      value = JSON.parse(body)
+    } catch {
+      // Plain text: log it as-is.
+    }
+  }
+  let text: string
+  try {
+    text = JSON.stringify(redact(value))
+  } catch {
+    text = '<unserializable>'
+  }
+  return text.length > logLimit ? `${text.slice(0, logLimit)}…` : text
+}
+
+function requestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
+/**
+ * Every dashboard API call goes through here. The request id is sent to the
+ * master and returned in its response header, so the browser console and the
+ * master log can be matched line for line.
+ */
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const id = requestId()
+  const method = init?.method ?? 'GET'
+  const headers = new Headers(init?.headers)
+  headers.set('Content-Type', 'application/json')
+  headers.set('X-Request-ID', id)
+  console.debug(`[gloski] -> ${id} ${method} ${path}`, describe(init?.body))
+
+  const started = performance.now()
+  let response: Response
+  let payload: Envelope<T> | null
+  try {
+    response = await fetch(path, { cache: 'no-store', ...init, headers })
+    payload = (await response.json().catch(() => null)) as Envelope<T> | null
+  } catch (error) {
+    console.warn(`[gloski] !! ${id} ${method} ${path} ${Math.round(performance.now() - started)}ms`, error)
+    throw error
+  }
+  const elapsed = `${Math.round(performance.now() - started)}ms`
+
+  if (!response.ok || !payload?.success) {
+    const error = new Error(payload?.error || `Tower request failed (${response.status})`)
+    console.warn(`[gloski] <- ${id} ${method} ${path} ${response.status} ${elapsed}`, describe(payload))
+    throw error
+  }
+  console.debug(`[gloski] <- ${id} ${method} ${path} ${response.status} ${elapsed}`, describe(payload))
   return payload.data
 }
 
 /** Detect whether this origin is a control tower. Returns null when it is not. */
 export async function detectTower(): Promise<TowerInfo | null> {
   try {
-    const response = await fetch('/api/tower/info', { cache: 'no-store' })
-    if (!response.ok) return null
-    const payload = (await response.json()) as Envelope<TowerInfo>
-    if (!payload.success || payload.data?.mode !== 'master') return null
-    return payload.data
+    // Go through request() so detection has a request id in both logs too.
+    // A non-master origin fails the request and is treated as "not a tower".
+    const info = await request<TowerInfo>('/api/tower/info')
+    return info.mode === 'master' ? info : null
   } catch {
     return null
   }
@@ -106,6 +171,20 @@ export async function stopDevice(id: string): Promise<{ stopped: boolean; status
 /** Walk the master-to-agent connection chain and explain the first broken link. */
 export async function diagnoseDevice(id: string): Promise<Diagnosis> {
   return request<Diagnosis>(`/api/devices/${encodeURIComponent(id)}/diagnose`, { method: 'POST' })
+}
+
+/** Recent master-owned changes to a device, newest first. */
+export async function listDeviceActions(id: string): Promise<DeviceAction[]> {
+  const data = await request<{ actions: DeviceAction[] }>(`/api/devices/${encodeURIComponent(id)}/actions`)
+  return data.actions ?? []
+}
+
+/** Restore the wanted state recorded in a reversible device action. */
+export async function undoDeviceAction(id: string, actionId: string): Promise<{ undone: boolean }> {
+  return request<{ undone: boolean }>(
+    `/api/devices/${encodeURIComponent(id)}/actions/${encodeURIComponent(actionId)}/undo`,
+    { method: 'POST' }
+  )
 }
 
 /** API prefix to give the SDK when talking to a device through the master. */

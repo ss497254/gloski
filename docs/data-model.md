@@ -34,6 +34,7 @@ Migrations live in `server/internal/database/migrations.go`.
 | 7 | `devices.master` (version 6 was skipped and never existed) |
 | 8 | `devices.machine_id` |
 | 9 | `check_results` |
+| 10 | `device_actions` |
 
 The job tables are **not** migrations. `agents.NewJobStore` creates
 `agent_jobs` and `agent_job_logs` with `CREATE TABLE IF NOT EXISTS` and adds
@@ -106,6 +107,26 @@ The index is `(check_id, device_id, ran_at DESC, id DESC)` so the latest result
 and a short history are cheap to read. `checks.Store.Prune` keeps the newest 20
 rows per pair by default (`HistoryLimit`); it is intended for the daily
 maintenance pass.
+
+### `device_actions`
+
+One master-owned change to a device. File deletions will be logged here later
+but are not undoable; today only agent start/stop/restart are.
+
+| Column | Meaning |
+|---|---|
+| `id` | UUID |
+| `device_id` | Owning device |
+| `kind` | `agent_start`, `agent_stop`, `agent_restart`, `trust_host`, `undo` |
+| `target` | What was changed (`agent` today) |
+| `from_value`, `to_value` | Wanted deployment state before and after |
+| `result`, `error` | `ok` or `failed`, and why it failed |
+| `undoable` | `1` when the previous wanted state is known |
+| `undone_at` | Set when undo succeeded; an action cannot be undone twice |
+| `created_at` | When the change was made |
+
+The index is `(device_id, created_at DESC)`. The device page shows the newest
+20 entries.
 
 ### `agent_jobs`
 

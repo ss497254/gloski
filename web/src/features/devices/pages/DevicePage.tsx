@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, Play, Square, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BtopView } from '../components/BtopView'
 import { DiagnoseButton } from '../components/DiagnoseDialog'
+import { RecentChanges } from '../components/RecentChanges'
 import { useDeviceActions } from '../hooks/useDeviceActions'
 import { useDeviceStats } from '../hooks/useDeviceStats'
 
@@ -73,12 +74,15 @@ export function DevicePage() {
         </div>
       }
     >
-      <BtopView
-        device={managedDevice}
-        stats={live.stats ?? managedDevice.stats ?? null}
-        processes={live.processes}
-        connected={live.connected}
-      />
+      <div className="space-y-6">
+        <BtopView
+          device={managedDevice}
+          stats={live.stats ?? managedDevice.stats ?? null}
+          processes={live.processes}
+          connected={live.connected}
+        />
+        <RecentChanges deviceId={managedDevice.id} />
+      </div>
     </PageLayout>
   )
 }

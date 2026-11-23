@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ss497254/gloski/internal/actions"
 	"github.com/ss497254/gloski/internal/agentdist"
 	"github.com/ss497254/gloski/internal/agentdist/builds"
 	"github.com/ss497254/gloski/internal/auth"
@@ -60,7 +61,8 @@ type Tower struct {
 	transfersMu sync.Mutex
 	transfers   map[string]*transfer
 
-	checkStore *checks.Store
+	checkStore  *checks.Store
+	actionStore *actions.Store
 
 	// Read-only state for the self-test. Maintenance records whether its last
 	// run succeeded; self-test runs keep three runtime points for a trend.
@@ -136,6 +138,7 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		agentGRPCServer: grpcServer,
 		transfers:       make(map[string]*transfer),
 		checkStore:      checks.NewStore(db),
+		actionStore:     actions.NewStore(db),
 	}
 
 	fleetSvc.SetOnChange(func() {

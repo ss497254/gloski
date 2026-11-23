@@ -124,8 +124,9 @@ Diagnose button. The build order and implementation notes are in
 `docs/ideas-from-smdwin.md`. Dashboard issues now carry advice, a route and an
 error-first order, and both views can copy a plain-text report. The check
 result model (`internal/checks`, migration 9) and the read-only master
-self-test (`GET /api/system/self-test`, Settings → Master health) are in; next
-is the action log with undo.
+self-test (`GET /api/system/self-test`, Settings → Master health) and the
+device action log with undo (`device_actions`, Recent changes on the device
+page) are in; next is history and the fleet matrix.
 
 Known gaps not covered by either plan:
 

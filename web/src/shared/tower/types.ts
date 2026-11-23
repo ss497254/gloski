@@ -54,6 +54,20 @@ export interface Diagnosis {
   generated_at: string
 }
 
+export interface DeviceAction {
+  id: string
+  device_id: string
+  kind: 'agent_start' | 'agent_stop' | 'agent_restart' | 'trust_host' | 'undo'
+  target: string
+  from?: string
+  to?: string
+  result: 'ok' | 'failed'
+  error?: string
+  undoable: boolean
+  undone_at?: string
+  created_at: string
+}
+
 export interface SelfTestLine {
   key: string
   title: string

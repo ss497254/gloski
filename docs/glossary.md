@@ -18,6 +18,8 @@ renames are in [code-quality-plan.md](code-quality-plan.md).
 | **session** | One live `Agent.Connect` gRPC stream for a device. | `agents.connection` |
 | **diagnosis** | An ordered chain of facts from the master outwards, with the first broken link as the headline. | `controltower/diagnose.go` |
 | **self-test** | A read-only checklist of the master's own health, shown under Settings → Master health. | `controltower/selftest.go` |
+| **device action** | A master-owned change to a device, recorded so it can be explained and, where the previous state is known, undone. | `actions.Action`, `device_actions` |
+| **undo** | Restoring the wanted state recorded in a reversible device action. | `POST /api/devices/{id}/actions/{actionId}/undo` |
 | **check** | A saved command whose exit code is a verdict, run on a schedule yet to be built. | `internal/checks` (result model) |
 | **check result** | One run of one check on one device: verdict, summary, details, timing. | `checks.Result`, `check_results` |
 | **stale** | A result older than twice its schedule. Recomputed when read, never stored as a final answer. | `checks.Result.StaleAt` |

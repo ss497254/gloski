@@ -227,4 +227,24 @@ var migrations = []migration{
 			CREATE INDEX idx_check_results_latest ON check_results(check_id, device_id, ran_at DESC, id DESC);
 		`,
 	},
+	{
+		version: 10,
+		name:    "add_device_actions",
+		sql: `
+			CREATE TABLE device_actions (
+				id TEXT PRIMARY KEY,
+				device_id TEXT NOT NULL,
+				kind TEXT NOT NULL,
+				target TEXT NOT NULL DEFAULT '',
+				from_value TEXT NOT NULL DEFAULT '',
+				to_value TEXT NOT NULL DEFAULT '',
+				result TEXT NOT NULL,
+				error TEXT NOT NULL DEFAULT '',
+				undoable INTEGER NOT NULL DEFAULT 0,
+				undone_at DATETIME,
+				created_at DATETIME NOT NULL
+			);
+			CREATE INDEX idx_device_actions_recent ON device_actions(device_id, created_at DESC);
+		`,
+	},
 }

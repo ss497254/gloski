@@ -255,8 +255,8 @@ chain was chosen first because it needs no checks system and answers the
 2. **Attention list with advice** — done (2026-11-23).
 3. **Check result model** — done (2026-11-23).
 4. **Master self-test** — done (2026-11-23).
-5. **Action log with undo** — next.
-6. **History and fleet matrix** — with roadmap steps 3 and 4.
+5. **Action log with undo** — done (2026-11-23).
+6. **History and fleet matrix** — next; with roadmap steps 3 and 4.
 
 ### What task 1 built
 
@@ -356,3 +356,24 @@ three consecutive calls returned `status: ok` with all 11 lines present; the
 runtime line showed one, two then three samples and only then a trend verdict;
 deleting `master-join-token` made the next call `status: critical` with the
 join-token line as the cause. No probe files were left in the data directory.
+
+### What task 5 built
+
+- `device_actions` (migration 10) records agent start, stop and restart with
+  the wanted state before and after, the result and any error. Trusting a new
+  SSH host key is logged but is not undoable.
+- Start/stop handlers now share the same core operations as undo, so undoing a
+  change performs the same master-owned action the original did. An action is
+  marked undone once; undo actions themselves are logged but not undoable.
+- Action logging cannot fail the user's change: the change has already
+  happened, and a database error is logged as a warning.
+- The device page shows "Recent changes" with an Undo button only for
+  successful, reversible, not-yet-undone actions.
+
+Live verification with a scratch master and the test SSH server: start was
+recorded as `agent_start` (stopped → running); stop as `agent_stop` (running →
+stopped) with an Undo button; pressing Undo brought the device back online,
+marked the stop undone and appended an `undo` entry (stopped → running). This
+caught an inverted undo switch that the unit tests missed; `undoOperationFor`
+now has a direction test. A failed start is logged as `result: failed` with
+its error instead of being dropped.

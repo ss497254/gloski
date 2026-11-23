@@ -3,11 +3,13 @@ package controltower
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ss497254/gloski/internal/actions"
 	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/fleet"
 	"github.com/ss497254/gloski/internal/httpapi"
@@ -132,6 +134,8 @@ func (t *Tower) handleGetDeployment(w http.ResponseWriter, r *http.Request) {
 	httpapi.SuccessWithMessage(w, deployment)
 }
 
+var errStopUnreachable = errors.New("the device is offline and was not installed over SSH, so the master cannot reach it")
+
 func (t *Tower) handleStartDevice(w http.ResponseWriter, r *http.Request) {
 	t.installNow(w, r, false)
 }
@@ -153,18 +157,38 @@ func (t *Tower) installNow(w http.ResponseWriter, r *http.Request, trustHost boo
 		httpapi.BadRequest(w, "the master has no SSH details for this device")
 		return
 	}
-	if trustHost {
-		if err := t.installer.ForgetHost(device.Deploy.Host, device.Deploy.SSHPort); err != nil {
-			httpapi.InternalError(w, "failed to forget the old host key", err.Error())
-			return
-		}
+
+	from := device.Deploy.Status
+	kind := actions.KindAgentRestart
+	if from == fleet.DeployStopped {
+		kind = actions.KindAgentStart
 	}
-	result, err := t.lifecycle.Install(device.Deploy, true)
+	if trustHost {
+		kind = actions.KindTrustHost
+	}
+	result, err := t.installDevice(r.Context(), device, trustHost)
+	t.recordAction(device.ID, actions.Action{
+		Kind: kind, Target: "agent", From: from, To: fleet.DeployRunning, Undoable: !trustHost,
+	}, err)
 	if err != nil {
 		httpapi.InternalError(w, "failed to install the agent", err.Error())
 		return
 	}
 	httpapi.SuccessWithMessage(w, map[string]interface{}{"pid": result.PID, "status": fleet.DeployRunning})
+}
+
+// installDevice does the work for start, restart, trust-host and undo. The
+// caller has already checked that the device has SSH details.
+func (t *Tower) installDevice(ctx context.Context, device *fleet.Device, trustHost bool) (provisioning.Result, error) {
+	if device.Deploy == nil {
+		return provisioning.Result{}, errors.New("the master has no SSH details for this device")
+	}
+	if trustHost {
+		if err := t.installer.ForgetHost(device.Deploy.Host, device.Deploy.SSHPort); err != nil {
+			return provisioning.Result{}, fmt.Errorf("failed to forget the old host key: %w", err)
+		}
+	}
+	return t.lifecycle.Install(device.Deploy, true)
 }
 
 func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
@@ -173,25 +197,43 @@ func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 		httpapi.NotFound(w, "device not found")
 		return
 	}
-	target, targetErr := t.deviceTarget(device.ID)
+	from := ""
+	if device.Deploy != nil {
+		from = device.Deploy.Status
+	}
+	stopped, err := t.stopDevice(r.Context(), device)
+	t.recordAction(device.ID, actions.Action{
+		Kind: actions.KindAgentStop, Target: "agent", From: from, To: fleet.DeployStopped, Undoable: from != "",
+	}, err)
+	if err != nil {
+		if errors.Is(err, errStopUnreachable) {
+			httpapi.BadRequest(w, err.Error())
+		} else {
+			httpapi.InternalError(w, "failed to stop agent", err.Error())
+		}
+		return
+	}
+	httpapi.SuccessWithMessage(w, map[string]interface{}{"stopped": stopped, "status": fleet.DeployStopped})
+}
 
-	// A connected agent is simply told to exit. SSH is the way in when it is
-	// not connected. Either way the deployment is marked stopped, which is
-	// what keeps the lifecycle loop from starting it again.
+// stopDevice is shared by the stop handler and undo. A connected agent is told
+// to exit; SSH is the way in when it is not. Marking the deployment stopped is
+// what keeps the lifecycle loop from starting it again.
+func (t *Tower) stopDevice(ctx context.Context, device *fleet.Device) (bool, error) {
+	target, targetErr := t.deviceTarget(device.ID)
 	stopped := false
 	if err := t.agentService.Shutdown(device.ID, agents.ShutdownExit); err == nil {
 		stopped = true
 	} else if targetErr != nil {
-		httpapi.BadRequest(w, "the device is offline and was not installed over SSH, so the master cannot reach it")
-		return
+		return false, errStopUnreachable
 	} else {
-		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		stopCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
-		stopped, err = t.installer.Stop(ctx, target)
+		var err error
+		stopped, err = t.installer.Stop(stopCtx, target)
 		if err != nil {
 			_ = t.fleetSvc.SetDeploymentStatus(target.DeployID, fleet.DeployFailed, err.Error())
-			httpapi.InternalError(w, "failed to stop agent", err.Error())
-			return
+			return false, fmt.Errorf("failed to stop agent: %w", err)
 		}
 	}
 	if targetErr == nil {
@@ -201,7 +243,21 @@ func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 	}
 	// The agent is gone; drop its stream now instead of waiting for TCP to notice.
 	t.agentService.Disconnect(device.ID)
-	httpapi.SuccessWithMessage(w, map[string]interface{}{"stopped": stopped, "status": fleet.DeployStopped})
+	return stopped, nil
+}
+
+// recordAction never fails the user's action: the change already happened,
+// and a full database must not turn a successful start into an error.
+func (t *Tower) recordAction(deviceID string, action actions.Action, err error) {
+	action.DeviceID = deviceID
+	action.Result = actions.ResultOK
+	if err != nil {
+		action.Result = actions.ResultFailed
+		action.Error = err.Error()
+	}
+	if recordErr := t.actionStore.Record(context.Background(), action); recordErr != nil {
+		logger.Warn("Failed to record action on %s: %v", deviceID, recordErr)
+	}
 }
 
 func (t *Tower) deviceTarget(deviceID string) (provisioning.Target, error) {
