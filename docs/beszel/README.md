@@ -54,6 +54,7 @@ Non-negotiables that override every table (from `AGENTS.md` and `docs/roadmap.md
 | [08 — Packaging and release](08-packaging-and-release.md) | Install-script safety tricks, binary replacement, build/release matrix, what to skip and why. |
 | [09 — Testing and quality](09-testing-and-quality.md) | Fixture seams, self-reexec command fakes, `testing/synctest`, frontend tests, CI gap. |
 | [10 — Do not borrow](10-do-not-borrow.md) | Consolidated exclusion list with reasons and conflicts. |
+| [11 — Implementation plan](11-implementation-plan.md) | Batch-by-batch plan with concrete tasks, files, verification gates and open decisions. |
 
 ## Highest-value items, ranked
 
