@@ -56,8 +56,10 @@ func Run(cfg *config.Config, version string) error {
 	}
 
 	statsStore := system.NewStore(300)
-	statsHub := system.NewHub(statsStore)
-	collector := system.NewCollector(statsStore, statsHub, 2*time.Second)
+	// The agent serves no WebSocket clients. A hub with no Run loop would only
+	// fill its channel and warn on every sample, so the collector keeps the
+	// latest stats in the store without broadcasting them.
+	collector := system.NewCollector(statsStore, nil, 2*time.Second)
 	collector.Start()
 	defer collector.Stop()
 
@@ -75,7 +77,7 @@ func Run(cfg *config.Config, version string) error {
 		name:      name,
 		machineID: machineID(),
 		buildHash: buildHash(),
-		stats:     system.NewService(statsStore, statsHub),
+		stats:     system.NewService(statsStore, nil),
 		files:     files.NewService(cfg),
 		shutdown:  shutdown,
 		jobs:      make(map[string]*job),
