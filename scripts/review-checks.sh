@@ -10,12 +10,35 @@ section() { printf '\n[review] %s\n' "$1"; }
 note() { printf '[review]   %s\n' "$1"; }
 show() { printf '%s\n' "$1" | tail -30 | sed 's/^/    /'; }
 
+staged_mode=${GLOSKI_CHECK_STAGED:-0}
+
 changed() {
-	{
-		git diff --name-only --diff-filter=ACM
-		git diff --cached --name-only --diff-filter=ACM
-		git ls-files --others --exclude-standard
-	} | sort -u
+	if [ "$staged_mode" = "1" ]; then
+		# The hook's temporary index contains exactly the committed paths.
+		git diff --cached --name-only --diff-filter=ACM | sort -u
+	else
+		{
+			git diff --name-only --diff-filter=ACM
+			git diff --cached --name-only --diff-filter=ACM
+			git ls-files --others --exclude-standard
+		} | sort -u
+	fi
+}
+
+diff_patch() {
+	if [ "$staged_mode" = "1" ]; then
+		git diff --cached -U0 "$@"
+	else
+		git diff -U0 "$@"
+	fi
+}
+
+name_only() {
+	if [ "$staged_mode" = "1" ]; then
+		git diff --cached --name-only "$@"
+	else
+		git diff --name-only "$@"
+	fi
 }
 
 section "changed files"
@@ -124,14 +147,14 @@ while IFS= read -r line; do
 			;;
 	esac
 done <<EOF
-$(git diff -U0 | grep '^+' | grep -E 'READ_AT|WRITE_AT|pkill -f' || true)
+$(diff_patch | grep '^+' | grep -E 'READ_AT|WRITE_AT|pkill -f' || true)
 EOF
 [ "$found" -eq 0 ] && note "no banned patterns added"
 
-if git diff --name-only | grep -q '^server/proto/agentv1/'; then
+if name_only | grep -q '^server/proto/agentv1/'; then
 	note "PROTOCOL FILE CHANGED: confirm generated code was regenerated and ProtocolVersion bumped if the wire format changed"
 fi
-if git diff --name-only | grep -q '^server/internal/controltower/routes.go$'; then
+if name_only | grep -q '^server/internal/controltower/routes.go$'; then
 	note "ROUTES CHANGED: confirm docs/http-api.md and the frontend client were updated"
 fi
 

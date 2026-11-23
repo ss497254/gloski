@@ -17,7 +17,8 @@ message=$1
 shift
 
 for path in "$@"; do
-	if [ ! -e "$path" ]; then
+	# A deleted tracked file has no filesystem entry but is still committable.
+	if [ ! -e "$path" ] && ! git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
 		echo "commit-only: no such path: $path" >&2
 		exit 2
 	fi
