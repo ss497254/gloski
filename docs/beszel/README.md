@@ -91,12 +91,11 @@ Non-negotiables that override every table (from `AGENTS.md` and `docs/roadmap.md
 Parked: MCP façade, outbound heartbeat/pinger, package-update parsers, i18n,
 fingerprint-based identity.
 
-## Open decisions for the owner
+## Decisions (settled 2026-11-23)
 
-1. Native collectors or shell-based checks only? Recommended: probes (batch 3)
-   yes, full collector expansion (batch 6) only on demonstrated need.
-2. Adopt `github.com/shirou/gopsutil/v4`? It unlocks most collector code.
-3. Want an outbound dead-man heartbeat to an external uptime service? Different
-   from the alerts you declined, but still a new external dependency.
-4. ~~Attribution file.~~ Decided: credit Beszel in the project README; no
-   separate notices file.
+1. Native probes were built (TCP/HTTP/DNS/TLS); full collector expansion stays
+   parked until a device needs a metric a shell command cannot answer.
+2. `github.com/shirou/gopsutil/v4` was not adopted; it belongs to the parked
+   collector work.
+3. No outbound dead-man heartbeat to an external uptime service.
+4. Attribution: credit Beszel in the project README; no separate notices file.

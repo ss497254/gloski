@@ -81,7 +81,7 @@ code. It is ordered by project need, not by how interesting the source code is.
    and Beszel entity imports → substitute Gloski types → prune to the function
    being borrowed → run the borrowed test → wire one call site → verify.
 
-## Batch 2 — History and retention (project's next item)
+## Batch 2 — History and retention (done)
 
 **Goal:** keep metrics for days, bounded in size, with trend detection that does
 not cry wolf. Sources: `docs/ideas-from-smdwin.md` §5 and
