@@ -31,9 +31,53 @@ func TestBuiltinBlocksFillEmptyMatrix(t *testing.T) {
 			t.Fatalf("device %s has only %d blocks; want connectivity, health, agent and jobs", row.DeviceID, count)
 		}
 	}
-	counts := matrixVerdict(matrix)
+	counts := matrixVerdict(matrix, nil)
 	if counts["critical"] < 1 || counts["warning"] < 1 || counts["ok"] < 3 {
 		t.Fatalf("verdict counts = %+v", counts)
+	}
+}
+
+func TestVerdictTreatsStaleAndOrphanIssuesHonestly(t *testing.T) {
+	matrix := checkMatrix{
+		Rows: []checkMatrixRow{{DeviceID: "dev", Cells: []checkGroupCell{{
+			Group: "Storage", Checks: []checkBlock{
+				{CheckID: "disk_root", Status: checks.StatusCritical, Stale: true},
+				{CheckID: "ping_tcp", Status: checks.StatusSkipped},
+				{CheckID: "disk_home", Status: checks.StatusOK},
+			},
+		}}}},
+	}
+	issues := []dashboardIssue{
+		{ID: "orphan", Severity: "error", DeviceID: ""},
+		{ID: "matched", Severity: "error", DeviceID: "dev"},
+	}
+	counts := matrixVerdict(matrix, issues)
+	if counts["critical"] != 1 || counts["unknown"] != 2 || counts["ok"] != 1 {
+		t.Fatalf("verdict = %+v; want one live critical (the orphan), two unknown, one ok", counts)
+	}
+}
+
+func TestStoredChecksTakePriorityOverBuiltins(t *testing.T) {
+	devices := []fleet.Device{{
+		ID: "dev", Name: "dev", Status: fleet.StatusOnline,
+		Stats: &system.Stats{CPU: system.CPUStats{UsagePercent: 12}, Memory: system.MemoryStats{UsedPercent: 30}},
+	}}
+	results := []checks.Result{{
+		CheckID: "ping_tcp", DeviceID: "dev", Status: checks.StatusOK, Summary: "reachable", RanAt: time.Now(),
+	}}
+	matrix := buildCheckMatrix(devices, results, nil)
+	found := false
+	for _, cell := range matrix.Rows[0].Cells {
+		if cell.Group != "Connectivity" {
+			continue
+		}
+		if len(cell.Checks) == 0 || cell.Checks[0].CheckID != "ping_tcp" {
+			t.Fatalf("stored check does not lead Connectivity: %+v", cell.Checks)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("Connectivity cell was dropped: %+v", matrix.Rows[0].Cells)
 	}
 }
 

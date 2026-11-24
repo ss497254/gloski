@@ -9,7 +9,7 @@ import { Card } from '@/ui/card'
 import { ArrowUpRight, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-function verdictCopy(counts: DashboardSummary['verdict'] | undefined) {
+export function verdictCopy(counts: DashboardSummary['verdict'] | undefined) {
   if (!counts) return { title: 'Checking…', hint: 'Reading the fleet…' }
   if (counts.critical > 0)
     return {
@@ -20,6 +20,11 @@ function verdictCopy(counts: DashboardSummary['verdict'] | undefined) {
     return {
       title: `Mostly healthy · ${counts.warning} to check`,
       hint: 'Nothing is broken; a few things are worth a look when you have time.',
+    }
+  if (counts.unknown > 0)
+    return {
+      title: `Nothing failed · ${counts.unknown} not checked`,
+      hint: 'Grey means skipped, stale or never run — not a failure.',
     }
   return { title: 'Healthy · nothing to fix', hint: 'Everything checked looks good.' }
 }
@@ -71,7 +76,9 @@ export function FleetHealth({ summary, expanded, onToggleExpanded }: FleetHealth
           {issues.length === 0 ? (
             <div className="flex items-center gap-3 px-4 py-4 text-sm text-muted-foreground">
               <CheckCircle2 className="size-4 text-success" />
-              Nothing needs your attention. Every device answered its last check.
+              {summary.verdict?.unknown
+                ? `Nothing failed. ${summary.verdict.unknown} result${summary.verdict.unknown === 1 ? '' : 's'} not checked yet.`
+                : 'Nothing needs your attention. Every device answered its last check.'}
             </div>
           ) : (
             visible.map((issue) => (

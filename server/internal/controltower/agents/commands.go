@@ -78,6 +78,11 @@ func (svc *Service) RecentJobs(limit int) ([]Job, error) { return svc.jobs.Recen
 // ProblemJobs returns failed or abandoned jobs across all fleet.
 func (svc *Service) ProblemJobs(limit int) ([]Job, error) { return svc.jobs.ProblemJobs(limit) }
 
+// ProblemCountsByDevice counts unfinished jobs for every device.
+func (svc *Service) ProblemCountsByDevice(ctx context.Context) (map[string]int, error) {
+	return svc.jobs.ProblemCountsByDevice(ctx)
+}
+
 // DeleteJob removes a job and its logs.
 func (svc *Service) DeleteJob(id string) error { return svc.jobs.Delete(id) }
 

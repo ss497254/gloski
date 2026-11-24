@@ -34,6 +34,7 @@
   "exclude": [
     "src/shared/api/__tests__",
     "src/shared/tower/__tests__",
-    "src/features/devices/lib/__tests__"
+    "src/features/devices/lib/__tests__",
+    "src/features/dashboard/components/__tests__"
   ]
 }

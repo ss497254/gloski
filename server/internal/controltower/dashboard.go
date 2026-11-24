@@ -208,9 +208,10 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	problemsByDevice := make(map[string]int)
-	for _, job := range problemJobs {
-		problemsByDevice[job.DeviceID]++
+	problemsByDevice, err := t.agentService.ProblemCountsByDevice(r.Context())
+	if err != nil {
+		logger.Warn("Dashboard could not count problem jobs: %v", err)
+		problemsByDevice = map[string]int{}
 	}
 
 	matrix := buildCheckMatrix(list, matrixResults, problemsByDevice)
@@ -220,7 +221,7 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"devices":      len(list),
 		"online":       online,
 		"offline":      len(list) - online,
-		"verdict":      matrixVerdict(matrix),
+		"verdict":      matrixVerdict(matrix, issues),
 		"issues":       issues,
 		"check_matrix": matrix,
 		"recent_jobs":  recentJobs,

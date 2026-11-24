@@ -111,11 +111,18 @@ func builtinBlocks(device fleet.Device, problems int) map[string][]checkBlock {
 
 // matrixVerdict counts blocks by state. A count is not a score: unknown and
 // stale blocks are reported, never folded into a failure.
-func matrixVerdict(matrix checkMatrix) map[string]int {
+func matrixVerdict(matrix checkMatrix, issues []dashboardIssue) map[string]int {
 	counts := map[string]int{"ok": 0, "warning": 0, "critical": 0, "unknown": 0}
+	known := make(map[string]bool, len(matrix.Rows))
 	for _, row := range matrix.Rows {
+		known[row.DeviceID] = true
 		for _, cell := range row.Cells {
 			for _, block := range cell.Checks {
+				// A stale result is grey in the UI and never a live failure.
+				if block.Stale || block.Status == checks.StatusSkipped || block.Status == checks.StatusUnknown {
+					counts["unknown"]++
+					continue
+				}
 				switch block.Status {
 				case checks.StatusOK:
 					counts["ok"]++
@@ -127,6 +134,19 @@ func matrixVerdict(matrix checkMatrix) map[string]int {
 					counts["unknown"]++
 				}
 			}
+		}
+	}
+	// Issues without a device row (or without any device at all) have no block
+	// in the matrix, so they still need to reach the verdict.
+	for _, issue := range issues {
+		if issue.DeviceID != "" && known[issue.DeviceID] {
+			continue
+		}
+		switch issue.Severity {
+		case "error":
+			counts["critical"]++
+		case "warning":
+			counts["warning"]++
 		}
 	}
 	return counts
@@ -196,18 +216,13 @@ func buildCheckMatrix(devices []fleet.Device, results []checks.Result, problemJo
 			DeviceStatus: device.Status,
 			Cells:        make([]checkGroupCell, 0, len(groups)),
 		}
-		// Built-in signals always have a block, even with no saved checks. A
-		// matrix of empty cells is not a health view; these are facts the
-		// dashboard already knows about every device.
+		// Built-in signals keep every group informative even with no saved
+		// checks. Stored results are listed first so a real check takes
+		// priority; the built-in block still reflects facts such as an offline
+		// session or a failed job that the saved checks say nothing about.
 		builtins := builtinBlocks(device, problemJobs[device.ID])
 		for _, group := range groups {
 			cell := checkGroupCell{Group: group, Checks: make([]checkBlock, 0, len(known[group]))}
-			for _, block := range builtins[group] {
-				if rank := statusRank(block.Status, block.Stale); rank > row.severity {
-					row.severity = rank
-				}
-				cell.Checks = append(cell.Checks, block)
-			}
 			for _, id := range known[group] {
 				block := checkBlock{CheckID: id, Status: checks.StatusUnknown, Summary: "Not run"}
 				if result, ok := byPair[[2]string{device.ID, id}]; ok {
@@ -217,6 +232,12 @@ func buildCheckMatrix(devices []fleet.Device, results []checks.Result, problemJo
 					block.RanAt = result.RanAt
 					block.Details = result.Details
 				}
+				if rank := statusRank(block.Status, block.Stale); rank > row.severity {
+					row.severity = rank
+				}
+				cell.Checks = append(cell.Checks, block)
+			}
+			for _, block := range builtins[group] {
 				if rank := statusRank(block.Status, block.Stale); rank > row.severity {
 					row.severity = rank
 				}

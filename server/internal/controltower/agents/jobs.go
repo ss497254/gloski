@@ -2,6 +2,7 @@ package agents
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"strings"
 	"time"
@@ -48,9 +49,9 @@ type JobStore struct {
 	db *sql.DB
 }
 
-// NewJobStore creates the master-side job tables if needed.
-func NewJobStore(db *database.Database) (*JobStore, error) {
-	return &JobStore{db: db.DB()}, nil
+// NewJobStore creates the master-side job store after database migrations run.
+func NewJobStore(db *database.Database) *JobStore {
+	return &JobStore{db: db.DB()}
 }
 
 // Create stores a new pending job.
@@ -354,6 +355,30 @@ func (t *JobStore) Recent(limit int) ([]Job, error) {
 		jobs = append(jobs, *job)
 	}
 	return jobs, rows.Err()
+}
+
+// ProblemCountsByDevice counts failed and abandoned jobs per device without
+// the fleet-wide limit used by ProblemJobs. The matrix needs every device's
+// count, not just the ten newest problems in the fleet.
+func (t *JobStore) ProblemCountsByDevice(ctx context.Context) (map[string]int, error) {
+	rows, err := t.db.QueryContext(ctx, `
+		SELECT device_id, COUNT(*) FROM agent_jobs
+		WHERE status IN (?, ?) GROUP BY device_id`, JobFailed, JobAbandoned)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var deviceID string
+		var count int
+		if err := rows.Scan(&deviceID, &count); err != nil {
+			return nil, err
+		}
+		counts[deviceID] = count
+	}
+	return counts, rows.Err()
 }
 
 // ProblemJobs returns failed or abandoned jobs across all fleet.
