@@ -22,7 +22,7 @@ import {
   Server,
   Wifi,
 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -102,8 +102,11 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [deployOpen, setDeployOpen] = useState(false)
   const [showAllIssues, setShowAllIssues] = useState(false)
+  const loadingRequest = useRef(false)
 
   const load = useCallback(async () => {
+    if (loadingRequest.current) return
+    loadingRequest.current = true
     // The health card is optional; a slow quick_check must not delay the
     // dashboard itself.
     void getSelfTest().then(setHealth).catch(() => undefined)
@@ -111,8 +114,10 @@ export function DashboardPage() {
       setSummary(await getDashboard())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load dashboard')
+    } finally {
+      loadingRequest.current = false
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   const copyReport = useCallback(async () => {
@@ -138,9 +143,12 @@ export function DashboardPage() {
 
   useEffect(() => {
     if (mode !== 'tower') return
-    void load()
+    const initialLoad = setTimeout(() => void load(), 0)
     const timer = setInterval(() => void load(), 10000)
-    return () => clearInterval(timer)
+    return () => {
+      clearTimeout(initialLoad)
+      clearInterval(timer)
+    }
   }, [mode, load])
 
   if (mode === 'loading') {

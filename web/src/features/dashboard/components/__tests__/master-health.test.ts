@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { groupSections, sectionSummary } from '../MasterHealthSettings'
+import { groupSections, sectionSummary } from '../master-health-utils'
 import type { SelfTestLine } from '@/shared/tower/types'
 
 function line(key: string, section: string, status: SelfTestLine['status']): SelfTestLine {

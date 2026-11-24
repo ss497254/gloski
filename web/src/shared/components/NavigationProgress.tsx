@@ -5,38 +5,30 @@ import { cn } from '@/shared/lib/utils'
 export function NavigationProgress() {
   const navigation = useNavigation()
   const [progress, setProgress] = useState(0)
-  const [visible, setVisible] = useState(false)
 
   const isNavigating = navigation.state === 'loading'
+  const visible = isNavigating || progress > 0
 
   useEffect(() => {
-    if (isNavigating) {
-      setVisible(true)
-      setProgress(0)
+    if (!isNavigating) return
+    const timers = [
+      setTimeout(() => setProgress(10), 0),
+      setTimeout(() => setProgress(30), 100),
+      setTimeout(() => setProgress(60), 300),
+      setTimeout(() => setProgress(80), 600),
+    ]
+    return () => timers.forEach(clearTimeout)
+  }, [isNavigating])
 
-      // Simulate progress
-      const timer1 = setTimeout(() => setProgress(30), 100)
-      const timer2 = setTimeout(() => setProgress(60), 300)
-      const timer3 = setTimeout(() => setProgress(80), 600)
-
-      return () => {
-        clearTimeout(timer1)
-        clearTimeout(timer2)
-        clearTimeout(timer3)
-      }
-    } else if (visible) {
-      // Complete the progress
-      setProgress(100)
-
-      // Hide after animation completes
-      const timer = setTimeout(() => {
-        setVisible(false)
-        setProgress(0)
-      }, 300)
-
-      return () => clearTimeout(timer)
+  useEffect(() => {
+    if (isNavigating || progress === 0) return
+    const complete = progress < 100 ? setTimeout(() => setProgress(100), 0) : undefined
+    const reset = setTimeout(() => setProgress(0), 350)
+    return () => {
+      if (complete) clearTimeout(complete)
+      clearTimeout(reset)
     }
-  }, [isNavigating, visible])
+  }, [isNavigating, progress])
 
   if (!visible) return null
 

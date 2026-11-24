@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { verdictCopy } from '../FleetHealth'
+import { verdictCopy } from '../fleet-health-utils'
 
 describe('verdictCopy', () => {
   test('critical beats every other count', () => {

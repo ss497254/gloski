@@ -1,5 +1,4 @@
 import { StatusMark } from '@/shared/components'
-import type { StatusTone } from '@/shared/lib/status'
 import { cn, formatRelativeTime } from '@/shared/lib/utils'
 import { getSelfTest } from '@/shared/tower/client'
 import type { DiagnosisStatus, SelfTestLine, SelfTestResult } from '@/shared/tower/types'
@@ -10,6 +9,7 @@ import { Spinner } from '@/ui/spinner'
 import { AlertTriangle, CheckCircle2, CircleDashed, Copy, RefreshCw, XCircle } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { groupSections, sectionSummary, sectionTone } from './master-health-utils'
 
 const toneClasses: Record<DiagnosisStatus, string> = {
   ok: 'border-success/30 bg-success/5',
@@ -49,36 +49,6 @@ function Line({ line }: { line: SelfTestLine }) {
       </div>
     </li>
   )
-}
-
-/** Keep the backend's order, but read it as a few named sections. */
-export function groupSections(lines: SelfTestLine[]): Array<{ name: string; lines: SelfTestLine[] }> {
-  const order: string[] = []
-  const grouped = new Map<string, SelfTestLine[]>()
-  for (const line of lines) {
-    if (!grouped.has(line.section)) {
-      grouped.set(line.section, [])
-      order.push(line.section)
-    }
-    grouped.get(line.section)!.push(line)
-  }
-  return order.map((name) => ({ name, lines: grouped.get(name)! }))
-}
-
-export function sectionSummary(lines: SelfTestLine[]): string {
-  const failed = lines.filter((line) => line.status === 'critical').length
-  const warnings = lines.filter((line) => line.status === 'warning').length
-  if (failed) return `${failed} failed`
-  if (warnings) return `${warnings} to check`
-  if (lines.every((line) => line.status === 'skipped')) return 'not run yet'
-  return 'all clear'
-}
-
-function sectionTone(lines: SelfTestLine[]): StatusTone {
-  if (lines.some((line) => line.status === 'critical')) return 'destructive'
-  if (lines.some((line) => line.status === 'warning')) return 'warning'
-  if (lines.every((line) => line.status === 'skipped')) return 'muted'
-  return 'success'
 }
 
 function verdict(result: SelfTestResult): string {
