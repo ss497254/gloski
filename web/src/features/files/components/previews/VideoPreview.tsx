@@ -11,7 +11,7 @@ export function VideoPreview({ src, filename }: VideoPreviewProps) {
   const [error, setError] = useState(false)
 
   return (
-    <div className="flex items-center justify-center h-full p-4 bg-muted/30">
+    <div className="relative flex h-full items-center justify-center bg-muted/30 p-4">
       {loading && !error && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -28,6 +28,7 @@ export function VideoPreview({ src, filename }: VideoPreviewProps) {
         <video
           src={src}
           controls
+          aria-label={filename}
           className="max-w-full max-h-full"
           onLoadedData={() => setLoading(false)}
           onError={() => {
@@ -36,7 +37,6 @@ export function VideoPreview({ src, filename }: VideoPreviewProps) {
           }}
           style={{ display: loading ? 'none' : 'block' }}
         >
-          <track kind="captions" label={filename} />
           Your browser does not support the video element.
         </video>
       )}

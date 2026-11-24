@@ -168,7 +168,7 @@ function FilesPageContent() {
           {/* File preview/editor with resize handle */}
           {selectedFile && (
             <ResizablePreview defaultWidth={40} minWidth={30} maxWidth={70}>
-              <FilePreview />
+              <FilePreview key={selectedFile.path} />
             </ResizablePreview>
           )}
         </div>

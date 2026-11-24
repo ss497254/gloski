@@ -112,16 +112,16 @@ export function FilePreview() {
     // Route to appropriate preview based on file type
     switch (fileType) {
       case 'image':
-        return <ImagePreview src={downloadUrl} alt={selectedFile.name} />
+        return <ImagePreview key={selectedFile.path} src={downloadUrl} alt={selectedFile.name} />
 
       case 'video':
-        return <VideoPreview src={downloadUrl} filename={selectedFile.name} />
+        return <VideoPreview key={selectedFile.path} src={downloadUrl} filename={selectedFile.name} />
 
       case 'audio':
-        return <AudioPreview src={downloadUrl} filename={selectedFile.name} />
+        return <AudioPreview key={selectedFile.path} src={downloadUrl} filename={selectedFile.name} />
 
       case 'pdf':
-        return <PdfPreview src={downloadUrl} filename={selectedFile.name} />
+        return <PdfPreview key={selectedFile.path} src={downloadUrl} filename={selectedFile.name} />
 
       case 'code':
       case 'text':
@@ -134,6 +134,7 @@ export function FilePreview() {
         }
         return (
           <TextPreview
+            key={selectedFile.path}
             content={isEditing ? editedContent : fileContent}
             onChange={setEditedContent}
             readOnly={!isEditing}
@@ -143,7 +144,14 @@ export function FilePreview() {
 
       case 'binary':
       default:
-        return <BinaryPreview filename={selectedFile.name} size={selectedFile.size} onDownload={handleDownload} />
+        return (
+          <BinaryPreview
+            key={selectedFile.path}
+            filename={selectedFile.name}
+            size={selectedFile.size}
+            onDownload={handleDownload}
+          />
+        )
     }
   }
 
@@ -184,7 +192,7 @@ export function FilePreview() {
           )}
 
           {!isEditing && fileType !== 'binary' && (
-            <Button variant="ghost" size="icon" onClick={handleDownload} title="Download">
+            <Button variant="ghost" size="icon" onClick={handleDownload} title="Download" aria-label="Download file">
               <Download className="h-4 w-4" />
             </Button>
           )}
@@ -195,11 +203,12 @@ export function FilePreview() {
             size="icon"
             onClick={toggleFullScreen}
             title={isFullScreen ? 'Exit full screen' : 'Full screen'}
+            aria-label={isFullScreen ? 'Exit full screen' : 'Enter full screen'}
           >
             {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
 
-          <Button variant="ghost" size="icon" onClick={handleClose}>
+          <Button variant="ghost" size="icon" onClick={handleClose} aria-label="Close preview">
             <X className="h-4 w-4" />
           </Button>
         </div>

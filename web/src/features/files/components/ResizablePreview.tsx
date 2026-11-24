@@ -20,13 +20,14 @@ export function ResizablePreview({
   const [isDragging, setIsDragging] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
     setIsDragging(true)
   }
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (!isDragging || !containerRef.current) return
 
       const container = containerRef.current.parentElement
@@ -46,31 +47,52 @@ export function ResizablePreview({
     setIsDragging(false)
   }, [])
 
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = 'ew-resize'
-      document.body.style.userSelect = 'none'
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    let nextWidth = width
+    if (e.key === 'ArrowLeft') nextWidth += e.shiftKey ? 5 : 1
+    else if (e.key === 'ArrowRight') nextWidth -= e.shiftKey ? 5 : 1
+    else if (e.key === 'Home') nextWidth = maxWidth
+    else if (e.key === 'End') nextWidth = minWidth
+    else return
 
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-      }
+    e.preventDefault()
+    const clampedWidth = Math.min(Math.max(nextWidth, minWidth), maxWidth)
+    setWidth(clampedWidth)
+    onWidthChange?.(clampedWidth)
+  }
+
+  useEffect(() => {
+    if (!isDragging) return
+    const previousCursor = document.body.style.cursor
+    const previousUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+    return () => {
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousUserSelect
     }
-  }, [isDragging, handleMouseMove, handleMouseUp])
+  }, [isDragging])
 
   return (
     <>
       {/* Resize Handle */}
       <div
+        role="separator"
+        aria-label="Resize file preview"
+        aria-orientation="vertical"
+        aria-valuemin={minWidth}
+        aria-valuemax={maxWidth}
+        aria-valuenow={Math.round(width)}
+        tabIndex={0}
         className={cn(
           'w-1 bg-border hover:bg-primary hover:w-1.5 cursor-ew-resize transition-all shrink-0 group relative',
           isDragging && 'bg-primary w-1.5'
         )}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handleMouseUp}
+        onPointerCancel={handleMouseUp}
+        onKeyDown={handleKeyDown}
       >
         {/* Drag indicator */}
         <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 opacity-0 group-hover:opacity-100 transition-opacity">

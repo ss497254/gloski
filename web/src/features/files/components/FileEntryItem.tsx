@@ -9,6 +9,7 @@ import {
   ContextMenuTrigger,
 } from '@/ui/context-menu'
 import type { FileEntry } from '@/shared/api'
+import { useEffect, useRef } from 'react'
 import {
   CheckSquare,
   Code,
@@ -82,8 +83,19 @@ export function FileEntryItem({
   const { deviceId } = useDevice()
   const Icon = getFileIcon(entry.name, entry.type)
   const color = getFileColor(entry.name, entry.type)
+  const itemRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isFocused && document.activeElement instanceof HTMLElement && document.activeElement.closest('[data-file-entry]')) {
+      itemRef.current?.focus()
+    }
+  }, [isFocused])
 
   const handleClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('[data-checkbox]')) {
+      onToggleCheck(entry, e.shiftKey)
+      return
+    }
     if (e.ctrlKey || e.metaKey) {
       onToggleCheck(entry, false)
     } else if (e.shiftKey) {
@@ -99,15 +111,29 @@ export function FileEntryItem({
     }
   }
 
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    onToggleCheck(entry, e.shiftKey)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      if (entry.type === 'directory') onNavigate(entry.path)
+      else onSelect(entry)
+    } else if (e.key === ' ') {
+      e.preventDefault()
+      e.stopPropagation()
+      onToggleCheck(entry, e.shiftKey)
+    }
   }
 
   return (
     <ContextMenu>
       <ContextMenuTrigger>
         <div
+          ref={itemRef}
+          role="button"
+          tabIndex={isFocused ? 0 : -1}
+          aria-label={`${entry.name}, ${entry.type}`}
+          aria-pressed={isSelected}
+          data-file-entry
           className={cn(
             'group flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all',
             'hover:bg-accent/50',
@@ -118,23 +144,26 @@ export function FileEntryItem({
           )}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
+          onKeyDown={handleKeyDown}
         >
           {/* Checkbox - increased touch target with padding */}
           {viewMode === 'list' && (
-            <button
-              onClick={handleCheckboxClick}
+            <span
+              aria-hidden="true"
+              data-checkbox
               className={cn(
                 'shrink-0 transition-opacity p-1.5 -m-1.5 rounded-md hover:bg-accent/50',
-                showCheckbox || isChecked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                showCheckbox || isChecked
+                  ? 'opacity-100'
+                  : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
               )}
-              aria-label={isChecked ? 'Deselect file' : 'Select file'}
             >
               {isChecked ? (
                 <CheckSquare className="h-4 w-4 text-primary" />
               ) : (
                 <Square className="h-4 w-4 text-muted-foreground" />
               )}
-            </button>
+            </span>
           )}
 
           {/* eslint-disable-next-line react-hooks/static-components */}

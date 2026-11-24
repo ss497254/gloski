@@ -1,7 +1,9 @@
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/ui/button'
+import { Dialog, DialogContent, DialogTitle } from '@/ui/dialog'
 import { ScrollArea } from '@/ui/scroll-area'
 import { FolderDown, FolderOpen, FolderRoot, Home, Pin, PinOff, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { type PinnedFolder, useFilesStore } from '../stores/files'
 
 interface FilesSidebarProps {
@@ -23,109 +25,128 @@ export function FilesSidebar({
   onClose,
   className,
 }: FilesSidebarProps) {
-  const { pinnedFolders } = useFilesStore()
+  const pinnedFolders = useFilesStore((state) => state.pinnedFolders)
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
   const downloadDir = homeDir + '/Downloads'
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)')
+    const update = () => setIsMobile(media.matches)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
 
   return (
     <>
-      {/* Mobile overlay */}
-      {open && <div className="fixed inset-0 bg-muted/50 z-40 md:hidden" onClick={onClose} />}
+      <aside className={cn('hidden shrink-0 flex-col border-r bg-background md:flex md:w-56', className)}>
+        <SidebarItems
+          currentPath={currentPath}
+          homeDir={homeDir}
+          downloadDir={downloadDir}
+          pinnedFolders={pinnedFolders}
+          onNavigate={onNavigate}
+          onUnpin={onUnpin}
+          onClose={onClose}
+        />
+      </aside>
 
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'bg-background border-r flex flex-col z-50',
-          // Mobile: slide-in drawer
-          'fixed inset-y-0 left-0 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0',
-          open ? 'translate-x-0' : '-translate-x-full',
-          // Desktop: always visible when open
-          'md:w-56 md:shrink-0',
-          className
-        )}
-      >
-        {/* Header (mobile only) */}
-        <div className="flex items-center justify-between p-3 border-b md:hidden">
-          <span className="font-semibold text-sm">Quick Access</span>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+      <Dialog open={open && isMobile} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+        <DialogContent
+          showCloseButton={false}
+          aria-describedby={undefined}
+          className="fixed inset-y-0 left-0 top-0 flex h-dvh w-64 max-w-[85vw] translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-l-0 p-0 md:hidden"
+        >
+          <div className="flex items-center justify-between border-b p-3">
+            <DialogTitle className="text-sm">Quick Access</DialogTitle>
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close file navigation">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <SidebarItems
+            currentPath={currentPath}
+            homeDir={homeDir}
+            downloadDir={downloadDir}
+            pinnedFolders={pinnedFolders}
+            onNavigate={onNavigate}
+            onUnpin={onUnpin}
+            onClose={onClose}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+function SidebarItems({
+  currentPath,
+  homeDir,
+  downloadDir,
+  pinnedFolders,
+  onNavigate,
+  onUnpin,
+  onClose,
+}: {
+  currentPath: string
+  homeDir: string
+  downloadDir: string
+  pinnedFolders: PinnedFolder[]
+  onNavigate: (path: string) => void
+  onUnpin: (id: string) => void
+  onClose: () => void
+}) {
+  const navigateAndClose = (path: string) => {
+    onNavigate(path)
+    onClose()
+  }
+
+  return (
+    <ScrollArea className="min-h-0 flex-1">
+      <div className="p-2">
+        <div className="mb-4">
+          <h3 className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Quick Access
+          </h3>
+          <NavItem icon={FolderRoot} label="Root" path="/" currentPath={currentPath} onClick={() => navigateAndClose('/')} />
+          <NavItem
+            icon={Home}
+            label="Home"
+            path={homeDir}
+            currentPath={currentPath}
+            onClick={() => navigateAndClose(homeDir)}
+          />
+          <NavItem
+            icon={FolderDown}
+            label="Downloads"
+            path={downloadDir}
+            currentPath={currentPath}
+            onClick={() => navigateAndClose(downloadDir)}
+          />
         </div>
 
-        <ScrollArea className="flex-1">
-          <div className="p-2">
-            {/* Quick Access Section */}
-            <div className="mb-4">
-              <h3 className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Quick Access
-              </h3>
-
-              <NavItem
-                icon={FolderRoot}
-                label="Root"
-                path="/"
+        {pinnedFolders.length > 0 ? (
+          <div>
+            <h3 className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Pin className="h-3 w-3" />
+              Pinned
+            </h3>
+            {pinnedFolders.map((folder) => (
+              <PinnedFolderItem
+                key={folder.id}
+                folder={folder}
                 currentPath={currentPath}
-                onClick={() => {
-                  onNavigate('/')
-                  onClose()
-                }}
+                onClick={() => navigateAndClose(folder.path)}
+                onUnpin={() => onUnpin(folder.id)}
               />
-
-              <NavItem
-                icon={Home}
-                label="Home"
-                path={homeDir}
-                currentPath={currentPath}
-                onClick={() => {
-                  onNavigate(homeDir)
-                  onClose()
-                }}
-              />
-
-              <NavItem
-                icon={FolderDown}
-                label="Downloads"
-                path={downloadDir}
-                currentPath={currentPath}
-                onClick={() => {
-                  onNavigate(downloadDir)
-                  onClose()
-                }}
-              />
-            </div>
-
-            {/* Pinned Folders Section */}
-            {pinnedFolders.length > 0 && (
-              <div>
-                <h3 className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <Pin className="h-3 w-3" />
-                  Pinned
-                </h3>
-
-                {pinnedFolders.map((folder) => (
-                  <PinnedFolderItem
-                    key={folder.id}
-                    folder={folder}
-                    currentPath={currentPath}
-                    onClick={() => {
-                      onNavigate(folder.path)
-                      onClose()
-                    }}
-                    onUnpin={() => onUnpin(folder.id)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {pinnedFolders.length === 0 && (
-              <div className="px-2 py-4 text-center">
-                <p className="text-xs text-muted-foreground">No pinned folders yet.</p>
-                <p className="text-xs text-muted-foreground mt-1">Use the pin button in the toolbar to pin folders.</p>
-              </div>
-            )}
+            ))}
           </div>
-        </ScrollArea>
-      </aside>
-    </>
+        ) : (
+          <div className="px-2 py-4 text-center">
+            <p className="text-xs text-muted-foreground">No pinned folders yet.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Use the pin button in the toolbar to pin folders.</p>
+          </div>
+        )}
+      </div>
+    </ScrollArea>
   )
 }
 
@@ -183,8 +204,8 @@ function PinnedFolderItem({ folder, currentPath, onClick, onUnpin }: PinnedFolde
           e.stopPropagation()
           onUnpin()
         }}
-        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
-        title="Unpin folder"
+        className="rounded p-1 opacity-0 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100"
+        aria-label={`Unpin ${folder.name}`}
       >
         <PinOff className="h-3 w-3" />
       </button>

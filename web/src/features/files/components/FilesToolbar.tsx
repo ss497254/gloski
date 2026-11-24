@@ -119,12 +119,12 @@ export function FilesToolbar() {
           {/* Navigation Bar */}
           <div className="flex items-center gap-2 px-4 py-3">
             {/* Sidebar toggle (mobile) */}
-            <Button variant="ghost" size="icon" onClick={toggleSidebar} className="shrink-0 md:hidden">
+            <Button variant="ghost" size="icon" onClick={toggleSidebar} className="shrink-0 md:hidden" aria-label="Open file navigation">
               <Menu className="h-4 w-4" />
             </Button>
 
             {/* Back button */}
-            <Button variant="ghost" size="icon" onClick={goUp} disabled={currentPath === '/'} className="shrink-0">
+            <Button variant="ghost" size="icon" onClick={goUp} disabled={currentPath === '/'} className="shrink-0" aria-label="Go to parent folder">
               <ArrowLeft className="h-4 w-4" />
             </Button>
 
@@ -170,6 +170,7 @@ export function FilesToolbar() {
                 size="icon"
                 onClick={() => setNewFolderDialog(true)}
                 title="New Folder"
+                aria-label="New folder"
                 className="hidden sm:flex"
               >
                 <FolderPlus className="h-4 w-4" />
@@ -179,6 +180,7 @@ export function FilesToolbar() {
                 size="icon"
                 onClick={() => setNewFileDialog(true)}
                 title="New File"
+                aria-label="New file"
                 className="hidden sm:flex"
               >
                 <FilePlus className="h-4 w-4" />
@@ -188,6 +190,7 @@ export function FilesToolbar() {
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 title="Upload Files"
+                aria-label="Upload files"
                 disabled={uploading}
               >
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
@@ -199,10 +202,11 @@ export function FilesToolbar() {
                 size="icon"
                 onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
                 title={viewMode === 'list' ? 'Grid view' : 'List view'}
+                aria-label={viewMode === 'list' ? 'Switch to grid view' : 'Switch to list view'}
               >
                 {viewMode === 'list' ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={refresh} title="Refresh">
+              <Button variant="ghost" size="icon" onClick={refresh} title="Refresh" aria-label="Refresh files">
                 <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
               </Button>
             </div>

@@ -6,7 +6,7 @@ import { ScrollArea } from '@/ui/scroll-area'
 import { Separator } from '@/ui/separator'
 import type { FileEntry } from '@/shared/api'
 import { formatDistanceToNow } from 'date-fns'
-import { Calendar, Clock, Copy, File, Folder, HardDrive, X } from 'lucide-react'
+import { Calendar, Copy, File, Folder, HardDrive, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface FilePropertiesPanelProps {
@@ -25,7 +25,7 @@ export function FilePropertiesPanel({ entry, onClose }: FilePropertiesPanelProps
       {/* Header */}
       <div className="p-4 border-b flex items-center justify-between">
         <h3 className="font-semibold text-sm">Properties</h3>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8" aria-label="Close properties">
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -75,13 +75,6 @@ export function FilePropertiesPanel({ entry, onClose }: FilePropertiesPanelProps
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-muted-foreground">Created:</span>
-                <span className="font-medium ml-auto text-xs">
-                  {formatDistanceToNow(new Date(entry.modified), { addSuffix: true })}
-                </span>
-              </div>
             </div>
           </div>
 
@@ -92,7 +85,13 @@ export function FilePropertiesPanel({ entry, onClose }: FilePropertiesPanelProps
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Path</h4>
             <div className="flex gap-2">
               <Input value={entry.path} readOnly className="text-xs font-mono" />
-              <Button variant="outline" size="icon" onClick={handleCopyPath} className="shrink-0">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyPath}
+                className="shrink-0"
+                aria-label="Copy file path"
+              >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>

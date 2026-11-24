@@ -11,7 +11,7 @@ export function AudioPreview({ src, filename }: AudioPreviewProps) {
   const [error, setError] = useState(false)
 
   return (
-    <div className="flex flex-col items-center justify-center h-full p-8 bg-muted/30 gap-6">
+    <div className="relative flex h-full flex-col items-center justify-center gap-6 bg-muted/30 p-8">
       {loading && !error && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
