@@ -2,10 +2,10 @@ import { devicePath, mainNavItems, settingsNavItem } from '@/app/navigation'
 import { isDarkTheme, useSettingsStore } from '@/features/dashboard/stores/settings'
 import type { DeviceClient } from '@/shared/lib/device'
 import { cn } from '@/shared/lib/utils'
-import { useTower } from '@/shared/tower'
+import { getSelfTest, useTower, type SelfTestResult } from '@/shared/tower'
 import { useDevicesStore } from '@/shared/store/devices'
-import { ChevronLeft, ChevronRight, Layers, Moon, Sun, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { Activity, ChevronLeft, ChevronRight, Layers, Moon, Sun, X } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useParams } from 'react-router-dom'
 import { useSnapshot } from 'valtio'
 import { Button } from '@/ui/button'
@@ -25,6 +25,63 @@ function getStatusColor(status: string) {
     default:
       return 'bg-muted-foreground/40'
   }
+}
+
+/** Small-caps label with a hairline, the way SMDWin groups its navigation. */
+function SectionLabel({ children, collapsed }: { children: ReactNode; collapsed: boolean }) {
+  if (collapsed) return <div className="my-3 border-t border-border/70" />
+  return (
+    <div className="mb-1.5 mt-1 flex items-center gap-2 px-3">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+        {children}
+      </span>
+      <span className="h-px flex-1 bg-border/70" />
+    </div>
+  )
+}
+
+/** One shared result for the desktop and mobile sidebar instances. */
+let cachedHealth: SelfTestResult | null = null
+let pendingHealth: Promise<SelfTestResult | null> | null = null
+
+function fetchHealth(): Promise<SelfTestResult | null> {
+  if (cachedHealth) return Promise.resolve(cachedHealth)
+  if (!pendingHealth) {
+    pendingHealth = getSelfTest()
+      .then((result) => {
+        cachedHealth = result
+        return result
+      })
+      .catch(() => null)
+      .finally(() => {
+        pendingHealth = null
+      })
+  }
+  return pendingHealth
+}
+
+export function masterHealthBadge(
+  result: SelfTestResult | null,
+): { count: number; tone: 'warning' | 'destructive' } | null {
+  if (!result) return null
+  const failed = result.lines.filter((line) => line.status === 'critical').length
+  const warnings = result.lines.filter((line) => line.status === 'warning').length
+  if (!failed && !warnings) return null
+  return { count: failed + warnings, tone: failed ? 'destructive' : 'warning' }
+}
+
+function useMasterHealthBadge() {
+  const [result, setResult] = useState<SelfTestResult | null>(cachedHealth)
+  useEffect(() => {
+    let active = true
+    void fetchHealth().then((value) => {
+      if (active && value) setResult(value)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+  return masterHealthBadge(result)
 }
 
 function SidebarDeviceLink({ device, collapsed }: { device: DeviceClient; collapsed: boolean }) {
@@ -73,10 +130,12 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
   const { deviceId } = useParams()
   const devices = useDevicesStore((state) => state.devices)
   const currentDevice = devices.find((device) => device.id === deviceId)
+  const healthBadge = useMasterHealthBadge()
 
   return (
     <>
       <nav className="flex-1 overflow-y-auto px-3 py-3">
+        <SectionLabel collapsed={collapsed}>Fleet</SectionLabel>
         <div className="space-y-1">
           {mainNavItems.map((item) => (
             <NavItem
@@ -91,25 +150,18 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
         </div>
 
         {currentDevice && (
-          <div className="mt-6">
+          <div className="mt-5">
+            <SectionLabel collapsed={collapsed}>This device</SectionLabel>
             {!collapsed && (
-              <div className="mb-2 truncate px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                {currentDevice.name}
-              </div>
+              <p className="mb-1 truncate px-3 text-[11px] text-muted-foreground/80">{currentDevice.name}</p>
             )}
-            {collapsed && <div className="border-t my-3" />}
             <DeviceNav collapsed={collapsed} />
           </div>
         )}
 
         {!currentDevice && devices.length > 0 && (
-          <div className="mt-6">
-            {!collapsed && (
-              <div className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                Devices
-              </div>
-            )}
-            {collapsed && <div className="border-t my-3" />}
+          <div className="mt-5">
+            <SectionLabel collapsed={collapsed}>Devices</SectionLabel>
             <div className="space-y-1">
               {devices.slice(0, 5).map((device) => (
                 <SidebarDeviceLink key={device.id} device={device} collapsed={collapsed} />
@@ -127,14 +179,25 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
         )}
       </nav>
 
-      <div className="border-t p-3 bg-background/30 space-y-1">
-        <ThemeToggle collapsed={collapsed} />
-        <NavItem
-          to={settingsNavItem.path}
-          icon={settingsNavItem.icon}
-          label={settingsNavItem.name}
-          collapsed={collapsed}
-        />
+      <div className="border-t p-3 bg-background/30">
+        <SectionLabel collapsed={collapsed}>Master</SectionLabel>
+        <div className="space-y-1">
+          <NavItem
+            to="/settings?tab=health"
+            icon={Activity}
+            label="Master health"
+            collapsed={collapsed}
+            badge={healthBadge?.count ?? null}
+            badgeTone={healthBadge?.tone}
+          />
+          <ThemeToggle collapsed={collapsed} />
+          <NavItem
+            to={settingsNavItem.path}
+            icon={settingsNavItem.icon}
+            label={settingsNavItem.name}
+            collapsed={collapsed}
+          />
+        </div>
       </div>
     </>
   )

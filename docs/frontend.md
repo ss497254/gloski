@@ -33,7 +33,7 @@ web/src/
 │   ├── AppLayout.tsx          # Sidebar + outlet
 │   ├── DeviceLayout.tsx       # Provides current device to device routes
 │   ├── PageLayout.tsx         # Common page header/content
-│   └── Sidebar/               # Nav, device list, device tabs, theme toggle
+│   └── Sidebar/               # Category strips, nav badges, device list, theme toggle
 ├── shared/
 │   ├── api/                   # SDK: GloskiClient, Result<T>, resources
 │   ├── components/            # Shared UI helpers (UsageBar, StatusBadge, etc.)
@@ -170,6 +170,19 @@ sent as `X-Request-ID` and returned by the master, so a console line can be
 matched to the `api id=...` line in the master log. Uploads, downloads and
 credential fields are never printed; see the correlation section in
 [http-api.md](http-api.md).
+
+## Navigation
+
+`layouts/Sidebar/` groups the navigation into small-caps strips with a hairline:
+**Fleet** (Dashboard, Devices), **This device** when a device route is active,
+**Devices** with the first five devices otherwise, and **Master** in the footer.
+Nav items use flat active pills. One live badge makes master problems visible
+without opening a page: Master health shows the warning/failed count from a
+single shared, cached self-test result. Device availability stays on the
+dashboard and device pages — the sidebar deliberately has no offline badge,
+because the owner does not want offline alerts. A collapsed sidebar shows a
+divider per strip instead of a label; `NavItem` keeps a tooltip so icon-only
+entries stay labelled.
 
 ## Fleet health
 

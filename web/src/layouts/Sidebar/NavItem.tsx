@@ -10,9 +10,16 @@ interface NavItemProps {
   end?: boolean
   collapsed?: boolean
   badge?: number | null
+  badgeTone?: 'default' | 'warning' | 'destructive'
 }
 
-export function NavItem({ to, icon: Icon, label, end, collapsed, badge }: NavItemProps) {
+const badgeTones = {
+  default: 'bg-primary text-primary-foreground',
+  warning: 'bg-warning/15 text-warning ring-1 ring-warning/30',
+  destructive: 'bg-destructive/15 text-destructive ring-1 ring-destructive/30',
+}
+
+export function NavItem({ to, icon: Icon, label, end, collapsed, badge, badgeTone = 'default' }: NavItemProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -30,7 +37,7 @@ export function NavItem({ to, icon: Icon, label, end, collapsed, badge }: NavIte
               <Icon className={cn('h-4 w-4 shrink-0', isPending && 'animate-pulse')} />
               {!collapsed && <span className="flex-1">{label}</span>}
               {!collapsed && badge != null && badge > 0 && (
-                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
+                <span className={cn('ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs tabular-nums', badgeTones[badgeTone])}>
                   {badge > 99 ? '99+' : badge}
                 </span>
               )}

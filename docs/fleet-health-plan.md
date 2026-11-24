@@ -79,6 +79,10 @@ Phases 1 and 2 are done.
   "All clear" state; the self-test report is grouped into sections with a
   status mark and plain summary each; attention and matrix rows share the
   ✓ / ! / i marks and have per-row copy.
+- Navigation polish from SMDWin's #3 pattern: category strips in the sidebar
+  (Fleet / This device / Devices / Master), flat active pills and a live
+  master-health badge. No offline badge — the no-offline-alerts rule still
+  holds.
 
 Phase 3 stays parked until saved checks and metric history exist.
 
