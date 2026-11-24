@@ -1,4 +1,4 @@
-import { useSettingsStore } from '@/features/dashboard/stores/settings'
+import { useSettingsStore } from '@/shared/store/settings'
 import { NavigationProgress, PageLoader } from '@/shared/components'
 import { useTower } from '@/shared/tower'
 import { Button } from '@/ui/button'
@@ -29,7 +29,7 @@ export function AppLayout() {
               </span>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={toggleMobileSidebar} aria-label="Open menu">
+          <Button id="app-mobile-menu-trigger" variant="ghost" size="icon" onClick={toggleMobileSidebar} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </Button>
         </header>

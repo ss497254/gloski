@@ -1,5 +1,4 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useDevicesStore } from '@/shared/store/devices'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   connectFleetSocket,
@@ -40,7 +39,6 @@ export function TowerProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const socketRef = useRef<FleetSocket | null>(null)
-  const syncDevices = useDevicesStore((s) => s.syncDevices)
 
   const refresh = useCallback(async () => {
     try {
@@ -99,18 +97,6 @@ export function TowerProvider({ children }: { children: ReactNode }) {
       socketRef.current = null
     }
   }, [refresh])
-
-  // Keep tower devices available to the existing device-scoped feature pages.
-  useEffect(() => {
-    if (mode !== 'tower') return
-    syncDevices(
-      devices.map((device) => ({
-        id: device.id,
-        name: device.name,
-        status: device.status === 'online' ? 'online' : 'offline',
-      }))
-    )
-  }, [devices, mode, syncDevices])
 
   const removeDevice = useCallback(async (id: string) => {
     await deleteDevice(id)

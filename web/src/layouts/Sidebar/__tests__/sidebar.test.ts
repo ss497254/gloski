@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { masterHealthBadge } from '../Sidebar'
+import { masterHealthBadge } from '../sidebar-utils'
 import type { SelfTestLine, SelfTestResult } from '@/shared/tower/types'
 
 function resultWith(statuses: SelfTestLine['status'][]): SelfTestResult {

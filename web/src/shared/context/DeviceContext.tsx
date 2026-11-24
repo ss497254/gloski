@@ -1,9 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
-import { useDevicesStore } from '@/shared/store/devices'
 import { useTower } from '@/shared/tower'
-import type { DeviceClient } from '@/shared/lib/device'
+import { DeviceClient } from '@/shared/lib/device'
 
 interface DeviceContextValue {
   device: DeviceClient
@@ -15,13 +14,29 @@ const DeviceContext = createContext<DeviceContextValue | null>(null)
 /** Resolves the device in the current route for device-scoped feature pages. */
 export function DeviceProvider({ children }: { children: ReactNode }) {
   const { deviceId } = useParams<{ deviceId: string }>()
-  const { mode } = useTower()
-  const device = useDevicesStore((state) => (deviceId ? state.devices.find((item) => item.id === deviceId) : undefined))
+  const { mode, devices } = useTower()
+  const fleetDevice = devices.find((item) => item.id === deviceId)
+  const hasFleetDevice = fleetDevice !== undefined
+  const client = useMemo(
+    () =>
+      deviceId
+        ? new DeviceClient({
+            id: deviceId,
+            name: deviceId,
+            url: window.location.origin,
+            status: 'offline',
+            apiPrefix: `/api/devices/${encodeURIComponent(deviceId)}/api`,
+          })
+        : null,
+    [deviceId]
+  )
 
   const value = useMemo<DeviceContextValue | null>(
-    () => (device && deviceId ? { device, deviceId } : null),
-    [device, deviceId]
+    () => (hasFleetDevice && deviceId && client ? { device: client, deviceId } : null),
+    [client, deviceId, hasFleetDevice]
   )
+
+  useEffect(() => () => client?.getClient().dispose(), [client])
 
   if (!value) {
     return (

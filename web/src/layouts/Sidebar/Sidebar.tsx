@@ -1,16 +1,16 @@
 import { devicePath, mainNavItems, settingsNavItem } from '@/app/navigation'
-import { isDarkTheme, useSettingsStore } from '@/features/dashboard/stores/settings'
-import type { DeviceClient } from '@/shared/lib/device'
+import { isDarkTheme, useSettingsStore } from '@/shared/store/settings'
 import { cn } from '@/shared/lib/utils'
 import { getSelfTest, useTower, type SelfTestResult } from '@/shared/tower'
-import { useDevicesStore } from '@/shared/store/devices'
+import type { FleetDevice } from '@/shared/tower/types'
 import { Activity, ChevronLeft, ChevronRight, Layers, Moon, Sun, X } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useParams } from 'react-router-dom'
-import { useSnapshot } from 'valtio'
 import { Button } from '@/ui/button'
+import { Dialog, DialogContent, DialogTitle } from '@/ui/dialog'
 import { NavItem } from './NavItem'
 import { DeviceNav } from './DeviceNav'
+import { masterHealthBadge } from './sidebar-utils'
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -60,16 +60,6 @@ function fetchHealth(): Promise<SelfTestResult | null> {
   return pendingHealth
 }
 
-export function masterHealthBadge(
-  result: SelfTestResult | null,
-): { count: number; tone: 'warning' | 'destructive' } | null {
-  if (!result) return null
-  const failed = result.lines.filter((line) => line.status === 'critical').length
-  const warnings = result.lines.filter((line) => line.status === 'warning').length
-  if (!failed && !warnings) return null
-  return { count: failed + warnings, tone: failed ? 'destructive' : 'warning' }
-}
-
 function useMasterHealthBadge() {
   const [result, setResult] = useState<SelfTestResult | null>(cachedHealth)
   useEffect(() => {
@@ -84,10 +74,9 @@ function useMasterHealthBadge() {
   return masterHealthBadge(result)
 }
 
-function SidebarDeviceLink({ device, collapsed }: { device: DeviceClient; collapsed: boolean }) {
-  const snap = useSnapshot(device)
+function SidebarDeviceLink({ device, collapsed }: { device: FleetDevice; collapsed: boolean }) {
   return (
-    <NavLink to={devicePath(snap.id)}>
+    <NavLink to={devicePath(device.id)}>
       {({ isActive }) => (
         <div
           className={cn(
@@ -97,8 +86,8 @@ function SidebarDeviceLink({ device, collapsed }: { device: DeviceClient; collap
             isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
           )}
         >
-          <span className={cn('h-2 w-2 rounded-full shrink-0', getStatusColor(snap.getStatus()))} />
-          {!collapsed && <span className="truncate">{snap.name}</span>}
+          <span className={cn('h-2 w-2 rounded-full shrink-0', getStatusColor(device.status))} />
+          {!collapsed && <span className="truncate">{device.name}</span>}
         </div>
       )}
     </NavLink>
@@ -128,7 +117,7 @@ function ThemeToggle({ collapsed }: { collapsed: boolean }) {
 
 function SidebarContent({ collapsed }: { collapsed: boolean }) {
   const { deviceId } = useParams()
-  const devices = useDevicesStore((state) => state.devices)
+  const { devices } = useTower()
   const currentDevice = devices.find((device) => device.id === deviceId)
   const healthBadge = useMasterHealthBadge()
 
@@ -270,39 +259,32 @@ export function MobileSidebar() {
   }, [location.pathname, setMobileSidebarOpen])
 
   useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && mobileSidebarOpen) setMobileSidebarOpen(false)
-    }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [mobileSidebarOpen, setMobileSidebarOpen])
-
-  useEffect(() => {
     document.body.style.overflow = mobileSidebarOpen ? 'hidden' : ''
     return () => {
       document.body.style.overflow = ''
     }
   }, [mobileSidebarOpen])
 
-  if (!mobileSidebarOpen) return null
-
   return (
-    <div className="md:hidden fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
-      <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] flex flex-col border-r border-border bg-sidebar text-sidebar-foreground shadow-xl animate-in slide-in-from-left duration-200">
-        <div className="h-14 flex items-center justify-between px-4 border-b border-border">
+    <Dialog open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+      <DialogContent
+        showCloseButton={false}
+        aria-describedby={undefined}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          document.getElementById('app-mobile-menu-trigger')?.focus()
+        }}
+        className="fixed inset-y-0 left-0 top-0 flex h-dvh w-72 max-w-[85vw] translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-l-0 bg-sidebar p-0 text-sidebar-foreground shadow-xl md:hidden"
+      >
+        <div className="flex h-14 items-center justify-between border-b border-border px-4">
+          <DialogTitle className="sr-only">Main navigation</DialogTitle>
           <Brand collapsed={false} />
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setMobileSidebarOpen(false)}
-            aria-label="Close menu"
-          >
+          <Button variant="ghost" size="icon-sm" onClick={() => setMobileSidebarOpen(false)} aria-label="Close menu">
             <X className="h-5 w-5" />
           </Button>
         </div>
         <SidebarContent collapsed={false} />
-      </aside>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

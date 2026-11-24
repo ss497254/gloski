@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
-import { useSettingsStore } from '../stores/settings'
+import { useSettingsStore } from '@/shared/store/settings'
 
 export type SettingsTab = 'appearance' | 'about' | 'health'
 
