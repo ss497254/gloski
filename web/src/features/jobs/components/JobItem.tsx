@@ -34,33 +34,33 @@ export function JobItem({ job }: JobItemProps) {
   const { selectedJob, fetchJobLogs, stopJob } = useJobs()
 
   return (
-    <Card
-      className={`cursor-pointer transition-colors ${selectedJob === job.id ? 'ring-2 ring-primary' : ''}`}
-      onClick={() => fetchJobLogs(job.id)}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
+    <Card className={`transition-colors ${selectedJob === job.id ? 'ring-2 ring-primary' : ''}`}>
+      <CardContent className="flex items-center gap-3 p-4">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          aria-pressed={selectedJob === job.id}
+          onClick={() => void fetchJobLogs(job.id)}
+        >
           {getStatusIcon(job.status)}
-          <div className="flex-1 min-w-0">
-            <div className="font-mono text-sm truncate">{job.command}</div>
-            <div className="text-xs text-muted-foreground">
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-mono text-sm">{job.command}</span>
+            <span className="block text-xs text-muted-foreground">
               {job.pid && `PID: ${job.pid} | `}Started: {job.started_at ? formatTime(job.started_at) : 'N/A'}
               {job.cwd && ` | ${job.cwd}`}
-            </div>
-          </div>
-          {job.status === 'running' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                stopJob(job.id)
-              }}
-            >
+            </span>
+          </span>
+        </button>
+        {job.status === 'running' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Stop job ${job.command}`}
+            onClick={() => void stopJob(job.id)}
+          >
               <Square className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+          </Button>
+        )}
       </CardContent>
     </Card>
   )

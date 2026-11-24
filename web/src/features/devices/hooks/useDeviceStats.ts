@@ -37,11 +37,13 @@ export function useDeviceStats(deviceId: string | undefined, enabled = true) {
       socket = new WebSocket(deviceStatsSocketUrl(deviceId))
 
       socket.onopen = () => {
+        if (stopped) return
         reconnectDelay.current = 1000
         setState((current) => ({ ...current, connected: true, error: null }))
       }
 
       socket.onmessage = (event) => {
+        if (stopped) return
         try {
           const stats = JSON.parse(event.data) as SystemStats
           setState((current) => ({ ...current, stats, error: null }))
@@ -51,6 +53,7 @@ export function useDeviceStats(deviceId: string | undefined, enabled = true) {
       }
 
       socket.onerror = () => {
+        if (stopped) return
         setState((current) => ({ ...current, connected: false }))
       }
 
@@ -70,7 +73,7 @@ export function useDeviceStats(deviceId: string | undefined, enabled = true) {
         if (!response.ok) return
         const payload = (await response.json()) as ProcessResponse
         const list = payload.data?.processes ?? payload.processes
-        if (list) {
+        if (!stopped && list) {
           setState((current) => ({ ...current, processes: list }))
         }
       } catch {

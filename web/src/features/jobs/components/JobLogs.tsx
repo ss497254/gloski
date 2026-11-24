@@ -11,7 +11,7 @@ export function JobLogs() {
     <div className="w-1/2 border-l flex flex-col">
       <div className="p-3 border-b flex items-center justify-between">
         <span className="font-medium text-sm">Job Logs</span>
-        <Button variant="ghost" size="icon" onClick={clearSelectedJob}>
+        <Button variant="ghost" size="icon" onClick={clearSelectedJob} aria-label="Close job logs">
           <X className="h-4 w-4" />
         </Button>
       </div>

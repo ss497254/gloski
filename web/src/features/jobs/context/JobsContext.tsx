@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useDevice } from '@/shared/context'
 import { jobId as toJobId, unwrap, type Job } from '@/shared/api'
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -58,16 +58,29 @@ export function JobsProvider({ children }: JobsProviderProps) {
 
   const [selectedJob, setSelectedJob] = useState<string | null>(null)
   const [jobLogs, setJobLogs] = useState<string[]>([])
+  const mountedRef = useRef(false)
+  const fetchingRef = useRef(false)
+  const deviceIdRef = useRef(deviceId)
+  deviceIdRef.current = deviceId
 
   const fetchJobs = useCallback(async () => {
+    if (fetchingRef.current) return
+    fetchingRef.current = true
+    const requestedDevice = deviceId
     try {
       const result = unwrap(await device.getClient().jobs.list())
-      setJobs(result || [])
-      setError('') // Clear error on successful fetch
+      if (mountedRef.current && deviceIdRef.current === requestedDevice) {
+        setJobs(result || [])
+        setError('')
+      }
     } catch {
-      setError('Failed to fetch jobs')
+      if (mountedRef.current && deviceIdRef.current === requestedDevice) {
+        setError('Failed to fetch jobs')
+      }
+    } finally {
+      fetchingRef.current = false
     }
-  }, [device])
+  }, [device, deviceId])
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -125,19 +138,17 @@ export function JobsProvider({ children }: JobsProviderProps) {
     setJobLogs([])
   }, [])
 
-  // Initial load with cleanup for unmount
+  // Initial load and poll lifecycle follow the current device.
   useEffect(() => {
-    let isMounted = true
-    const load = async () => {
-      if (isMounted) {
-        await refresh()
-      }
-    }
-    load()
-    return () => {
-      isMounted = false
-    }
+    void refresh()
   }, [deviceId, refresh])
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   // Polling for job updates
   useEffect(() => {

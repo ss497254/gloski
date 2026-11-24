@@ -20,7 +20,7 @@ import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, TableControls, 
 import { Activity, ArrowUpRight, CircleAlert, Play, Plus, Radar, RefreshCw, RotateCw, Square, Trash2, Wifi } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { paginate, sortDevices, type DeviceSort } from '../lib/table'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { DiagnoseButton } from '../components/DiagnoseDialog'
 import { useDeviceActions } from '../hooks/useDeviceActions'
 
@@ -37,13 +37,18 @@ function DeviceRow({ device, hidden }: { device: FleetDevice; hidden: string[] }
   const status = online ? 'online' : stopped ? 'stopped' : 'offline'
 
   return (
-    <TableRow className="cursor-pointer" onClick={() => navigate(devicePath(device.id))}>
+    <TableRow>
       <TableCell className="px-4 py-3">
         <div className="flex items-center gap-3">
           <StatusDot status={status} />
           <div className="min-w-0">
             <p className="flex items-center gap-2 truncate text-sm font-medium text-foreground">
-              {device.name}
+              <Link
+                to={devicePath(device.id)}
+                className="truncate hover:underline focus-visible:underline"
+              >
+                {device.name}
+              </Link>
               {device.master && (
                 <Badge
                   variant="outline"
@@ -57,7 +62,6 @@ function DeviceRow({ device, hidden }: { device: FleetDevice; hidden: string[] }
             {problem && (
               <p
                 className="mt-1 max-w-md whitespace-normal text-xs text-destructive"
-                onClick={(event) => event.stopPropagation()}
               >
                 {problem}
                 {hostKeyChanged && (
@@ -111,13 +115,14 @@ function DeviceRow({ device, hidden }: { device: FleetDevice; hidden: string[] }
         <TableCell className="px-4 py-3 text-xs text-muted-foreground">{formatRelativeTime(device.last_seen)}</TableCell>
       )}
       <TableCell className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1">
           <DiagnoseButton deviceId={device.id} deviceName={device.name} variant="ghost" size="sm" />
           {device.managed && online && (
             <Button
               variant="ghost"
               size="icon-sm"
               title="Restart agent"
+              aria-label={`Restart agent on ${device.name}`}
               disabled={busy}
               onClick={() => void run('restart')}
             >
@@ -129,6 +134,7 @@ function DeviceRow({ device, hidden }: { device: FleetDevice; hidden: string[] }
               variant="ghost"
               size="icon-sm"
               title={online ? 'Stop agent' : 'Install and start agent'}
+              aria-label={`${online ? 'Stop' : 'Install and start'} agent on ${device.name}`}
               disabled={busy}
               onClick={() => void run(online ? 'stop' : 'start')}
             >
@@ -141,10 +147,23 @@ function DeviceRow({ device, hidden }: { device: FleetDevice; hidden: string[] }
               )}
             </Button>
           )}
-          <Button variant="ghost" size="icon-sm" title="Remove device" disabled={busy} onClick={() => void run('remove')}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Remove device"
+            aria-label={`Remove ${device.name}`}
+            disabled={busy}
+            onClick={() => void run('remove')}
+          >
             <Trash2 className="h-3.5 w-3.5 text-destructive" />
           </Button>
-          <Button variant="ghost" size="icon-sm" title="Open device" onClick={() => navigate(devicePath(device.id))}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Open device"
+            aria-label={`Open ${device.name}`}
+            onClick={() => navigate(devicePath(device.id))}
+          >
             <ArrowUpRight className="h-4 w-4" />
           </Button>
         </div>
