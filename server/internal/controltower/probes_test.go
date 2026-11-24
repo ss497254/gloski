@@ -21,7 +21,7 @@ func TestProbeRunnerStoresOneResultPerInterval(t *testing.T) {
 	definition := checks.Definition{Kind: checks.ProbeTCP, Target: "127.0.0.1:1", Interval: time.Hour}
 
 	calls := 0
-	runner := newProbeRunner([]checks.Definition{definition}, func(deviceID string, def checks.Definition) (checks.Result, error) {
+	runner := newProbeRunner([]checks.Definition{definition}, func(_ context.Context, deviceID string, def checks.Definition) (checks.Result, error) {
 		calls++
 		return checks.Result{
 			CheckID: def.ID(), DeviceID: deviceID, Status: checks.StatusCritical,

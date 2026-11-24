@@ -100,7 +100,7 @@ func (f *agentFile) closeCurrent() {
 func (t *Tower) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	deviceID := r.PathValue("id")
 	path := r.URL.Query().Get("path")
-	stat := t.performFile(w, deviceID, &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_STAT, Path: path})
+	stat := t.performFile(r.Context(), w, deviceID, &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_STAT, Path: path})
 	if stat == nil {
 		return
 	}

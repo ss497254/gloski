@@ -98,7 +98,7 @@ All routes are **auth**.
 
 | Method | Path | Body / query | Response |
 |---|---|---|---|
-| `GET` | `/api/dashboard` | — | wrapped `devices`, `online`, `offline`, `issues`, `check_matrix`, `recent_jobs`, `generated_at` |
+| `GET` | `/api/dashboard` | — | wrapped `devices`, `online`, `offline`, `verdict` (counts), `issues`, `check_matrix`, `recent_jobs`, `generated_at` |
 | `GET` | `/api/fleet/ws` | — | WebSocket, see below |
 | `GET` | `/api/devices` | — | wrapped `{"devices":[Device]}` |
 | `POST` | `/api/devices/deploy` | `name`, `host`, `user`, `ssh_port`, `agent_port` | wrapped `Deployment`; `400` when the master has no builds or validation fails |
@@ -112,16 +112,22 @@ All routes are **auth**.
 | `POST` | `/api/devices/{id}/actions/{actionId}/undo` | — | wrapped `{"undone":true}`; `400` when the action is not reversible or was already undone |
 | `GET` | `/api/devices/{id}/history` | `metric` (empty = all), `range` (default `24h`), `limit` | wrapped `{"samples":[MetricSample],"metric":"...","range":"24h0m0s"}`; `400` for a bad range or limit, `404` for an unknown device |
 
+| `GET` | `/api/deployments` | — | wrapped `{"deployments":[Deployment]}` |
+| `GET` | `/api/deployments/{id}` | — | wrapped `Deployment` |
+| `GET` | `/api/tailnet/peers` | — | wrapped `available`, `backend_state`, `self`, `peers`; `available:false` plus `error` when tailscaled is unreachable |
+
+`verdict` counts matrix blocks as `ok`, `warning`, `critical` and `unknown`.
+These are counts, not a score; stale and never-run blocks are `unknown`.
+
 `CheckMatrix` has `groups` (ordered column names) and `rows` (one per device,
 critical rows first). Each row has `device_id`, `device_name`, `device_status`
 and `cells`, one per group; a cell holds `checks`, one block per known check ID.
 A block has `check_id`, `status`, `summary`, `stale`, `ran_at` and optional
-`details`. A device with no stored result gets an `unknown` block, and stale
-results keep their status with `stale: true`; neither is rendered as a failure.
-
-| `GET` | `/api/deployments` | — | wrapped `{"deployments":[Deployment]}` |
-| `GET` | `/api/deployments/{id}` | — | wrapped `Deployment` |
-| `GET` | `/api/tailnet/peers` | — | wrapped `available`, `backend_state`, `self`, `peers`; `available:false` plus `error` when tailscaled is unreachable |
+`details`. Every device also gets built-in blocks for Connectivity, Health,
+Agent and Jobs, computed from the dashboard's own facts so the matrix is useful
+even with no saved checks. A device with no stored result gets an `unknown`
+block, and stale results keep their status with `stale: true`; neither is
+rendered as a failure.
 
 A `DeviceAction` has `id`, `device_id`, `kind`, `target`, `from`, `to`, `result`
 (`ok` or `failed`), optional `error`, `undoable`, optional `undone_at` and

@@ -39,9 +39,14 @@ func (s *Service) WriteStream(path string, content io.Reader) (int64, error) {
 		return 0, err
 	}
 
-	temp := filepath.Join(filepath.Dir(absPath), "."+filepath.Base(absPath)+".gloski-upload")
-	file, err := os.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.CreateTemp(filepath.Dir(absPath), "."+filepath.Base(absPath)+".gloski-upload-*")
 	if err != nil {
+		return 0, err
+	}
+	temp := file.Name()
+	if err := file.Chmod(0644); err != nil {
+		_ = file.Close()
+		_ = os.Remove(temp)
 		return 0, err
 	}
 	written, copyErr := io.Copy(file, content)

@@ -1,6 +1,7 @@
 package controltower
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -17,6 +18,9 @@ var checkGroupPrefixes = []struct {
 	prefixes []string
 }{
 	{"Connectivity", []string{"connect", "ping", "tailnet", "network"}},
+	{"Health", []string{"cpu", "memory", "health"}},
+	{"Agent", []string{"agent", "deploy"}},
+	{"Jobs", []string{"job", "task"}},
 	{"Storage", []string{"disk", "storage", "smart", "zfs", "lxc"}},
 	{"Services", []string{"service", "systemd", "process", "ssh"}},
 	{"Updates", []string{"update", "package", "apt", "reboot"}},
@@ -53,6 +57,81 @@ func statusRank(status checks.Status, stale bool) int {
 	}
 }
 
+// builtinBlocks turns the facts already on the dashboard into matrix cells.
+// They are not saved checks: they are recomputed on every request, so they
+// cannot be stale and need no check definitions.
+func builtinBlocks(device fleet.Device, problems int) map[string][]checkBlock {
+	now := time.Now().UTC()
+	blocks := map[string][]checkBlock{}
+
+	connection := checkBlock{CheckID: "builtin_connectivity", Status: checks.StatusOK, Summary: "Agent session live", RanAt: now}
+	if device.Status != fleet.StatusOnline {
+		connection.Status = checks.StatusCritical
+		connection.Summary = "No live agent session"
+	}
+	blocks["Connectivity"] = append(blocks["Connectivity"], connection)
+
+	health := checkBlock{CheckID: "builtin_health", Status: checks.StatusOK, Summary: "CPU and memory within limits", RanAt: now}
+	if device.Stats == nil {
+		health.Status, health.Summary = checks.StatusUnknown, "No recent stats from this device"
+	} else if device.Stats.CPU.UsagePercent > highCPUPercent {
+		health.Status = checks.StatusWarning
+		health.Summary = fmt.Sprintf("CPU at %.0f%%", device.Stats.CPU.UsagePercent)
+	} else if device.Stats.Memory.UsedPercent > highMemoryPercent {
+		health.Status = checks.StatusWarning
+		health.Summary = fmt.Sprintf("Memory at %.0f%%", device.Stats.Memory.UsedPercent)
+	}
+	blocks["Health"] = append(blocks["Health"], health)
+
+	agent := checkBlock{CheckID: "builtin_agent", Status: checks.StatusOK, Summary: "Agent managed and running", RanAt: now}
+	if device.Master {
+		agent.Summary = "Master agent on the local socket"
+	} else if device.Deploy == nil {
+		agent.Status, agent.Summary = checks.StatusSkipped, "Not deployed by this master"
+	} else {
+		switch device.Deploy.Status {
+		case fleet.DeployStopped:
+			agent.Status, agent.Summary = checks.StatusWarning, "Agent stopped on purpose"
+		case fleet.DeployFailed:
+			agent.Status, agent.Summary = checks.StatusCritical, "Last install failed"
+		case fleet.DeployPending:
+			agent.Status, agent.Summary = checks.StatusUnknown, "Install still pending"
+		}
+	}
+	blocks["Agent"] = append(blocks["Agent"], agent)
+
+	jobs := checkBlock{CheckID: "builtin_jobs", Status: checks.StatusOK, Summary: "No unfinished tasks", RanAt: now}
+	if problems > 0 {
+		jobs.Status = checks.StatusWarning
+		jobs.Summary = fmt.Sprintf("%d tasks did not finish", problems)
+	}
+	blocks["Jobs"] = append(blocks["Jobs"], jobs)
+	return blocks
+}
+
+// matrixVerdict counts blocks by state. A count is not a score: unknown and
+// stale blocks are reported, never folded into a failure.
+func matrixVerdict(matrix checkMatrix) map[string]int {
+	counts := map[string]int{"ok": 0, "warning": 0, "critical": 0, "unknown": 0}
+	for _, row := range matrix.Rows {
+		for _, cell := range row.Cells {
+			for _, block := range cell.Checks {
+				switch block.Status {
+				case checks.StatusOK:
+					counts["ok"]++
+				case checks.StatusWarning:
+					counts["warning"]++
+				case checks.StatusCritical:
+					counts["critical"]++
+				default:
+					counts["unknown"]++
+				}
+			}
+		}
+	}
+	return counts
+}
+
 type checkMatrix struct {
 	Groups []string         `json:"groups"`
 	Rows   []checkMatrixRow `json:"rows"`
@@ -83,7 +162,7 @@ type checkBlock struct {
 // buildCheckMatrix joins devices with the latest result of every known check.
 // A device with no stored result gets an "unknown" block, which the UI shows
 // as grey: never having run is not a failure.
-func buildCheckMatrix(devices []fleet.Device, results []checks.Result) checkMatrix {
+func buildCheckMatrix(devices []fleet.Device, results []checks.Result, problemJobs map[string]int) checkMatrix {
 	byPair := make(map[[2]string]checks.Result, len(results))
 	known := make(map[string][]string)
 	seen := make(map[[2]string]bool)
@@ -117,8 +196,18 @@ func buildCheckMatrix(devices []fleet.Device, results []checks.Result) checkMatr
 			DeviceStatus: device.Status,
 			Cells:        make([]checkGroupCell, 0, len(groups)),
 		}
+		// Built-in signals always have a block, even with no saved checks. A
+		// matrix of empty cells is not a health view; these are facts the
+		// dashboard already knows about every device.
+		builtins := builtinBlocks(device, problemJobs[device.ID])
 		for _, group := range groups {
 			cell := checkGroupCell{Group: group, Checks: make([]checkBlock, 0, len(known[group]))}
+			for _, block := range builtins[group] {
+				if rank := statusRank(block.Status, block.Stale); rank > row.severity {
+					row.severity = rank
+				}
+				cell.Checks = append(cell.Checks, block)
+			}
 			for _, id := range known[group] {
 				block := checkBlock{CheckID: id, Status: checks.StatusUnknown, Summary: "Not run"}
 				if result, ok := byPair[[2]string{device.ID, id}]; ok {

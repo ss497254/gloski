@@ -91,7 +91,7 @@ func (t *Tower) handleDeviceProcesses(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 {
 		limit = 20
 	}
-	raw, err := t.agentService.Processes(r.PathValue("id"), limit, r.URL.Query().Get("sort"))
+	raw, err := t.agentService.Processes(r.Context(), r.PathValue("id"), limit, r.URL.Query().Get("sort"))
 	if err != nil {
 		writeAgentError(w, err)
 		return

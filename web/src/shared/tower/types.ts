@@ -174,6 +174,7 @@ export interface DashboardSummary {
   devices: number
   online: number
   offline: number
+  verdict: { ok: number; warning: number; critical: number; unknown: number }
   issues: DashboardIssue[]
   check_matrix: CheckMatrix
   recent_jobs: Array<{

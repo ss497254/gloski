@@ -2,6 +2,7 @@ package files_test
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -106,10 +107,64 @@ func TestWriteStreamLeavesFileOnFailure(t *testing.T) {
 	if string(content) != "old" {
 		t.Errorf("content = %q, want the previous file %q", content, "old")
 	}
-	temp := filepath.Join(filepath.Dir(target), "."+filepath.Base(target)+".gloski-upload")
-	if _, err := os.Stat(temp); !os.IsNotExist(err) {
-		t.Errorf("temporary upload file was left behind: %v", err)
+	temps, err := filepath.Glob(filepath.Join(filepath.Dir(target), "."+filepath.Base(target)+".gloski-upload-*"))
+	if err != nil {
+		t.Fatal(err)
 	}
+	if len(temps) != 0 {
+		t.Errorf("temporary upload files were left behind: %v", temps)
+	}
+}
+
+func TestWriteStreamConcurrentSameDestination(t *testing.T) {
+	service := files.NewService(&config.Config{})
+	target := filepath.Join(t.TempDir(), "file.txt")
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := service.WriteStream(target, &blockingReader{
+			started: firstStarted,
+			release: releaseFirst,
+			content: "first upload",
+		})
+		firstDone <- err
+	}()
+	<-firstStarted
+
+	if _, err := service.WriteStream(target, strings.NewReader("second upload")); err != nil {
+		t.Fatalf("second WriteStream() error = %v", err)
+	}
+	close(releaseFirst)
+	if err := <-firstDone; err != nil {
+		t.Fatalf("first WriteStream() error = %v", err)
+	}
+
+	content, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(content); got != "first upload" && got != "second upload" {
+		t.Errorf("final content = %q, want one complete upload", got)
+	}
+}
+
+type blockingReader struct {
+	started chan struct{}
+	release chan struct{}
+	content string
+	read    bool
+}
+
+func (r *blockingReader) Read(p []byte) (int, error) {
+	if !r.read {
+		r.read = true
+		close(r.started)
+		<-r.release
+		return copy(p, r.content), nil
+	}
+	return 0, io.EOF
 }
 
 type failingReader struct{ sent bool }

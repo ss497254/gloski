@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -53,7 +54,7 @@ func TestCheckRequestResponse(t *testing.T) {
 	}()
 
 	definition := checks.Definition{Kind: checks.ProbeTCP, Target: "127.0.0.1:80", Accepted: []int{200}, Interval: time.Minute}
-	result, err := svc.Check("dev", definition)
+	result, err := svc.Check(context.Background(), "dev", definition)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,10 +73,10 @@ func TestCheckTimesOutAndReportsNoAgent(t *testing.T) {
 
 	svc := checkService("dev")
 	definition := checks.Definition{Kind: checks.ProbeTCP, Target: "127.0.0.1:80"}
-	if _, err := svc.Check("dev", definition); err == nil {
+	if _, err := svc.Check(context.Background(), "dev", definition); err == nil {
 		t.Fatal("a probe with no answer must time out")
 	}
-	if _, err := svc.Check("missing", definition); err == nil {
+	if _, err := svc.Check(context.Background(), "missing", definition); err == nil {
 		t.Fatal("a probe to an unknown device must report no agent")
 	}
 }

@@ -10,7 +10,7 @@ import { Button } from '@/ui/button'
 import { Card } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
 import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, UsageBar, type StatusTone, toneSurface } from '@/shared/components'
-import { FleetCheckMatrix } from '../components'
+import { FleetCheckMatrix, FleetHealth } from '../components'
 import {
   Activity,
   AlertTriangle,
@@ -171,7 +171,6 @@ export function DashboardPage() {
   }
 
   const issues = summary?.issues ?? []
-  const visibleIssues = showAllIssues ? issues : issues.slice(0, 8)
   const online = summary?.online ?? devices.filter((device) => device.status === 'online').length
   const offline = summary?.offline ?? devices.length - online
 
@@ -203,6 +202,14 @@ export function DashboardPage() {
         <Metric icon={AlertTriangle} label="Issues" value={String(issues.length)} tone={issues.length ? 'warning' : undefined} />
       </div>
 
+      {summary && (
+        <FleetHealth
+          summary={summary}
+          expanded={showAllIssues}
+          onToggleExpanded={() => setShowAllIssues((value) => !value)}
+        />
+      )}
+
       {health && health.status !== 'ok' && (
         <Link to="/settings?tab=health" className="mt-5 block">
           <Alert
@@ -227,46 +234,6 @@ export function DashboardPage() {
             </AlertDescription>
           </Alert>
         </Link>
-      )}
-
-      {issues.length > 0 && (
-        <Card className="mt-5 gap-0 overflow-hidden py-0">
-          <header className="border-b border-border px-4 py-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <AlertTriangle className="size-4 text-warning" />
-              Needs attention
-              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px] tabular-nums">
-                {issues.length}
-              </Badge>
-            </h2>
-          </header>
-          <div className="divide-y divide-border/70">
-            {visibleIssues.map((issue) => (
-              <Link
-                key={issue.id}
-                to={issue.action ?? (issue.device_id ? devicePath(issue.device_id) : '/devices')}
-                className="group flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
-              >
-                <StatusDot status={issue.severity === 'error' ? 'destructive' : 'warning'} className="mt-1.5" />
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground">{issue.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{issue.detail}</p>
-                  {issue.advice && <p className="mt-1 text-xs text-foreground/80">→ {issue.advice}</p>}
-                </div>
-                <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
-              </Link>
-            ))}
-          </div>
-          {issues.length > 8 && (
-            <Button
-              variant="ghost"
-              className="w-full justify-start rounded-none border-t border-border text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setShowAllIssues((value) => !value)}
-            >
-              {showAllIssues ? 'Show fewer' : `+${issues.length - 8} more`}
-            </Button>
-          )}
-        </Card>
       )}
 
       {summary?.check_matrix && <FleetCheckMatrix matrix={summary.check_matrix} />}

@@ -208,14 +208,21 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	problemsByDevice := make(map[string]int)
+	for _, job := range problemJobs {
+		problemsByDevice[job.DeviceID]++
+	}
+
+	matrix := buildCheckMatrix(list, matrixResults, problemsByDevice)
 	sortIssues(issues)
 
 	httpapi.SuccessWithMessage(w, map[string]interface{}{
 		"devices":      len(list),
 		"online":       online,
 		"offline":      len(list) - online,
+		"verdict":      matrixVerdict(matrix),
 		"issues":       issues,
-		"check_matrix": buildCheckMatrix(list, matrixResults),
+		"check_matrix": matrix,
 		"recent_jobs":  recentJobs,
 		"generated_at": time.Now().UTC(),
 	})

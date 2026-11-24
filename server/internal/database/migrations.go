@@ -1,6 +1,7 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 )
 
@@ -48,6 +49,7 @@ type migration struct {
 	version int
 	name    string
 	sql     string
+	apply   func(*sql.Tx) error
 }
 
 func (d *Database) runMigration(m migration) error {
@@ -58,7 +60,11 @@ func (d *Database) runMigration(m migration) error {
 	defer tx.Rollback()
 
 	// Execute migration SQL
-	if _, err := tx.Exec(m.sql); err != nil {
+	if m.apply != nil {
+		if err := m.apply(tx); err != nil {
+			return fmt.Errorf("failed to apply migration: %w", err)
+		}
+	} else if _, err := tx.Exec(m.sql); err != nil {
 		return fmt.Errorf("failed to execute migration SQL: %w", err)
 	}
 
@@ -264,4 +270,68 @@ var migrations = []migration{
 			CREATE INDEX idx_metric_samples_latest ON metric_samples(device_id, ts DESC);
 		`,
 	},
+	{
+		version: 12,
+		name:    "create_agent_jobs",
+		apply:   migrateAgentJobs,
+	},
+}
+
+// migrateAgentJobs creates job storage and upgrades databases where the tables
+// were previously created by the job store at startup.
+func migrateAgentJobs(tx *sql.Tx) error {
+	if _, err := tx.Exec(`
+		CREATE TABLE IF NOT EXISTS agent_jobs (
+			id TEXT PRIMARY KEY,
+			device_id TEXT NOT NULL,
+			command TEXT NOT NULL,
+			cwd TEXT,
+			status TEXT NOT NULL,
+			exit_code INTEGER DEFAULT 0,
+			error TEXT,
+			created_at DATETIME NOT NULL,
+			started_at DATETIME,
+			finished_at DATETIME,
+			last_seq INTEGER NOT NULL DEFAULT 0,
+			log_bytes INTEGER NOT NULL DEFAULT 0,
+			log_truncated INTEGER NOT NULL DEFAULT 0
+		);
+		CREATE INDEX IF NOT EXISTS idx_agent_jobs_device ON agent_jobs(device_id);
+		CREATE TABLE IF NOT EXISTS agent_job_logs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			job_id TEXT NOT NULL,
+			chunk BLOB NOT NULL,
+			stderr INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_agent_job_logs_job ON agent_job_logs(job_id);
+	`); err != nil {
+		return err
+	}
+
+	for _, column := range []struct{ name, definition string }{
+		{"last_seq", "INTEGER NOT NULL DEFAULT 0"},
+		{"log_bytes", "INTEGER NOT NULL DEFAULT 0"},
+		{"log_truncated", "INTEGER NOT NULL DEFAULT 0"},
+	} {
+		var count int
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('agent_jobs') WHERE name = ?`, column.name).Scan(&count); err != nil {
+			return err
+		}
+		if count != 0 {
+			continue
+		}
+		if _, err := tx.Exec(`ALTER TABLE agent_jobs ADD COLUMN ` + column.name + ` ` + column.definition); err != nil {
+			return err
+		}
+		if column.name == "log_bytes" {
+			if _, err := tx.Exec(`
+				UPDATE agent_jobs SET log_bytes = (
+					SELECT COALESCE(SUM(LENGTH(chunk)), 0)
+					FROM agent_job_logs WHERE job_id = agent_jobs.id)`); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

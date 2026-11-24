@@ -50,71 +50,7 @@ type JobStore struct {
 
 // NewJobStore creates the master-side job tables if needed.
 func NewJobStore(db *database.Database) (*JobStore, error) {
-	store := &JobStore{db: db.DB()}
-	_, err := store.db.Exec(`
-		CREATE TABLE IF NOT EXISTS agent_jobs (
-			id TEXT PRIMARY KEY,
-			device_id TEXT NOT NULL,
-			command TEXT NOT NULL,
-			cwd TEXT,
-			status TEXT NOT NULL,
-			exit_code INTEGER DEFAULT 0,
-			error TEXT,
-			created_at DATETIME NOT NULL,
-			started_at DATETIME,
-			finished_at DATETIME
-		);
-		CREATE INDEX IF NOT EXISTS idx_agent_jobs_device ON agent_jobs(device_id);
-		CREATE TABLE IF NOT EXISTS agent_job_logs (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			job_id TEXT NOT NULL,
-			chunk BLOB NOT NULL,
-			stderr INTEGER NOT NULL DEFAULT 0,
-			created_at DATETIME NOT NULL
-		);
-		CREATE INDEX IF NOT EXISTS idx_agent_job_logs_job ON agent_job_logs(job_id);
-	`)
-	if err != nil {
-		return nil, err
-	}
-	// last_seq is the newest output chunk stored for a job. These tables are
-	// created here rather than by a migration, so the column is added the
-	// same way for databases that predate it.
-	var hasSeq int
-	if err := store.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('agent_jobs') WHERE name = 'last_seq'`).Scan(&hasSeq); err != nil {
-		return nil, err
-	}
-	if hasSeq == 0 {
-		if _, err := store.db.Exec(`ALTER TABLE agent_jobs ADD COLUMN last_seq INTEGER NOT NULL DEFAULT 0`); err != nil {
-			return nil, err
-		}
-	}
-	// log_bytes tracks the stored log size so the cap does not need a SUM per
-	// chunk; log_truncated remembers that the notice was already written.
-	for _, column := range []struct{ name, definition string }{
-		{"log_bytes", "INTEGER NOT NULL DEFAULT 0"},
-		{"log_truncated", "INTEGER NOT NULL DEFAULT 0"},
-	} {
-		var count int
-		if err := store.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('agent_jobs') WHERE name = ?`, column.name).Scan(&count); err != nil {
-			return nil, err
-		}
-		if count == 0 {
-			if _, err := store.db.Exec(`ALTER TABLE agent_jobs ADD COLUMN ` + column.name + ` ` + column.definition); err != nil {
-				return nil, err
-			}
-			if column.name == "log_bytes" {
-				// Count logs stored before the cap existed.
-				if _, err := store.db.Exec(`
-					UPDATE agent_jobs SET log_bytes = (
-						SELECT COALESCE(SUM(LENGTH(chunk)), 0)
-						FROM agent_job_logs WHERE job_id = agent_jobs.id)`); err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	return store, nil
+	return &JobStore{db: db.DB()}, nil
 }
 
 // Create stores a new pending job.

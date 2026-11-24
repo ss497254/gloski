@@ -165,6 +165,26 @@ matched to the `api id=...` line in the master log. Uploads, downloads and
 credential fields are never printed; see the correlation section in
 [http-api.md](http-api.md).
 
+## Fleet health
+
+`features/dashboard/components/FleetHealth.tsx` renders both cards below.
+The dashboard leads with a verdict card: counts of `ok`, `warning`, `critical`
+and `unknown` from `summary.verdict`, a plain-language state (“2 things to fix”,
+“Mostly healthy · 1 to check”, “Healthy · nothing to fix”), a hint to start
+with the first issue, and the generation time. There is deliberately no numeric
+score.
+
+The “Needs attention” card is always present. With no issues it shows an
+explicit positive state instead of disappearing. Each row carries severity, a
+factual detail, one line of advice and a labelled action (“Open” / “View task”).
+
+`FleetCheckMatrix` renders `summary.check_matrix` as devices × groups. With no
+saved checks it is still populated by built-in blocks (Connectivity, Health,
+Agent, Jobs) derived from facts already on the dashboard; stored check results
+take priority when present. Red rows sort first; grey never means failure.
+In the devices list, Diagnose is a labelled button and an offline row shows a
+short “No live agent session” headline without opening the dialog.
+
 ## Theming
 
 `web/src/index.css` defines one semantic token set (background, foreground,

@@ -1,6 +1,7 @@
 package controltower
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/ss497254/gloski/internal/httpapi"
@@ -40,8 +41,8 @@ func fileRequest(path, operation string) *agentv1.FileRequest {
 	}
 }
 
-func (t *Tower) performFile(w http.ResponseWriter, deviceID string, request *agentv1.FileRequest) *agentv1.FileResult {
-	result, err := t.agentService.File(deviceID, request)
+func (t *Tower) performFile(ctx context.Context, w http.ResponseWriter, deviceID string, request *agentv1.FileRequest) *agentv1.FileResult {
+	result, err := t.agentService.File(ctx, deviceID, request)
 	if err != nil {
 		writeAgentError(w, err)
 		return nil
@@ -58,7 +59,7 @@ func (t *Tower) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	if path == "" {
 		path = "~"
 	}
-	result := t.performFile(w, r.PathValue("id"), fileRequest(path, "list"))
+	result := t.performFile(r.Context(), w, r.PathValue("id"), fileRequest(path, "list"))
 	if result == nil {
 		return
 	}
@@ -68,7 +69,7 @@ func (t *Tower) handleListFiles(w http.ResponseWriter, r *http.Request) {
 
 func (t *Tower) handleReadFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
-	result := t.performFile(w, r.PathValue("id"), fileRequest(path, "read"))
+	result := t.performFile(r.Context(), w, r.PathValue("id"), fileRequest(path, "read"))
 	if result == nil {
 		return
 	}
@@ -77,7 +78,7 @@ func (t *Tower) handleReadFile(w http.ResponseWriter, r *http.Request) {
 
 func (t *Tower) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
-	if t.performFile(w, r.PathValue("id"), fileRequest(path, "delete")) != nil {
+	if t.performFile(r.Context(), w, r.PathValue("id"), fileRequest(path, "delete")) != nil {
 		httpapi.SuccessWithMessage(w, nil)
 	}
 }
@@ -89,7 +90,7 @@ func (t *Tower) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 	}
 	grpcRequest := fileRequest(request.Path, "write")
 	grpcRequest.Content = []byte(request.Content)
-	if t.performFile(w, r.PathValue("id"), grpcRequest) != nil {
+	if t.performFile(r.Context(), w, r.PathValue("id"), grpcRequest) != nil {
 		httpapi.SuccessWithMessage(w, nil)
 	}
 }
@@ -99,7 +100,7 @@ func (t *Tower) handleMkdir(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if t.performFile(w, r.PathValue("id"), fileRequest(request.Path, "mkdir")) != nil {
+	if t.performFile(r.Context(), w, r.PathValue("id"), fileRequest(request.Path, "mkdir")) != nil {
 		httpapi.SuccessWithMessage(w, nil)
 	}
 }
@@ -111,7 +112,7 @@ func (t *Tower) handleRename(w http.ResponseWriter, r *http.Request) {
 	}
 	grpcRequest := fileRequest(request.OldPath, "rename")
 	grpcRequest.NewPath = request.NewPath
-	if t.performFile(w, r.PathValue("id"), grpcRequest) != nil {
+	if t.performFile(r.Context(), w, r.PathValue("id"), grpcRequest) != nil {
 		httpapi.SuccessWithMessage(w, nil)
 	}
 }

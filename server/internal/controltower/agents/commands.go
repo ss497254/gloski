@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -139,8 +140,8 @@ func (svc *Service) StartTransfer(deviceID string, request *agentv1.FileTransfer
 }
 
 // File performs a file operation on an agent and waits for its result.
-func (svc *Service) File(deviceID string, request *agentv1.FileRequest) (*agentv1.FileResult, error) {
-	reply, err := svc.request(deviceID, &agentv1.MasterMessage{
+func (svc *Service) File(ctx context.Context, deviceID string, request *agentv1.FileRequest) (*agentv1.FileResult, error) {
+	reply, err := svc.request(ctx, deviceID, &agentv1.MasterMessage{
 		Payload: &agentv1.MasterMessage_FileRequest{FileRequest: request},
 	}, fileRequestTimeout)
 	if err != nil {
@@ -150,8 +151,8 @@ func (svc *Service) File(deviceID string, request *agentv1.FileRequest) (*agentv
 }
 
 // Processes asks an agent for its current process table.
-func (svc *Service) Processes(deviceID string, limit int, sortBy string) ([]byte, error) {
-	reply, err := svc.request(deviceID, &agentv1.MasterMessage{
+func (svc *Service) Processes(ctx context.Context, deviceID string, limit int, sortBy string) ([]byte, error) {
+	reply, err := svc.request(ctx, deviceID, &agentv1.MasterMessage{
 		Payload: &agentv1.MasterMessage_ProcessRequest{
 			ProcessRequest: &agentv1.ProcessRequest{Limit: int32(limit), Sort: sortBy},
 		},
@@ -167,12 +168,12 @@ func (svc *Service) Processes(deviceID string, limit int, sortBy string) ([]byte
 }
 
 // Check asks an agent to run one native probe and waits for its result.
-func (svc *Service) Check(deviceID string, definition checks.Definition) (checks.Result, error) {
+func (svc *Service) Check(ctx context.Context, deviceID string, definition checks.Definition) (checks.Result, error) {
 	accepted := make([]int32, 0, len(definition.Accepted))
 	for _, code := range definition.Accepted {
 		accepted = append(accepted, int32(code))
 	}
-	reply, err := svc.request(deviceID, &agentv1.MasterMessage{
+	reply, err := svc.request(ctx, deviceID, &agentv1.MasterMessage{
 		Payload: &agentv1.MasterMessage_CheckRequest{
 			CheckRequest: &agentv1.CheckRequest{
 				CheckId:    definition.ID(),
@@ -234,7 +235,7 @@ func (svc *Service) Connected(deviceID string) bool {
 	return err == nil
 }
 
-func (svc *Service) request(deviceID string, message *agentv1.MasterMessage, timeout time.Duration) (*agentv1.AgentMessage, error) {
+func (svc *Service) request(ctx context.Context, deviceID string, message *agentv1.MasterMessage, timeout time.Duration) (*agentv1.AgentMessage, error) {
 	conn, err := svc.connection(deviceID)
 	if err != nil {
 		return nil, err
@@ -257,6 +258,8 @@ func (svc *Service) request(deviceID string, message *agentv1.MasterMessage, tim
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case reply := <-channel:
 		if reply == nil {
 			return nil, ErrNoAgent

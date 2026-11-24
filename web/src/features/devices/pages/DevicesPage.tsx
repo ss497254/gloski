@@ -73,6 +73,13 @@ function DeviceRow({ device, hidden }: { device: FleetDevice; hidden: string[] }
                 )}
               </p>
             )}
+            {!online && !problem && (
+              <p className="mt-1 max-w-md whitespace-normal text-xs text-muted-foreground">
+                No live agent session
+                {device.last_seen ? ` · last seen ${formatRelativeTime(device.last_seen)}` : ''}. Diagnose to find
+                where the link breaks.
+              </p>
+            )}
           </div>
         </div>
       </TableCell>
@@ -105,7 +112,7 @@ function DeviceRow({ device, hidden }: { device: FleetDevice; hidden: string[] }
       )}
       <TableCell className="px-4 py-3">
         <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
-          <DiagnoseButton deviceId={device.id} deviceName={device.name} iconOnly variant="ghost" size="icon-sm" />
+          <DiagnoseButton deviceId={device.id} deviceName={device.name} variant="ghost" size="sm" />
           {device.managed && online && (
             <Button
               variant="ghost"

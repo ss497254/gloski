@@ -40,10 +40,10 @@ type probeRunner struct {
 	defs     []checks.Definition
 	due      map[string]time.Time
 	agg      map[string]*checks.Aggregator
-	runCheck func(deviceID string, definition checks.Definition) (checks.Result, error)
+	runCheck func(ctx context.Context, deviceID string, definition checks.Definition) (checks.Result, error)
 }
 
-func newProbeRunner(defs []checks.Definition, runCheck func(string, checks.Definition) (checks.Result, error)) *probeRunner {
+func newProbeRunner(defs []checks.Definition, runCheck func(context.Context, string, checks.Definition) (checks.Result, error)) *probeRunner {
 	return &probeRunner{
 		defs:     defs,
 		due:      make(map[string]time.Time),
@@ -73,7 +73,7 @@ func (p *probeRunner) run(ctx context.Context, deviceID string, store *checks.St
 	p.mu.Unlock()
 
 	for _, definition := range due {
-		result, err := p.runCheck(deviceID, definition)
+		result, err := p.runCheck(ctx, deviceID, definition)
 		if err != nil {
 			logger.Warn("Probe %s on %s failed: %v", definition.ID(), deviceID, err)
 			continue
