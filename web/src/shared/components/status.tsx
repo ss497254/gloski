@@ -1,6 +1,7 @@
 import { cn } from '@/shared/lib/utils'
-import { statusTone } from '@/shared/lib/status'
+import { statusTone, type StatusTone } from '@/shared/lib/status'
 import { Badge } from '@/ui/badge'
+import { AlertCircle, AlertTriangle, CheckCircle2, CircleDashed, XCircle } from 'lucide-react'
 
 const dotColors = {
   success: 'bg-success',
@@ -49,4 +50,21 @@ export function StatusBadge({ status, label, className }: StatusBadgeProps) {
       {text}
     </Badge>
   )
+}
+
+/** A circled status mark for lists and cards: tick, warning, cross or dash. */
+export function StatusMark({ tone, className }: { tone: StatusTone; className?: string }) {
+  const classes = cn('size-4 shrink-0', className)
+  switch (tone) {
+    case 'success':
+      return <CheckCircle2 className={cn(classes, 'text-success')} />
+    case 'warning':
+      return <AlertTriangle className={cn(classes, 'text-warning')} />
+    case 'destructive':
+      return <XCircle className={cn(classes, 'text-destructive')} />
+    case 'info':
+      return <AlertCircle className={cn(classes, 'text-info')} />
+    default:
+      return <CircleDashed className={cn(classes, 'text-muted-foreground/60')} />
+  }
 }

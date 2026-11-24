@@ -1,13 +1,15 @@
 import { devicePath } from '@/app/navigation'
 import { cn, formatRelativeTime } from '@/shared/lib/utils'
 import type { DashboardSummary } from '@/shared/tower/types'
-import { StatusDot } from '@/shared/components'
+import { StatusMark } from '@/shared/components'
 import { toneSurface } from '@/shared/lib/status'
 import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
 import { Card } from '@/ui/card'
-import { ArrowUpRight, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { ArrowUpRight, AlertTriangle, CheckCircle2, Copy } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
+import type { DashboardIssue } from '@/shared/tower/types'
 
 export function verdictCopy(counts: DashboardSummary['verdict'] | undefined) {
   if (!counts) return { title: 'Checking…', hint: 'Reading the fleet…' }
@@ -27,6 +29,16 @@ export function verdictCopy(counts: DashboardSummary['verdict'] | undefined) {
       hint: 'Grey means skipped, stale or never run — not a failure.',
     }
   return { title: 'Healthy · nothing to fix', hint: 'Everything checked looks good.' }
+}
+
+async function copyIssue(issue: DashboardIssue) {
+  const text = [issue.title, issue.detail, issue.advice ? `Advice: ${issue.advice}` : ''].filter(Boolean).join('\n')
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('Item copied')
+  } catch {
+    toast.error('Could not copy the item')
+  }
 }
 
 /** The at-a-glance health screen: a verdict, counts and the next action. */
@@ -81,24 +93,43 @@ export function FleetHealth({ summary, expanded, onToggleExpanded }: FleetHealth
                 : 'Nothing needs your attention. Every device answered its last check.'}
             </div>
           ) : (
-            visible.map((issue) => (
-              <Link
-                key={issue.id}
-                to={issue.action ?? (issue.device_id ? devicePath(issue.device_id) : '/devices')}
-                className="group flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
-              >
-                <StatusDot status={issue.severity === 'error' ? 'destructive' : 'warning'} className="mt-1.5" />
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground">{issue.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{issue.detail}</p>
-                  {issue.advice && <p className="mt-1 text-xs text-foreground/80">→ {issue.advice}</p>}
+            visible.map((issue) => {
+              const target = issue.action ?? (issue.device_id ? devicePath(issue.device_id) : '/devices')
+              const tone = issue.severity === 'error' ? 'destructive' : issue.severity === 'info' ? 'info' : 'warning'
+              return (
+                <div
+                  key={issue.id}
+                  className="group flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
+                >
+                  <StatusMark tone={tone} className="mt-0.5" />
+                  <Link
+                    to={target}
+                    title={`${issue.title}: ${issue.detail}${issue.advice ? ` — ${issue.advice}` : ''}`}
+                    className="min-w-0 flex-1"
+                  >
+                    <p className="font-medium text-foreground">{issue.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{issue.detail}</p>
+                    {issue.advice && <p className="mt-1 text-xs text-foreground/80">→ {issue.advice}</p>}
+                  </Link>
+                  <button
+                    type="button"
+                    title="Copy this item"
+                    aria-label={`Copy ${issue.title}`}
+                    onClick={() => void copyIssue(issue)}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Copy className="size-3.5" />
+                  </button>
+                  <Link
+                    to={target}
+                    className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors group-hover:text-primary"
+                  >
+                    {issue.action?.includes('/jobs') ? 'View task' : 'Open'}
+                    <ArrowUpRight className="size-3.5" />
+                  </Link>
                 </div>
-                <span className="ml-auto mt-0.5 flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors group-hover:text-primary">
-                  {issue.action?.includes('/jobs') ? 'View task' : 'Open'}
-                  <ArrowUpRight className="size-3.5" />
-                </span>
-              </Link>
-            ))
+              )
+            })
           )}
         </div>
         {issues.length > 8 && (

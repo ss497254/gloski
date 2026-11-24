@@ -4,12 +4,11 @@ import { cn, formatBytes, formatRelativeTime, formatUptime } from '@/shared/lib/
 import { useTower } from '@/shared/tower'
 import { getDashboard, getSelfTest } from '@/shared/tower/client'
 import type { DashboardSummary, FleetDevice, SelfTestResult } from '@/shared/tower/types'
-import { Alert, AlertDescription, AlertTitle } from '@/ui/alert'
 import { Badge } from '@/ui/badge'
 import { Button } from '@/ui/button'
 import { Card } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
-import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, UsageBar, type StatusTone, toneSurface } from '@/shared/components'
+import { DeployDeviceDialog, EmptyState, StatusBadge, StatusDot, StatusMark, UsageBar, type StatusTone, toneSurface } from '@/shared/components'
 import { FleetCheckMatrix, FleetHealth } from '../components'
 import {
   Activity,
@@ -210,31 +209,39 @@ export function DashboardPage() {
         />
       )}
 
-      {health && health.status !== 'ok' && (
-        <Link to="/settings?tab=health" className="mt-5 block">
-          <Alert
-            role="alert"
-            variant={health.status === 'critical' ? 'destructive' : 'warning'}
-            className="transition-[filter] hover:brightness-[0.97] dark:hover:brightness-110"
-          >
-            <Activity />
-            <AlertTitle>Master health</AlertTitle>
-            <AlertDescription>
-              <span>{health.status === 'critical' ? 'A master check failed.' : 'A master check needs a look.'}</span>
-              <ul className="mt-1 space-y-0.5">
-                {health.lines
-                  .filter((line) => line.status === 'warning' || line.status === 'critical')
-                  .slice(0, 2)
-                  .map((line) => (
-                    <li key={line.key} className="truncate text-xs text-foreground/80">
-                      {line.title}: {line.summary}
-                    </li>
-                  ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        </Link>
-      )}
+      <Link to="/settings?tab=health" className="mt-5 block">
+        <Card className="gap-0 p-4 transition-colors hover:border-primary/50">
+          <div className="flex items-center gap-3">
+            <StatusMark
+              tone={
+                !health
+                  ? 'muted'
+                  : health.status === 'critical'
+                    ? 'destructive'
+                    : health.status === 'warning'
+                      ? 'warning'
+                      : 'success'
+              }
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Master health</p>
+              <p className="truncate text-sm text-foreground">
+                {!health
+                  ? 'Running the master self-test…'
+                  : health.status === 'ok'
+                    ? 'All clear. Every master check passed.'
+                    : health.status === 'critical'
+                      ? 'A master check failed and needs attention.'
+                      : `${health.lines.filter((line) => line.status === 'warning').length} to check on the master.`}
+              </p>
+            </div>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {health ? `${health.lines.filter((line) => line.status === 'warning').length} warnings · ${health.lines.filter((line) => line.status === 'critical').length} failed` : 'checking'}
+            </span>
+            <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
+          </div>
+        </Card>
+      </Link>
 
       {summary?.check_matrix && <FleetCheckMatrix matrix={summary.check_matrix} />}
 

@@ -1,4 +1,4 @@
-import { cn } from '@/shared/lib/utils'
+import { cn, formatRelativeTime } from '@/shared/lib/utils'
 import { getSelfTest } from '@/shared/tower/client'
 import type { DiagnosisStatus, SelfTestLine, SelfTestResult } from '@/shared/tower/types'
 import { Alert, AlertDescription } from '@/ui/alert'
@@ -130,7 +130,14 @@ export function MasterHealthSettings() {
           className={cn('items-start', toneClasses[result.status])}
         >
           <StatusIcon status={result.status} />
-          <p className="text-sm font-medium text-foreground">{verdict(result)}</p>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{verdict(result)}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {result.lines.filter((line) => line.status === 'warning').length} warnings ·{' '}
+              {result.lines.filter((line) => line.status === 'critical').length} failed · updated{' '}
+              {formatRelativeTime(result.generated_at)}
+            </p>
+          </div>
         </Alert>
       )}
 
