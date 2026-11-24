@@ -20,10 +20,30 @@ import (
 // a check that cannot apply yet, never a failure.
 type selfTestLine struct {
 	Key     string `json:"key"`
+	Section string `json:"section"`
 	Title   string `json:"title"`
 	Status  string `json:"status"`
 	Summary string `json:"summary"`
 	Detail  string `json:"detail,omitempty"`
+}
+
+// The report is grouped so a wall of lines reads as a few short sections.
+// Keys map to sections in one place; new lines get a sensible default.
+const (
+	sectionData   = "Data & storage"
+	sectionAgents = "Agents & builds"
+	sectionOther  = "Other"
+)
+
+func selfTestSection(key string) string {
+	switch key {
+	case "database", "size", "data-dir", "free-space", "maintenance":
+		return sectionData
+	case "join-token", "local-agent", "builds":
+		return sectionAgents
+	default:
+		return sectionOther
+	}
 }
 
 type selfTestResult struct {
@@ -52,7 +72,10 @@ func (t *Tower) handleSelfTest(w http.ResponseWriter, r *http.Request) {
 // the only write is a probe file that is deleted in the same call.
 func (t *Tower) selfTest(ctx context.Context) selfTestResult {
 	result := selfTestResult{Lines: []selfTestLine{}, GeneratedAt: time.Now().UTC()}
-	add := func(line selfTestLine) { result.Lines = append(result.Lines, line) }
+	add := func(line selfTestLine) {
+		line.Section = selfTestSection(line.Key)
+		result.Lines = append(result.Lines, line)
+	}
 
 	t.selfTestDatabase(ctx, add)
 	t.selfTestDataDir(add)

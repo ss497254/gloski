@@ -1,12 +1,31 @@
 import { devicePath } from '@/app/navigation'
-import { StatusDot, toneSurface } from '@/shared/components'
+import { StatusDot, StatusMark, toneSurface } from '@/shared/components'
 import { statusTone } from '@/shared/lib/status'
 import { cn, formatDateTime } from '@/shared/lib/utils'
 import type { CheckBlock, CheckMatrix, CheckMatrixRow } from '@/shared/tower'
 import { Card } from '@/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table'
+import { Copy } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
+
+async function copyBlock(row: CheckMatrixRow, block: CheckBlock) {
+  const text = [
+    `${row.device_name} — ${block.check_id}`,
+    `Status: ${block.stale ? 'stale' : block.status}`,
+    block.summary,
+    ...(block.details ?? []).map((detail) => `${detail.key}: ${detail.value}`),
+  ]
+    .filter(Boolean)
+    .join('\n')
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('Check copied')
+  } catch {
+    toast.error('Could not copy the check')
+  }
+}
 
 /** One coloured strip per group; a block is one check on one device. */
 export function FleetCheckMatrix({ matrix }: { matrix: CheckMatrix }) {
@@ -120,8 +139,8 @@ function FragmentRow({
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {blocks.map((block) => (
                 <div key={keyFor(row, block)} className="flex items-start gap-2 text-xs">
-                  <StatusDot status={block.stale ? 'unknown' : block.status} className="mt-1 size-1.5" />
-                  <div className="min-w-0">
+                  <StatusMark tone={block.stale ? 'muted' : statusTone(block.status)} className="mt-0.5" />
+                  <div className="min-w-0 flex-1">
                     <p className="font-mono text-foreground/90">
                       {block.check_id}
                       {block.stale && <span className="ml-1 text-muted-foreground">stale</span>}
@@ -136,6 +155,15 @@ function FragmentRow({
                       <p className="text-[10px] text-muted-foreground/60">ran {formatDateTime(block.ran_at)}</p>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    title="Copy this check"
+                    aria-label={`Copy ${block.check_id} on ${row.device_name}`}
+                    onClick={() => void copyBlock(row, block)}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Copy className="size-3.5" />
+                  </button>
                 </div>
               ))}
             </div>

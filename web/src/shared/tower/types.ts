@@ -70,6 +70,7 @@ export interface DeviceAction {
 
 export interface SelfTestLine {
   key: string
+  section: string
   title: string
   status: DiagnosisStatus
   summary: string

@@ -137,10 +137,16 @@ only maps a status to a tone using `shared/lib/status.ts`.
 
 `getSelfTest()` calls `GET /api/system/self-test`. Settings has a "Master
 health" tab (`?tab=health`) with `MasterHealthSettings`: it re-runs the
-read-only checklist, shows each line's summary and detail, and copies a report.
-The dashboard shows a small Master health card only when the overall status is
-`warning` or `critical`, linking to that tab. A skipped line is never shown as
-a failure.
+read-only checklist and groups the lines into sections (Data & storage, Agents
+& builds, Other). Each section has a status mark and a plain summary —
+"all clear", "2 to check", "1 failed" or "not run yet" — so a wall of lines
+reads as a few short groups. Copy report follows the same grouping. A skipped
+line is never shown as a failure.
+
+The dashboard always shows a Master health card, even when everything passes:
+"All clear. Every master check passed." with warning/failed counts and a link
+to that tab. The matrix detail rows and the Needs attention rows use the same
+✓ / ! / i status marks and each has a per-row copy button.
 
 `listDeviceActions(id)` and `undoDeviceAction(id, actionId)` back the "Recent
 changes" card on the device page (`features/devices/components/RecentChanges.tsx`).

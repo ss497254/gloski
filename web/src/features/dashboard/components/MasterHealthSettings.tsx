@@ -1,8 +1,11 @@
+import { StatusMark } from '@/shared/components'
+import type { StatusTone } from '@/shared/lib/status'
 import { cn, formatRelativeTime } from '@/shared/lib/utils'
 import { getSelfTest } from '@/shared/tower/client'
 import type { DiagnosisStatus, SelfTestLine, SelfTestResult } from '@/shared/tower/types'
 import { Alert, AlertDescription } from '@/ui/alert'
 import { Button } from '@/ui/button'
+import { Card } from '@/ui/card'
 import { Spinner } from '@/ui/spinner'
 import { AlertTriangle, CheckCircle2, CircleDashed, Copy, RefreshCw, XCircle } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
@@ -48,6 +51,36 @@ function Line({ line }: { line: SelfTestLine }) {
   )
 }
 
+/** Keep the backend's order, but read it as a few named sections. */
+export function groupSections(lines: SelfTestLine[]): Array<{ name: string; lines: SelfTestLine[] }> {
+  const order: string[] = []
+  const grouped = new Map<string, SelfTestLine[]>()
+  for (const line of lines) {
+    if (!grouped.has(line.section)) {
+      grouped.set(line.section, [])
+      order.push(line.section)
+    }
+    grouped.get(line.section)!.push(line)
+  }
+  return order.map((name) => ({ name, lines: grouped.get(name)! }))
+}
+
+export function sectionSummary(lines: SelfTestLine[]): string {
+  const failed = lines.filter((line) => line.status === 'critical').length
+  const warnings = lines.filter((line) => line.status === 'warning').length
+  if (failed) return `${failed} failed`
+  if (warnings) return `${warnings} to check`
+  if (lines.every((line) => line.status === 'skipped')) return 'not run yet'
+  return 'all clear'
+}
+
+function sectionTone(lines: SelfTestLine[]): StatusTone {
+  if (lines.some((line) => line.status === 'critical')) return 'destructive'
+  if (lines.some((line) => line.status === 'warning')) return 'warning'
+  if (lines.every((line) => line.status === 'skipped')) return 'muted'
+  return 'success'
+}
+
 function verdict(result: SelfTestResult): string {
   switch (result.status) {
     case 'critical':
@@ -86,7 +119,13 @@ export function MasterHealthSettings() {
       `Gloski master self-test — ${result.generated_at}`,
       verdict(result),
       '',
-      ...result.lines.map((line) => `[${line.status}] ${line.title}: ${line.summary}${line.detail ? `\n    ${line.detail}` : ''}`),
+      ...groupSections(result.lines).flatMap((section) => [
+        `${section.name} — ${sectionSummary(section.lines)}`,
+        ...section.lines.map(
+          (line) => `  [${line.status}] ${line.title}: ${line.summary}${line.detail ? `\n      ${line.detail}` : ''}`,
+        ),
+        '',
+      ]),
     ]
     try {
       await navigator.clipboard.writeText(lines.join('\n'))
@@ -142,11 +181,22 @@ export function MasterHealthSettings() {
       )}
 
       {result && (
-        <ul className="divide-y divide-border/70 overflow-hidden rounded-md border border-border">
-          {result.lines.map((line) => (
-            <Line key={line.key} line={line} />
+        <div className="space-y-3">
+          {groupSections(result.lines).map((section) => (
+            <Card key={section.name} className="gap-0 overflow-hidden py-0">
+              <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+                <StatusMark tone={sectionTone(section.lines)} />
+                <h3 className="text-sm font-medium text-foreground">{section.name}</h3>
+                <span className="ml-auto text-[11px] text-muted-foreground">{sectionSummary(section.lines)}</span>
+              </header>
+              <ul className="divide-y divide-border/70">
+                {section.lines.map((line) => (
+                  <Line key={line.key} line={line} />
+                ))}
+              </ul>
+            </Card>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   )

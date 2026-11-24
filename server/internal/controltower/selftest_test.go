@@ -1,6 +1,7 @@
 package controltower
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -65,6 +66,24 @@ func TestSelfTestEndpoint(t *testing.T) {
 	}
 	if keys["database"].Status != diagOK || keys["data-dir"].Status != diagOK || keys["join-token"].Status != diagOK {
 		t.Fatalf("a fresh master should pass its basic checks: %+v", keys)
+	}
+}
+
+func TestSelfTestSections(t *testing.T) {
+	result := newRoutesTower(t).selfTest(context.Background())
+	known := map[string]bool{sectionData: true, sectionAgents: true, sectionOther: true}
+	seen := map[string]bool{}
+	for _, line := range result.Lines {
+		if !known[line.Section] {
+			t.Errorf("line %q has unknown section %q", line.Key, line.Section)
+		}
+		if line.Section != selfTestSection(line.Key) {
+			t.Errorf("line %q section = %q, want %q", line.Key, line.Section, selfTestSection(line.Key))
+		}
+		seen[line.Section] = true
+	}
+	if len(seen) < 2 {
+		t.Fatalf("the report should span more than one section, got %+v", seen)
 	}
 }
 

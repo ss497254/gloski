@@ -85,7 +85,10 @@ All routes are **auth**.
 
 | Method | Path | Response |
 |---|---|---|
-| `GET` | `/api/system/self-test` | wrapped `SelfTestResult`: `status` (`ok`, `warning`, `critical`), ordered `lines` (`key`, `title`, `status`, `summary`, optional `detail`), `generated_at` |
+| `GET` | `/api/system/self-test` | wrapped `SelfTestResult`: `status` (`ok`, `warning`, `critical`), ordered `lines` (`key`, `section`, `title`, `status`, `summary`, optional `detail`), `generated_at` |
+
+`section` is one of `Data & storage`, `Agents & builds` or `Other`; lines stay
+in a stable order and the UI groups them by this field.
 
 The self-test only reads state; its one write is a probe file in the data
 directory that is deleted in the same call. Checks that cannot apply yet

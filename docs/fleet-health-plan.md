@@ -70,9 +70,17 @@ centre, Windows-only diagnostics, stress tests, and per-failure repair flows.
 
 ## Status
 
-Phase 1 is done. The dashboard now returns a verdict and a populated matrix;
-the attention card is always present with a positive state and labelled
-actions; Diagnose is labelled in the fleet list.
+Phases 1 and 2 are done.
+
+- Phase 1: the dashboard returns a verdict and a populated matrix; the
+  attention card is always present with a positive state and labelled actions;
+  Diagnose is labelled in the fleet list.
+- Phase 2: Master health is always on the dashboard with counts and an
+  "All clear" state; the self-test report is grouped into sections with a
+  status mark and plain summary each; attention and matrix rows share the
+  ✓ / ! / i marks and have per-row copy.
+
+Phase 3 stays parked until saved checks and metric history exist.
 
 ## Full SMDWin inventory highlights
 
