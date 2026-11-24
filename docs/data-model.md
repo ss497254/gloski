@@ -39,9 +39,9 @@ Migrations live in `server/internal/database/migrations.go`.
 | 12 | `agent_jobs`, `agent_job_logs` (and the `last_seq`, `log_bytes`, `log_truncated` columns) |
 
 Migration 12 owns job storage on a fresh database and upgrades databases where
-`agents.NewJobStore` used to create the tables at startup. It backfills
-`log_bytes` from `agent_job_logs` when adding that column. A schema change to
-jobs now belongs in a migration; `NewJobStore` is a plain read/write store.
+the startup path used to create the tables. It backfills `log_bytes` from
+`agent_job_logs` when adding that column. A schema change to jobs now belongs in
+a migration; `jobs.NewStore` is a plain read/write store.
 
 ## Tables in use
 
