@@ -55,6 +55,7 @@ Non-negotiables that override every table (from `AGENTS.md` and `docs/roadmap.md
 | [09 — Testing and quality](09-testing-and-quality.md) | Fixture seams, self-reexec command fakes, `testing/synctest`, frontend tests, CI gap. |
 | [10 — Do not borrow](10-do-not-borrow.md) | Consolidated exclusion list with reasons and conflicts. |
 | [11 — Implementation plan](11-implementation-plan.md) | Batch-by-batch plan with concrete tasks, files, verification gates and settled decisions. |
+| [12 — Feature inventory and gap](12-feature-inventory-and-gap.md) | All Beszel features and system design compared with Gloski's current state. |
 
 ## Highest-value items, ranked
 
