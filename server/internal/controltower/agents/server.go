@@ -12,6 +12,7 @@ import (
 
 	"github.com/ss497254/gloski/internal/database"
 	"github.com/ss497254/gloski/internal/fleet"
+	"github.com/ss497254/gloski/internal/jobs"
 	"github.com/ss497254/gloski/internal/logger"
 	"github.com/ss497254/gloski/internal/metrics"
 	"github.com/ss497254/gloski/internal/system"
@@ -34,12 +35,12 @@ var checkRequestTimeout = 10 * time.Second
 // ErrNoAgent means the device has no live agent stream.
 var ErrNoAgent = errors.New("agent is not connected")
 
-// Service owns agent connections and master-side job state.
+// Service owns agent connections and dispatches commands to them.
 type Service struct {
 	agentv1.UnimplementedAgentServer
 
 	fleetSvc *fleet.Registry
-	jobs     *JobStore
+	jobs     *jobs.Store
 	metrics  *metrics.Store
 	// onHeartbeat, when set, is called off the stream dispatch loop so slow
 	// scheduled work cannot delay job or terminal messages.
@@ -60,16 +61,13 @@ type Service struct {
 
 // New creates the master-side stream service and its job store.
 func New(db *database.Database, fleetSvc *fleet.Registry, metricStore *metrics.Store, version string, interval int) (*Service, error) {
-	jobs, err := NewJobStore(db)
-	if err != nil {
-		return nil, err
-	}
+	jobStore := jobs.NewStore(db)
 	if interval <= 0 {
 		interval = defaultHeartbeatInterval
 	}
 	return &Service{
 		fleetSvc:    fleetSvc,
-		jobs:        jobs,
+		jobs:        jobStore,
 		metrics:     metricStore,
 		version:     version,
 		interval:    interval,

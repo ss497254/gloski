@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/ss497254/gloski/internal/checks"
-	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/fleet"
 	"github.com/ss497254/gloski/internal/httpapi"
+	"github.com/ss497254/gloski/internal/jobs"
 	"github.com/ss497254/gloski/internal/logger"
 )
 
@@ -57,9 +57,9 @@ func sortIssues(issues []dashboardIssue) {
 	})
 }
 
-func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	t.touchStatsAccess()
-	list, err := t.fleetSvc.List()
+func (d *dashboardHandlers) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	d.touchStats()
+	list, err := d.fleetSvc.List()
 	if err != nil {
 		httpapi.InternalError(w, "failed to load dashboard", err.Error())
 		return
@@ -73,7 +73,7 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	issues := []dashboardIssue{}
 	for i := range list {
 		device := &list[i]
-		if device.Master && t.agentService.Connected(device.ID) {
+		if device.Master && d.agentService.Connected(device.ID) {
 			masterConnected = true
 		}
 		if device.Status == fleet.StatusOnline {
@@ -130,11 +130,11 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			Detail:   "The agent on the master device has no live gRPC session",
 			Advice:   "The master's own agent carries every session. Check the master log or restart the master.",
 			Action:   "/devices",
-			since:    t.startedAt,
+			since:    d.startedAt,
 		})
 	}
 
-	deployments, err := t.fleetSvc.ListDeployments()
+	deployments, err := d.fleetSvc.ListDeployments()
 	if err != nil {
 		logger.Warn("Dashboard could not load deployments: %v", err)
 	} else {
@@ -158,13 +158,13 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	problemJobs, err := t.agentService.ProblemJobs(jobIssueLimit)
+	problemJobs, err := d.agentService.ProblemJobs(jobIssueLimit)
 	if err != nil {
 		logger.Warn("Dashboard could not load problem jobs: %v", err)
 	} else {
 		for _, job := range problemJobs {
 			severity := "error"
-			if job.Status == agents.JobAbandoned {
+			if job.Status == jobs.JobAbandoned {
 				severity = "warning"
 			}
 			detail := strings.TrimSpace(job.Command)
@@ -172,7 +172,7 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 				detail += " — " + firstLine(job.Error, maxJobDetail)
 			}
 			advice := "Open the task log to see why it failed."
-			if job.Status == agents.JobAbandoned {
+			if job.Status == jobs.JobAbandoned {
 				advice = "The agent disappeared while this task was running. Diagnose the device, then run it again."
 			}
 			issues = append(issues, dashboardIssue{
@@ -188,13 +188,13 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recentJobs, err := t.agentService.RecentJobs(jobIssueLimit)
+	recentJobs, err := d.agentService.RecentJobs(jobIssueLimit)
 	if err != nil {
 		logger.Warn("Dashboard could not load recent jobs: %v", err)
-		recentJobs = []agents.Job{}
+		recentJobs = []jobs.Job{}
 	}
 
-	matrixResults, err := t.checkStore.LatestForAllDevices(r.Context())
+	matrixResults, err := d.checkStore().LatestForAllDevices(r.Context())
 	if err != nil {
 		logger.Warn("Dashboard could not load check results: %v", err)
 		matrixResults = []checks.Result{}
@@ -208,7 +208,7 @@ func (t *Tower) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	problemsByDevice, err := t.agentService.ProblemCountsByDevice(r.Context())
+	problemsByDevice, err := d.agentService.ProblemCountsByDevice(r.Context())
 	if err != nil {
 		logger.Warn("Dashboard could not count problem jobs: %v", err)
 		problemsByDevice = map[string]int{}

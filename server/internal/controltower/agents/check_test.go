@@ -80,3 +80,23 @@ func TestCheckTimesOutAndReportsNoAgent(t *testing.T) {
 		t.Fatal("a probe to an unknown device must report no agent")
 	}
 }
+
+func TestCheckStopsWaitingWhenContextIsCanceled(t *testing.T) {
+	svc := checkService("dev")
+	stream := svc.connections["dev"].stream.(*checkStream)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := svc.Check(ctx, "dev", checks.Definition{Kind: checks.ProbeTCP, Target: "127.0.0.1:80"})
+		done <- err
+	}()
+
+	<-stream.sent
+	cancel()
+	if err := <-done; err != context.Canceled {
+		t.Fatalf("Check() error = %v, want context.Canceled", err)
+	}
+	if got := len(svc.connections["dev"].pending); got != 0 {
+		t.Errorf("pending requests = %d, want 0", got)
+	}
+}

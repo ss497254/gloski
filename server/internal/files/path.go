@@ -25,10 +25,9 @@ var (
 // MaxFileSize is the largest file Read will load for the editor.
 const MaxFileSize = 10 * 1024 * 1024 // 10 MB
 
-// protectedPaths are the system roots a delete or rename may not touch.
-// Delete refuses the whole tree (except below /tmp, where deleting individual
-// files is normal); Rename refuses only the roots themselves, so moving a file
-// inside a system directory remains possible.
+// protectedPaths are the system roots a delete or rename may not touch. Both
+// refuse the root and anything below it; only paths under /tmp are exempt,
+// where operating on individual files is normal.
 var protectedPaths = []string{
 	"/", "/etc", "/usr", "/bin", "/sbin", "/var", "/boot",
 	"/lib", "/lib64", "/dev", "/proc", "/sys", "/run", "/tmp", "/root",
@@ -158,8 +157,7 @@ func resolveMissingPath(absPath string) (string, error) {
 }
 
 // isProtectedRoot reports whether path is a protected root or the home
-// directory itself. It is the check Rename uses: moving a file inside a system
-// directory is allowed, replacing the directory itself is not.
+// directory itself. It is the base check used by isProtectedTree.
 func isProtectedRoot(path string) bool {
 	if path == "/" {
 		return true
@@ -176,8 +174,8 @@ func isProtectedRoot(path string) bool {
 }
 
 // isProtectedTree reports whether path is at or below a protected root. /tmp
-// is the exception: its contents are normal files. Delete uses this stricter
-// check because it removes recursively.
+// is the exception: its contents are normal files. Delete and Rename both use
+// this check so neither can modify files inside system directories.
 func isProtectedTree(path string) bool {
 	if isProtectedRoot(path) {
 		return true

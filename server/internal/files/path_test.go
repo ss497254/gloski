@@ -2,6 +2,8 @@ package files
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/ss497254/gloski/internal/config"
@@ -82,16 +84,18 @@ func TestDeleteRefusesProtectedPaths(t *testing.T) {
 	}
 }
 
-// TestRenameRefusesProtectedRoots checks that Rename refuses the protected
-// roots themselves. Renaming a file inside a system directory is allowed, so
-// /etc/passwd is not in this list; TestIsProtectedRoot covers that boundary.
-func TestRenameRefusesProtectedRoots(t *testing.T) {
+// TestRenameRefusesProtectedPaths checks that Rename refuses protected roots
+// and paths below them, on either side of the operation. Paths under /tmp stay
+// legal; TestIsProtectedTree covers that boundary.
+func TestRenameRefusesProtectedPaths(t *testing.T) {
 	t.Setenv("HOME", "/home/tester")
 	service := NewService(&config.Config{})
 
 	tests := []struct{ oldPath, newPath string }{
 		{"/etc", "/tmp/etc"},
 		{"/tmp/etc", "/etc"},
+		{"/etc/passwd", "/etc/shadow"},
+		{"/tmp/etc", "/etc/passwd"},
 		{"/", "/tmp/root"},
 		{"/home/tester", "/tmp/tester"},
 	}
@@ -99,5 +103,20 @@ func TestRenameRefusesProtectedRoots(t *testing.T) {
 		if err := service.Rename(tt.oldPath, tt.newPath); !errors.Is(err, ErrDangerousPath) {
 			t.Errorf("Rename(%q, %q) error = %v, want ErrDangerousPath", tt.oldPath, tt.newPath, err)
 		}
+	}
+}
+
+func TestRenameAllowsPathsUnderTmp(t *testing.T) {
+	t.Setenv("HOME", "/home/tester")
+	service := NewService(&config.Config{})
+
+	dir := t.TempDir()
+	oldPath := filepath.Join(dir, "old.txt")
+	newPath := filepath.Join(dir, "new.txt")
+	if err := os.WriteFile(oldPath, []byte("hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Rename(oldPath, newPath); err != nil {
+		t.Fatalf("Rename(%q, %q) error = %v, want nil", oldPath, newPath, err)
 	}
 }

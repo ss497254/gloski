@@ -1,4 +1,4 @@
-package agents
+package jobs
 
 import (
 	"bytes"
@@ -10,17 +10,14 @@ import (
 	"github.com/ss497254/gloski/internal/database"
 )
 
-func TestJobStoreLifecycle(t *testing.T) {
+func TestStoreLifecycle(t *testing.T) {
 	db, err := database.Open(filepath.Join(t.TempDir(), "master.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
 
-	store, err := NewJobStore(db)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := NewStore(db)
 
 	job, err := store.Create("device-1", "echo hello", "")
 	if err != nil {
@@ -61,16 +58,13 @@ func TestJobStoreLifecycle(t *testing.T) {
 	}
 }
 
-func TestJobStoreTerminalStates(t *testing.T) {
+func TestStoreTerminalStates(t *testing.T) {
 	db, err := database.Open(filepath.Join(t.TempDir(), "master.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	store, err := NewJobStore(db)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := NewStore(db)
 	status := func(id string) string {
 		job, err := store.Get(id)
 		if err != nil {
@@ -138,16 +132,13 @@ func TestJobStoreTerminalStates(t *testing.T) {
 	}
 }
 
-func TestJobStoreLogCap(t *testing.T) {
+func TestStoreLogCap(t *testing.T) {
 	db, err := database.Open(filepath.Join(t.TempDir(), "master.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	store, err := NewJobStore(db)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := NewStore(db)
 	job, err := store.Create("device-1", "chatty task", "")
 	if err != nil {
 		t.Fatal(err)
@@ -189,16 +180,13 @@ func TestJobStoreLogCap(t *testing.T) {
 	}
 }
 
-func TestJobStorePruneFinished(t *testing.T) {
+func TestStorePruneFinished(t *testing.T) {
 	db, err := database.Open(filepath.Join(t.TempDir(), "master.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	store, err := NewJobStore(db)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := NewStore(db)
 
 	create := func(command string, finish bool) *Job {
 		t.Helper()
@@ -250,7 +238,7 @@ func TestJobStorePruneFinished(t *testing.T) {
 	}
 }
 
-func mustLogs(t *testing.T, store *JobStore, id string) []string {
+func mustLogs(t *testing.T, store *Store, id string) []string {
 	t.Helper()
 	logs, err := store.Logs(id)
 	if err != nil {
@@ -259,16 +247,13 @@ func mustLogs(t *testing.T, store *JobStore, id string) []string {
 	return logs
 }
 
-func TestJobStoreOutputSequencing(t *testing.T) {
+func TestStoreOutputSequencing(t *testing.T) {
 	db, err := database.Open(filepath.Join(t.TempDir(), "master.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	store, err := NewJobStore(db)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := NewStore(db)
 	job, err := store.Create("device-1", "long task", "")
 	if err != nil {
 		t.Fatal(err)

@@ -48,6 +48,8 @@ type Tower struct {
 	startedAt     time.Time
 	webDir        string
 	indexHTML     []byte
+	ctx           context.Context
+	cancel        context.CancelFunc
 	stop          chan struct{}
 	done          chan struct{}
 
@@ -59,9 +61,10 @@ type Tower struct {
 	localAgentProcess *localAgent
 	lifecycle         *lifecycle
 
-	// transfers holds file transfers the agent still has to answer on HTTP.
-	transfersMu sync.Mutex
-	transfers   map[string]*transfer
+	deviceAPI    *deviceHandlers
+	deployAPI    *deployHandlers
+	fleetAPI     *fleetHandlers
+	dashboardAPI *dashboardHandlers
 
 	checkStore  *checks.Store
 	actionStore *actions.Store
@@ -77,7 +80,6 @@ type Tower struct {
 	maintenanceMu      sync.Mutex
 	lastMaintenance    time.Time
 	lastMaintenanceErr error
-	runtimeSamples     []runtimeSample
 }
 
 // New opens the database and wires the HTTP API, gRPC listeners, and local agent.
@@ -106,9 +108,12 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		hostname = "gloski-tower"
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	metricStore := metrics.NewStore(db)
 	agentService, err := agents.New(db, fleetSvc, metricStore, version, cfg.Master.HeartbeatInterval)
 	if err != nil {
+		cancel()
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize agent service: %w", err)
 	}
@@ -141,14 +146,61 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 		version:         version,
 		name:            hostname,
 		startedAt:       time.Now().UTC(),
+		ctx:             ctx,
+		cancel:          cancel,
 		stop:            make(chan struct{}),
 		done:            make(chan struct{}),
 		agentService:    agentService,
 		agentGRPCServer: grpcServer,
-		transfers:       make(map[string]*transfer),
 		checkStore:      checks.NewStore(db),
 		actionStore:     actions.NewStore(db),
 		metricStore:     metricStore,
+	}
+	t.deviceAPI = &deviceHandlers{
+		agentService: agentService,
+		fleetSvc:     fleetSvc,
+		metricStore:  metricStore,
+		transfers:    make(map[string]*transfer),
+		touchStats:   t.touchStatsAccess,
+	}
+	t.deployAPI = &deployHandlers{
+		fleetSvc:      fleetSvc,
+		installer:     t.installer,
+		actionStore:   t.actionStore,
+		tailnetClient: t.tailnetClient,
+		agentService:  agentService,
+		dist:          dist,
+		agentBinary:   agentBinary,
+		agentGRPCURL:  t.agentGRPCURL,
+		ctx:           ctx,
+	}
+	t.fleetAPI = &fleetHandlers{
+		name:          hostname,
+		version:       version,
+		startedAt:     t.startedAt,
+		port:          cfg.Port,
+		fleetSvc:      fleetSvc,
+		fleetEvents:   t.fleetEvents,
+		agentService:  agentService,
+		installer:     t.installer,
+		dist:          dist,
+		tailnetClient: t.tailnetClient,
+		hasLocalAgent: func() bool { return t.localAgentProcess != nil },
+		deviceTarget:  t.deviceTarget,
+		ctx:           ctx,
+	}
+	t.dashboardAPI = &dashboardHandlers{
+		fleetSvc:     fleetSvc,
+		agentService: agentService,
+		checkStore:   func() *checks.Store { return t.checkStore },
+		startedAt:    t.startedAt,
+		touchStats:   t.touchStatsAccess,
+		dataDir:      cfg.DataDir,
+		masterDBPath: cfg.MasterDBPath(),
+		db:           db,
+		dist:         dist,
+		maintenance:  t.maintenanceState,
+		ctx:          ctx,
 	}
 
 	if definitions := probeDefinitions(cfg.Probes); len(definitions) > 0 {
@@ -157,7 +209,7 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 			if !t.probesActive() {
 				return
 			}
-			runner.run(context.Background(), deviceID, t.checkStore)
+			runner.run(t.ctx, deviceID, t.checkStore)
 		})
 	}
 
@@ -179,6 +231,7 @@ func New(cfg *config.Config, version string) (*Tower, error) {
 	go t.fleetLoop()
 	go t.maintenanceLoop()
 	t.lifecycle = newLifecycle(t)
+	t.deployAPI.lifecycle = t.lifecycle
 	go t.lifecycle.loop()
 	t.router = t.routes()
 	t.startAgentTransport(cfg)
@@ -199,6 +252,9 @@ func (t *Tower) JoinToken() string {
 
 // Close releases master resources.
 func (t *Tower) Close() error {
+	if t.cancel != nil {
+		t.cancel()
+	}
 	close(t.stop)
 	<-t.done
 	if t.localAgentProcess != nil {

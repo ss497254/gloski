@@ -20,11 +20,11 @@ const (
 	resizeFrame = 0x01
 )
 
-func (t *Tower) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 	deviceID := r.PathValue("id")
 	// Fail with a normal HTTP error while that is still possible; after the
 	// upgrade the response belongs to the WebSocket.
-	if !t.agentService.Connected(deviceID) {
+	if !d.agentService.Connected(deviceID) {
 		writeAgentError(w, agents.ErrNoAgent)
 		return
 	}
@@ -37,12 +37,12 @@ func (t *Tower) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer connection.Close()
 
-	output, id, err := t.agentService.OpenTerminal(deviceID, query.Get("cwd"), cols, rows)
+	output, id, err := d.agentService.OpenTerminal(deviceID, query.Get("cwd"), cols, rows)
 	if err != nil {
 		closeTerminalSocket(connection, websocket.CloseTryAgainLater, "agent is not connected")
 		return
 	}
-	defer func() { _ = t.agentService.CloseTerminal(deviceID, id) }()
+	defer func() { _ = d.agentService.CloseTerminal(deviceID, id) }()
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -90,9 +90,9 @@ func (t *Tower) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 		if messageType == websocket.BinaryMessage && len(message) == 5 && message[0] == resizeFrame {
 			cols := uint32(message[1])<<8 | uint32(message[2])
 			rows := uint32(message[3])<<8 | uint32(message[4])
-			err = t.agentService.ResizeTerminal(deviceID, id, cols, rows)
+			err = d.agentService.ResizeTerminal(deviceID, id, cols, rows)
 		} else {
-			err = t.agentService.TerminalInput(deviceID, id, message)
+			err = d.agentService.TerminalInput(deviceID, id, message)
 		}
 		if err != nil {
 			logger.Warn("Terminal input failed for %s: %v", deviceID, err)

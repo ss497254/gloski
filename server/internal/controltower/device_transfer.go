@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ss497254/gloski/internal/httpapi"
-	"github.com/ss497254/gloski/proto/agentv1"
 )
 
 // maxUploadBytes bounds a single upload.
@@ -33,7 +32,7 @@ var inlineTypes = map[string]string{
 // io.ReadSeeker so http.ServeContent can serve ranges, which is what lets a
 // video seek without fetching the whole file.
 type agentFile struct {
-	tower    *Tower
+	handlers *deviceHandlers
 	deviceID string
 	path     string
 	size     int64
@@ -49,7 +48,7 @@ func (f *agentFile) Read(buffer []byte) (int, error) {
 		return 0, io.EOF
 	}
 	if f.current == nil {
-		tr, err := f.tower.startDownload(f.deviceID, f.path, f.offset, f.size-f.offset)
+		tr, err := f.handlers.startDownload(f.deviceID, f.path, f.offset, f.size-f.offset)
 		if err != nil {
 			return 0, err
 		}
@@ -97,10 +96,10 @@ func (f *agentFile) closeCurrent() {
 	}
 }
 
-func (t *Tower) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	deviceID := r.PathValue("id")
 	path := r.URL.Query().Get("path")
-	stat := t.performFile(r.Context(), w, deviceID, &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_STAT, Path: path})
+	stat := d.performFile(r.Context(), w, deviceID, fileStatRequest(path))
 	if stat == nil {
 		return
 	}
@@ -117,14 +116,14 @@ func (t *Tower) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
 	}
-	file := &agentFile{tower: t, deviceID: deviceID, path: path, size: stat.GetSize()}
+	file := &agentFile{handlers: d, deviceID: deviceID, path: path, size: stat.GetSize()}
 	defer file.Close()
 	http.ServeContent(w, r, name, time.Unix(stat.GetModTimeUnix(), 0), file)
 }
 
 // handleUploadFile streams a multipart upload to the device. The body is never
 // buffered whole, in memory or on the master's disk.
-func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
 	reader, err := r.MultipartReader()
 	if err != nil {
@@ -166,7 +165,7 @@ func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			target := strings.TrimRight(destination, "/") + "/" + name
-			t.uploadToDevice(w, r, deviceID, target, part)
+			d.uploadToDevice(w, r, deviceID, target, part)
 			return
 		}
 	}
@@ -174,8 +173,8 @@ func (t *Tower) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 
 // uploadToDevice feeds one browser file part to the device and waits for the
 // device to confirm that it wrote the file.
-func (t *Tower) uploadToDevice(w http.ResponseWriter, r *http.Request, deviceID, path string, content io.Reader) {
-	tr, err := t.startUpload(deviceID, path)
+func (d *deviceHandlers) uploadToDevice(w http.ResponseWriter, r *http.Request, deviceID, path string, content io.Reader) {
+	tr, err := d.startUpload(deviceID, path)
 	if err != nil {
 		writeAgentError(w, err)
 		return

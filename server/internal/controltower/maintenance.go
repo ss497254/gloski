@@ -1,11 +1,10 @@
 package controltower
 
 import (
-	"context"
 	"time"
 
 	"github.com/ss497254/gloski/internal/checks"
-	"github.com/ss497254/gloski/internal/controltower/agents"
+	"github.com/ss497254/gloski/internal/jobs"
 	"github.com/ss497254/gloski/internal/logger"
 )
 
@@ -35,21 +34,21 @@ func (t *Tower) maintenanceLoop() {
 // must not repeat the work or report a guess about the last run.
 func (t *Tower) pruneJobs() {
 	err := func() error {
-		removed, err := t.agentService.PruneJobs(agents.JobRetention)
+		removed, err := t.agentService.PruneJobs(jobs.JobRetention)
 		if err != nil {
 			return err
 		}
 		if removed > 0 {
-			logger.Info("Deleted %d jobs finished more than %s ago", removed, agents.JobRetention)
+			logger.Info("Deleted %d jobs finished more than %s ago", removed, jobs.JobRetention)
 		}
-		pruned, err := t.checkStore.Prune(context.Background(), checks.HistoryLimit)
+		pruned, err := t.checkStore.Prune(t.ctx, checks.HistoryLimit)
 		if err != nil {
 			return err
 		}
 		if pruned > 0 {
 			logger.Info("Deleted %d old check results", pruned)
 		}
-		thinned, err := t.metricStore.Thin(context.Background(), time.Now())
+		thinned, err := t.metricStore.Thin(t.ctx, time.Now())
 		if err != nil {
 			return err
 		}

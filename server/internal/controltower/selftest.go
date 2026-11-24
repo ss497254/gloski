@@ -64,23 +64,23 @@ const (
 	selfTestTrendSize = 3
 )
 
-func (t *Tower) handleSelfTest(w http.ResponseWriter, r *http.Request) {
-	httpapi.SuccessWithMessage(w, t.selfTest(r.Context()))
+func (d *dashboardHandlers) handleSelfTest(w http.ResponseWriter, r *http.Request) {
+	httpapi.SuccessWithMessage(w, d.selfTest(r.Context()))
 }
 
 // selfTest walks the master's own health. It never changes configuration and
 // the only write is a probe file that is deleted in the same call.
-func (t *Tower) selfTest(ctx context.Context) selfTestResult {
+func (d *dashboardHandlers) selfTest(ctx context.Context) selfTestResult {
 	result := selfTestResult{Lines: []selfTestLine{}, GeneratedAt: time.Now().UTC()}
 	add := func(line selfTestLine) {
 		line.Section = selfTestSection(line.Key)
 		result.Lines = append(result.Lines, line)
 	}
 
-	t.selfTestDatabase(ctx, add)
-	t.selfTestDataDir(add)
-	t.selfTestJoinToken(add)
-	t.selfTestFreeSpace(add)
+	d.selfTestDatabase(ctx, add)
+	d.selfTestDataDir(add)
+	d.selfTestJoinToken(add)
+	d.selfTestFreeSpace(add)
 	add(selfTestLine{
 		Key:     "backups",
 		Title:   "Backups",
@@ -88,16 +88,16 @@ func (t *Tower) selfTest(ctx context.Context) selfTestResult {
 		Summary: "Backups are not configured yet.",
 		Detail:  "Nightly backups are a later roadmap step; there is nothing fresh to check.",
 	})
-	t.selfTestLocalAgent(add)
-	t.selfTestBuilds(add)
+	d.selfTestLocalAgent(add)
+	d.selfTestBuilds(add)
 	add(selfTestLine{
 		Key:     "log",
 		Title:   "Log",
 		Status:  diagSkipped,
 		Summary: "Logs go to stdout; the supervisor owns them.",
 	})
-	t.selfTestMaintenance(add)
-	t.selfTestRuntime(add)
+	d.selfTestMaintenance(add)
+	d.selfTestRuntime(add)
 
 	result.Status = selfTestStatus(result.Lines)
 	return result
@@ -118,8 +118,8 @@ func selfTestStatus(lines []selfTestLine) string {
 	return status
 }
 
-func (t *Tower) selfTestDatabase(ctx context.Context, add func(selfTestLine)) {
-	db := t.db.DB()
+func (d *dashboardHandlers) selfTestDatabase(ctx context.Context, add func(selfTestLine)) {
+	db := d.db.DB()
 	var quick string
 	quickErr := db.QueryRowContext(ctx, "PRAGMA quick_check").Scan(&quick)
 	var version int
@@ -163,7 +163,7 @@ func (t *Tower) selfTestDatabase(ctx context.Context, add func(selfTestLine)) {
 		})
 	}
 
-	path := t.cfg.MasterDBPath()
+	path := d.masterDBPath
 	dbFile, dbErr := os.Stat(path)
 	walFile, walErr := os.Stat(path + "-wal")
 	if dbErr != nil && walErr != nil {
@@ -182,8 +182,8 @@ func (t *Tower) selfTestDatabase(ctx context.Context, add func(selfTestLine)) {
 	})
 }
 
-func (t *Tower) selfTestDataDir(add func(selfTestLine)) {
-	probe, err := os.CreateTemp(t.cfg.DataDir, "selftest-*")
+func (d *dashboardHandlers) selfTestDataDir(add func(selfTestLine)) {
+	probe, err := os.CreateTemp(d.dataDir, "selftest-*")
 	if err != nil {
 		add(selfTestLine{
 			Key: "data-dir", Title: "Data directory", Status: diagCritical,
@@ -211,8 +211,8 @@ func (t *Tower) selfTestDataDir(add func(selfTestLine)) {
 	})
 }
 
-func (t *Tower) selfTestJoinToken(add func(selfTestLine)) {
-	path := filepath.Join(t.cfg.DataDir, "master-join-token")
+func (d *dashboardHandlers) selfTestJoinToken(add func(selfTestLine)) {
+	path := filepath.Join(d.dataDir, "master-join-token")
 	info, err := os.Stat(path)
 	switch {
 	case os.IsNotExist(err):
@@ -247,9 +247,9 @@ func (t *Tower) selfTestJoinToken(add func(selfTestLine)) {
 	}
 }
 
-func (t *Tower) selfTestFreeSpace(add func(selfTestLine)) {
+func (d *dashboardHandlers) selfTestFreeSpace(add func(selfTestLine)) {
 	var stat system.StatFS
-	if err := system.Statfs(t.cfg.DataDir, &stat); err != nil {
+	if err := system.Statfs(d.dataDir, &stat); err != nil {
 		add(selfTestLine{
 			Key: "free-space", Title: "Free space", Status: diagSkipped,
 			Summary: "Free space on the data directory could not be read.",
@@ -270,8 +270,8 @@ func (t *Tower) selfTestFreeSpace(add func(selfTestLine)) {
 	})
 }
 
-func (t *Tower) selfTestLocalAgent(add func(selfTestLine)) {
-	devices, err := t.fleetSvc.List()
+func (d *dashboardHandlers) selfTestLocalAgent(add func(selfTestLine)) {
+	devices, err := d.fleetSvc.List()
 	if err != nil {
 		add(selfTestLine{
 			Key: "local-agent", Title: "Master agent", Status: diagWarning,
@@ -294,7 +294,7 @@ func (t *Tower) selfTestLocalAgent(add func(selfTestLine)) {
 		})
 		return
 	}
-	if !t.agentService.Connected(masterID) {
+	if !d.agentService.Connected(masterID) {
 		add(selfTestLine{
 			Key: "local-agent", Title: "Master agent", Status: diagCritical,
 			Summary: "The master's own agent has no live session.",
@@ -302,7 +302,7 @@ func (t *Tower) selfTestLocalAgent(add func(selfTestLine)) {
 		})
 		return
 	}
-	arch, hash, _ := t.agentService.Build(masterID)
+	arch, hash, _ := d.agentService.Build(masterID)
 	if arch == "" || hash == "" {
 		add(selfTestLine{
 			Key: "local-agent", Title: "Master agent", Status: diagWarning,
@@ -310,7 +310,7 @@ func (t *Tower) selfTestLocalAgent(add func(selfTestLine)) {
 		})
 		return
 	}
-	build := t.dist.Build(arch)
+	build := d.dist.Build(arch)
 	if build == nil {
 		add(selfTestLine{
 			Key: "local-agent", Title: "Master agent", Status: diagWarning,
@@ -331,9 +331,9 @@ func (t *Tower) selfTestLocalAgent(add func(selfTestLine)) {
 	})
 }
 
-func (t *Tower) selfTestBuilds(add func(selfTestLine)) {
+func (d *dashboardHandlers) selfTestBuilds(add func(selfTestLine)) {
 	available := make(map[string]bool)
-	for _, arch := range t.dist.Builds() {
+	for _, arch := range d.dist.Builds() {
 		available[arch] = true
 	}
 	missing := []string{}
@@ -356,8 +356,8 @@ func (t *Tower) selfTestBuilds(add func(selfTestLine)) {
 	})
 }
 
-func (t *Tower) selfTestMaintenance(add func(selfTestLine)) {
-	last, err := t.maintenanceState()
+func (d *dashboardHandlers) selfTestMaintenance(add func(selfTestLine)) {
+	last, err := d.maintenance()
 	switch {
 	case last.IsZero():
 		add(selfTestLine{
@@ -378,19 +378,19 @@ func (t *Tower) selfTestMaintenance(add func(selfTestLine)) {
 	}
 }
 
-func (t *Tower) selfTestRuntime(add func(selfTestLine)) {
+func (d *dashboardHandlers) selfTestRuntime(add func(selfTestLine)) {
 	sample := runtimeSample{At: time.Now().UTC(), Goroutines: runtime.NumGoroutine()}
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 	sample.HeapMiB = mem.HeapAlloc >> 20
 
-	t.maintenanceMu.Lock()
-	t.runtimeSamples = append(t.runtimeSamples, sample)
-	if len(t.runtimeSamples) > selfTestTrendSize {
-		t.runtimeSamples = append([]runtimeSample{}, t.runtimeSamples[len(t.runtimeSamples)-selfTestTrendSize:]...)
+	d.samplesMu.Lock()
+	d.runtimeSamples = append(d.runtimeSamples, sample)
+	if len(d.runtimeSamples) > selfTestTrendSize {
+		d.runtimeSamples = append([]runtimeSample{}, d.runtimeSamples[len(d.runtimeSamples)-selfTestTrendSize:]...)
 	}
-	samples := append([]runtimeSample{}, t.runtimeSamples...)
-	t.maintenanceMu.Unlock()
+	samples := append([]runtimeSample{}, d.runtimeSamples...)
+	d.samplesMu.Unlock()
 
 	detail := make([]string, 0, len(samples))
 	for _, point := range samples {
@@ -402,6 +402,10 @@ func (t *Tower) selfTestRuntime(add func(selfTestLine)) {
 		Summary: fmt.Sprintf("%d goroutines, %d MiB heap.", sample.Goroutines, sample.HeapMiB),
 		Detail:  strings.Join(detail, "\n"),
 	})
+}
+
+func (t *Tower) selfTest(ctx context.Context) selfTestResult {
+	return t.dashboardAPI.selfTest(ctx)
 }
 
 // trend needs three points before it says anything, so one stray spike does

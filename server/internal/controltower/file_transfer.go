@@ -55,7 +55,7 @@ func (tr *transfer) wait() error {
 }
 
 // beginTransfer registers a one-time transfer and asks the device to run it.
-func (t *Tower) beginTransfer(deviceID string, request *agentv1.FileTransfer) (*transfer, error) {
+func (d *deviceHandlers) beginTransfer(deviceID string, request *agentv1.FileTransfer) (*transfer, error) {
 	request.TransferId = uuid.NewString()
 	reader, writer := io.Pipe()
 	tr := &transfer{
@@ -66,45 +66,45 @@ func (t *Tower) beginTransfer(deviceID string, request *agentv1.FileTransfer) (*
 		done:      make(chan struct{}),
 	}
 
-	t.transfersMu.Lock()
-	if t.transfers == nil {
-		t.transfers = make(map[string]*transfer)
+	d.transfersMu.Lock()
+	if d.transfers == nil {
+		d.transfers = make(map[string]*transfer)
 	}
-	t.transfers[tr.id] = tr
-	t.transfersMu.Unlock()
+	d.transfers[tr.id] = tr
+	d.transfersMu.Unlock()
 
-	result, err := t.agentService.StartTransfer(deviceID, request)
+	result, err := d.agentService.StartTransfer(deviceID, request)
 	if err != nil {
-		t.dropTransfer(tr.id)
+		d.dropTransfer(tr.id)
 		tr.complete(err)
 		return nil, err
 	}
 	go func() {
 		tr.complete(<-result)
-		t.dropTransfer(tr.id)
+		d.dropTransfer(tr.id)
 	}()
 	return tr, nil
 }
 
 // takeTransfer removes a transfer from the registry: an id is used once.
-func (t *Tower) takeTransfer(id string) *transfer {
-	t.transfersMu.Lock()
-	defer t.transfersMu.Unlock()
-	tr := t.transfers[id]
-	delete(t.transfers, id)
+func (d *deviceHandlers) takeTransfer(id string) *transfer {
+	d.transfersMu.Lock()
+	defer d.transfersMu.Unlock()
+	tr := d.transfers[id]
+	delete(d.transfers, id)
 	return tr
 }
 
-func (t *Tower) dropTransfer(id string) {
-	t.transfersMu.Lock()
-	delete(t.transfers, id)
-	t.transfersMu.Unlock()
+func (d *deviceHandlers) dropTransfer(id string) {
+	d.transfersMu.Lock()
+	delete(d.transfers, id)
+	d.transfersMu.Unlock()
 }
 
 // handleAgentTransfer carries the bytes of one transfer. The agent is always
 // the HTTP client: it posts a download or fetches an upload.
-func (t *Tower) handleAgentTransfer(w http.ResponseWriter, r *http.Request) {
-	tr := t.takeTransfer(r.PathValue("id"))
+func (d *deviceHandlers) handleAgentTransfer(w http.ResponseWriter, r *http.Request) {
+	tr := d.takeTransfer(r.PathValue("id"))
 	if tr == nil {
 		http.NotFound(w, r)
 		return
@@ -132,8 +132,8 @@ func (t *Tower) handleAgentTransfer(w http.ResponseWriter, r *http.Request) {
 }
 
 // startDownload asks the agent to send a file range to the master.
-func (t *Tower) startDownload(deviceID, path string, offset, length int64) (*transfer, error) {
-	return t.beginTransfer(deviceID, &agentv1.FileTransfer{
+func (d *deviceHandlers) startDownload(deviceID, path string, offset, length int64) (*transfer, error) {
+	return d.beginTransfer(deviceID, &agentv1.FileTransfer{
 		Direction: agentv1.FileTransferDirection_FILE_TRANSFER_DIRECTION_DOWNLOAD,
 		Path:      path,
 		Offset:    offset,
@@ -142,8 +142,8 @@ func (t *Tower) startDownload(deviceID, path string, offset, length int64) (*tra
 }
 
 // startUpload asks the agent to fetch a file from the master.
-func (t *Tower) startUpload(deviceID, path string) (*transfer, error) {
-	return t.beginTransfer(deviceID, &agentv1.FileTransfer{
+func (d *deviceHandlers) startUpload(deviceID, path string) (*transfer, error) {
+	return d.beginTransfer(deviceID, &agentv1.FileTransfer{
 		Direction: agentv1.FileTransferDirection_FILE_TRANSFER_DIRECTION_UPLOAD,
 		Path:      path,
 	})

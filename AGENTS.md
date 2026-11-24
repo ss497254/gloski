@@ -91,9 +91,8 @@ These came from the owner directly. Follow them unless told otherwise.
 The docs map is written: glossary, HTTP API reference, data model,
 where-to-change-what, and a `CONTRIBUTING.md` that matches the main-only
 workflow. The files service is split by operation, worker file handling lives in
-`agent_files.go`, and delete and rename share one protected-path list. Delete
-refuses whole trees (except `/tmp`); Rename refuses only the roots, so renames
-inside system directories stay legal.
+`agent_files.go`, and delete and rename share one protected-path tree check:
+both refuse a protected root and anything below it, except under `/tmp`.
 
 File contents no longer travel on the gRPC stream. A download or upload sends a
 `FileTransfer` with a one-time id, and the agent makes one HTTP request to

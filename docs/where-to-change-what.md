@@ -51,14 +51,12 @@ The browser never talks to an agent directly. A command crosses the gRPC stream.
 ## Change the database schema
 
 1. Add a migration to `server/internal/database/migrations.go`. Versions are
-   integers and must only increase; never edit an applied one.
-2. Job tables are the exception: they are created at runtime by
-   `agents.NewJobStore`. Change both that startup path and, when needed, a
-   migration for existing databases.
-3. Update the store methods in `server/internal/fleet/` or
-   `server/internal/controltower/agents/jobs.go`.
-4. Update [data-model.md](data-model.md).
-5. Test on a fresh database file and on a copy of an existing one.
+   integers and must only increase; never edit an applied one. All tables
+   including job tables are tracked by schema migrations.
+2. Update the store methods in `server/internal/fleet/` or
+   `server/internal/jobs/store.go`.
+3. Update [data-model.md](data-model.md).
+4. Test on a fresh database file and on a copy of an existing one.
 
 ## Add a config setting
 
@@ -82,7 +80,7 @@ The browser never talks to an agent directly. A command crosses the gRPC stream.
 
 ## Add or change a job status
 
-1. Add the constant in `server/internal/controltower/agents/jobs.go`.
+1. Add the constant in `server/internal/jobs/store.go`.
 2. Update the transitions in `MarkRunning`, `Finish`, `AbandonMissing`,
    `Abandon`, and the queries that filter by status.
 3. Update the frontend badge and filters in `web/src/features/jobs/`.
@@ -98,6 +96,7 @@ The browser never talks to an agent directly. A command crosses the gRPC stream.
 | SQLite tables and statuses | [data-model.md](data-model.md) |
 | The master's browser API and lifecycle | `server/internal/controltower/` |
 | The master half of the gRPC stream | `server/internal/controltower/agents/` |
+| Master-owned jobs and streamed logs | `server/internal/jobs/` |
 | Device-side jobs, files, terminal | `server/internal/worker/` |
 | Devices, deployments, fleet events | `server/internal/fleet/` |
 | SSH install and uninstall | `server/internal/provisioning/` (config merge), `server/internal/agentdist/install-agent.sh` (phases, staging, rollback) |

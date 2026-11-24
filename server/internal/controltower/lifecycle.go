@@ -139,7 +139,7 @@ func (l *lifecycle) install(deployment *fleet.Deployment, force, automatic bool)
 	if timeout <= 0 {
 		timeout = 120 * time.Second
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(t.ctx, timeout)
 	defer cancel()
 
 	result, err := t.installer.Install(ctx, t.deploymentTarget(deployment), force)

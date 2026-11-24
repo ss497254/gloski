@@ -38,9 +38,9 @@ func decodeJSON[T any](w http.ResponseWriter, r *http.Request, maxBytes int64) (
 	return value, true
 }
 
-func (t *Tower) handleDeviceStats(w http.ResponseWriter, r *http.Request) {
-	t.touchStatsAccess()
-	device, err := t.fleetSvc.Get(r.PathValue("id"))
+func (d *deviceHandlers) handleDeviceStats(w http.ResponseWriter, r *http.Request) {
+	d.touchStats()
+	device, err := d.fleetSvc.Get(r.PathValue("id"))
 	if err != nil {
 		httpapi.NotFound(w, "device not found")
 		return
@@ -48,10 +48,10 @@ func (t *Tower) handleDeviceStats(w http.ResponseWriter, r *http.Request) {
 	httpapi.Success(w, device.Stats)
 }
 
-func (t *Tower) handleDeviceStatsWS(w http.ResponseWriter, r *http.Request) {
-	t.touchStatsAccess()
+func (d *deviceHandlers) handleDeviceStatsWS(w http.ResponseWriter, r *http.Request) {
+	d.touchStats()
 	deviceID := r.PathValue("id")
-	if _, err := t.fleetSvc.Get(deviceID); err != nil {
+	if _, err := d.fleetSvc.Get(deviceID); err != nil {
 		httpapi.NotFound(w, "device not found")
 		return
 	}
@@ -64,8 +64,8 @@ func (t *Tower) handleDeviceStatsWS(w http.ResponseWriter, r *http.Request) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
-		t.touchStatsAccess()
-		device, err := t.fleetSvc.Get(deviceID)
+		d.touchStats()
+		device, err := d.fleetSvc.Get(deviceID)
 		if err != nil {
 			return
 		}
@@ -86,12 +86,12 @@ func (t *Tower) handleDeviceStatsWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (t *Tower) handleDeviceProcesses(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleDeviceProcesses(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 {
 		limit = 20
 	}
-	raw, err := t.agentService.Processes(r.Context(), r.PathValue("id"), limit, r.URL.Query().Get("sort"))
+	raw, err := d.agentService.Processes(r.Context(), r.PathValue("id"), limit, r.URL.Query().Get("sort"))
 	if err != nil {
 		writeAgentError(w, err)
 		return

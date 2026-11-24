@@ -1,4 +1,5 @@
-package agents
+// Package jobs persists master-owned tasks, statuses, and streamed logs.
+package jobs
 
 import (
 	"bytes"
@@ -44,18 +45,18 @@ type Job struct {
 	FinishedAt time.Time `json:"finished_at,omitempty"`
 }
 
-// JobStore persists jobs and their streamed logs in the master database.
-type JobStore struct {
+// Store persists jobs and their streamed logs in the master database.
+type Store struct {
 	db *sql.DB
 }
 
-// NewJobStore creates the master-side job store after database migrations run.
-func NewJobStore(db *database.Database) *JobStore {
-	return &JobStore{db: db.DB()}
+// NewStore creates the master-side job store after database migrations run.
+func NewStore(db *database.Database) *Store {
+	return &Store{db: db.DB()}
 }
 
 // Create stores a new pending job.
-func (t *JobStore) Create(deviceID, command, cwd string) (*Job, error) {
+func (t *Store) Create(deviceID, command, cwd string) (*Job, error) {
 	job := &Job{
 		ID:        uuid.NewString(),
 		DeviceID:  deviceID,
@@ -74,7 +75,7 @@ func (t *JobStore) Create(deviceID, command, cwd string) (*Job, error) {
 }
 
 // MarkRunning transitions a job to running.
-func (t *JobStore) MarkRunning(id string) error {
+func (t *Store) MarkRunning(id string) error {
 	_, err := t.db.Exec(`UPDATE agent_jobs SET status = ?, started_at = ? WHERE id = ?`, JobRunning, time.Now().UTC(), id)
 	return err
 }
@@ -85,7 +86,7 @@ const gapNotice = "\n[gloski: some output was lost while the agent was disconnec
 // AppendLog stores one streamed output chunk. seq orders a job's chunks:
 // one already stored is dropped (a replay after reconnect), and a jump is
 // recorded as a gap. seq 0 means the agent does not number its output.
-func (t *JobStore) AppendLog(id string, seq uint64, chunk []byte, stderr bool) error {
+func (t *Store) AppendLog(id string, seq uint64, chunk []byte, stderr bool) error {
 	if len(chunk) == 0 {
 		return nil
 	}
@@ -154,7 +155,7 @@ func appendChunk(tx *sql.Tx, id string, chunk []byte, stderr bool, now time.Time
 
 // Resume reports how to pick up a job an agent says it still holds: the
 // newest chunk stored, and whether the master is still waiting on the job.
-func (t *JobStore) Resume(deviceID, id string) (ackedSeq uint64, active bool) {
+func (t *Store) Resume(deviceID, id string) (ackedSeq uint64, active bool) {
 	var status string
 	err := t.db.QueryRow(`SELECT last_seq, status FROM agent_jobs WHERE id = ? AND device_id = ?`, id, deviceID).Scan(&ackedSeq, &status)
 	if err != nil {
@@ -166,7 +167,7 @@ func (t *JobStore) Resume(deviceID, id string) (ackedSeq uint64, active bool) {
 // AbandonMissing marks a device's unfinished jobs as abandoned unless the
 // agent still holds them. It is the reckoning after a reconnect: a job the
 // agent no longer knows about died with a previous agent process.
-func (t *JobStore) AbandonMissing(deviceID string, held map[string]bool, reason string) error {
+func (t *Store) AbandonMissing(deviceID string, held map[string]bool, reason string) error {
 	rows, err := t.db.Query(`SELECT id FROM agent_jobs WHERE device_id = ? AND status IN (?, ?)`, deviceID, JobPending, JobRunning)
 	if err != nil {
 		return err
@@ -195,7 +196,7 @@ func (t *JobStore) AbandonMissing(deviceID string, held map[string]bool, reason 
 }
 
 // Abandon gives up on one unfinished job.
-func (t *JobStore) Abandon(id, reason string) error {
+func (t *Store) Abandon(id, reason string) error {
 	_, err := t.db.Exec(`
 		UPDATE agent_jobs SET status = ?, error = ?, finished_at = ?
 		WHERE id = ? AND status IN (?, ?)`,
@@ -204,7 +205,7 @@ func (t *JobStore) Abandon(id, reason string) error {
 }
 
 // Logs returns the complete log as lines.
-func (t *JobStore) Logs(id string) ([]string, error) {
+func (t *Store) Logs(id string) ([]string, error) {
 	rows, err := t.db.Query(`SELECT chunk FROM agent_job_logs WHERE job_id = ? ORDER BY id ASC`, id)
 	if err != nil {
 		return nil, err
@@ -236,7 +237,7 @@ func (t *JobStore) Logs(id string) ([]string, error) {
 // Finish records a job's terminal result. stopped marks a job the user
 // cancelled. A job that already reached a terminal state is left alone, so a
 // late result cannot overwrite it.
-func (t *JobStore) Finish(id string, exitCode int, errMsg string, stopped bool) error {
+func (t *Store) Finish(id string, exitCode int, errMsg string, stopped bool) error {
 	status := JobFinished
 	switch {
 	case stopped:
@@ -254,7 +255,7 @@ func (t *JobStore) Finish(id string, exitCode int, errMsg string, stopped bool) 
 
 // PruneFinished deletes terminal jobs older than cutoff along with their
 // logs. Running and pending jobs are never touched.
-func (t *JobStore) PruneFinished(cutoff time.Time) (int64, error) {
+func (t *Store) PruneFinished(cutoff time.Time) (int64, error) {
 	if _, err := t.db.Exec(`
 		DELETE FROM agent_job_logs WHERE job_id IN (
 			SELECT id FROM agent_jobs
@@ -273,7 +274,7 @@ func (t *JobStore) PruneFinished(cutoff time.Time) (int64, error) {
 }
 
 // DeleteDevice removes every job and log belonging to a device.
-func (t *JobStore) DeleteDevice(deviceID string) error {
+func (t *Store) DeleteDevice(deviceID string) error {
 	if _, err := t.db.Exec(`
 		DELETE FROM agent_job_logs
 		WHERE job_id IN (SELECT id FROM agent_jobs WHERE device_id = ?)`, deviceID); err != nil {
@@ -305,7 +306,7 @@ func scanJob(row jobScanner) (*Job, error) {
 }
 
 // List returns jobs for a device, newest first.
-func (t *JobStore) List(deviceID string) ([]Job, error) {
+func (t *Store) List(deviceID string) ([]Job, error) {
 	rows, err := t.db.Query(`
 		SELECT `+jobColumns+`
 		FROM agent_jobs WHERE device_id = ? ORDER BY created_at DESC LIMIT 200`, deviceID)
@@ -326,7 +327,7 @@ func (t *JobStore) List(deviceID string) ([]Job, error) {
 }
 
 // Get returns one job.
-func (t *JobStore) Get(id string) (*Job, error) {
+func (t *Store) Get(id string) (*Job, error) {
 	row := t.db.QueryRow(`
 		SELECT `+jobColumns+`
 		FROM agent_jobs WHERE id = ?`, id)
@@ -334,7 +335,7 @@ func (t *JobStore) Get(id string) (*Job, error) {
 }
 
 // Recent returns the newest jobs across all fleet.
-func (t *JobStore) Recent(limit int) ([]Job, error) {
+func (t *Store) Recent(limit int) ([]Job, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -360,7 +361,7 @@ func (t *JobStore) Recent(limit int) ([]Job, error) {
 // ProblemCountsByDevice counts failed and abandoned jobs per device without
 // the fleet-wide limit used by ProblemJobs. The matrix needs every device's
 // count, not just the ten newest problems in the fleet.
-func (t *JobStore) ProblemCountsByDevice(ctx context.Context) (map[string]int, error) {
+func (t *Store) ProblemCountsByDevice(ctx context.Context) (map[string]int, error) {
 	rows, err := t.db.QueryContext(ctx, `
 		SELECT device_id, COUNT(*) FROM agent_jobs
 		WHERE status IN (?, ?) GROUP BY device_id`, JobFailed, JobAbandoned)
@@ -382,7 +383,7 @@ func (t *JobStore) ProblemCountsByDevice(ctx context.Context) (map[string]int, e
 }
 
 // ProblemJobs returns failed or abandoned jobs across all fleet.
-func (t *JobStore) ProblemJobs(limit int) ([]Job, error) {
+func (t *Store) ProblemJobs(limit int) ([]Job, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -407,7 +408,7 @@ func (t *JobStore) ProblemJobs(limit int) ([]Job, error) {
 }
 
 // Delete removes a job and its logs.
-func (t *JobStore) Delete(id string) error {
+func (t *Store) Delete(id string) error {
 	if _, err := t.db.Exec(`DELETE FROM agent_job_logs WHERE job_id = ?`, id); err != nil {
 		return err
 	}
@@ -460,7 +461,7 @@ func nullable(value string) interface{} {
 }
 
 // Active counts a device's jobs that are still pending or running.
-func (t *JobStore) Active(deviceID string) int {
+func (t *Store) Active(deviceID string) int {
 	var count int
 	_ = t.db.QueryRow(`
 		SELECT COUNT(*) FROM agent_jobs

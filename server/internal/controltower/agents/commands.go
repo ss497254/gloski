@@ -8,12 +8,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ss497254/gloski/internal/checks"
+	"github.com/ss497254/gloski/internal/jobs"
 	"github.com/ss497254/gloski/proto/agentv1"
 )
 
 // RunJob stores a pending job, marks it running and sends it to the device. A
 // send failure is recorded as a failed job.
-func (svc *Service) RunJob(deviceID, command, cwd string) (*Job, error) {
+func (svc *Service) RunJob(deviceID, command, cwd string) (*jobs.Job, error) {
 	conn, err := svc.connection(deviceID)
 	if err != nil {
 		return nil, err
@@ -64,19 +65,19 @@ func (svc *Service) CancelJob(deviceID, jobID, reason string) error {
 }
 
 // ListJobs returns a device's jobs from the master database.
-func (svc *Service) ListJobs(deviceID string) ([]Job, error) { return svc.jobs.List(deviceID) }
+func (svc *Service) ListJobs(deviceID string) ([]jobs.Job, error) { return svc.jobs.List(deviceID) }
 
 // GetJob returns one job.
-func (svc *Service) GetJob(id string) (*Job, error) { return svc.jobs.Get(id) }
+func (svc *Service) GetJob(id string) (*jobs.Job, error) { return svc.jobs.Get(id) }
 
 // JobLogs returns a job's streamed output.
 func (svc *Service) JobLogs(id string) ([]string, error) { return svc.jobs.Logs(id) }
 
 // RecentJobs returns the latest jobs across all fleet.
-func (svc *Service) RecentJobs(limit int) ([]Job, error) { return svc.jobs.Recent(limit) }
+func (svc *Service) RecentJobs(limit int) ([]jobs.Job, error) { return svc.jobs.Recent(limit) }
 
 // ProblemJobs returns failed or abandoned jobs across all fleet.
-func (svc *Service) ProblemJobs(limit int) ([]Job, error) { return svc.jobs.ProblemJobs(limit) }
+func (svc *Service) ProblemJobs(limit int) ([]jobs.Job, error) { return svc.jobs.ProblemJobs(limit) }
 
 // ProblemCountsByDevice counts unfinished jobs for every device.
 func (svc *Service) ProblemCountsByDevice(ctx context.Context) (map[string]int, error) {

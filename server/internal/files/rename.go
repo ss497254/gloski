@@ -6,8 +6,8 @@ import (
 )
 
 // Rename moves or renames a path. The source must exist and the destination
-// must not. Both paths are subject to the same protected-path policy as
-// Delete.
+// must not. Like Delete, it refuses protected roots and anything below them;
+// only paths under /tmp are exempt.
 func (s *Service) Rename(oldPath, newPath string) error {
 	absOldPath, err := s.validatePath(oldPath)
 	if err != nil {
@@ -19,7 +19,7 @@ func (s *Service) Rename(oldPath, newPath string) error {
 		return err
 	}
 
-	if isProtectedRoot(absOldPath) || isProtectedRoot(absNewPath) {
+	if isProtectedTree(absOldPath) || isProtectedTree(absNewPath) {
 		return ErrDangerousPath
 	}
 

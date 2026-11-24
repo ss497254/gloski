@@ -13,9 +13,9 @@ const defaultHistoryRange = 24 * time.Hour
 
 // handleDeviceHistory returns metric samples recorded by the master from this
 // device's heartbeats. It is a master-owned read; no agent call is involved.
-func (t *Tower) handleDeviceHistory(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleDeviceHistory(w http.ResponseWriter, r *http.Request) {
 	deviceID := r.PathValue("id")
-	if _, err := t.fleetSvc.Get(deviceID); err != nil {
+	if _, err := d.fleetSvc.Get(deviceID); err != nil {
 		httpapi.NotFound(w, "device not found")
 		return
 	}
@@ -40,7 +40,7 @@ func (t *Tower) handleDeviceHistory(w http.ResponseWriter, r *http.Request) {
 		limit = parsed
 	}
 
-	samples, err := t.metricStore.History(r.Context(), deviceID, metric, within, limit)
+	samples, err := d.metricStore.History(r.Context(), deviceID, metric, within, limit)
 	if err != nil {
 		httpapi.InternalError(w, "failed to load metric history", err.Error())
 		return

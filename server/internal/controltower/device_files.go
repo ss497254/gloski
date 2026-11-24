@@ -22,27 +22,36 @@ type renameRequest struct {
 	NewPath string `json:"new_path"`
 }
 
-func fileRequest(path, operation string) *agentv1.FileRequest {
-	switch operation {
-	case "list":
-		return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_LIST, Path: path}
-	case "read":
-		return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_READ, Path: path}
-	case "write":
-		return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_WRITE, Path: path}
-	case "delete":
-		return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_DELETE, Path: path}
-	case "mkdir":
-		return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_MKDIR, Path: path}
-	case "rename":
-		return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_RENAME, Path: path}
-	default:
-		return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_UNSPECIFIED, Path: path}
-	}
+func fileListRequest(path string) *agentv1.FileRequest {
+	return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_LIST, Path: path}
 }
 
-func (t *Tower) performFile(ctx context.Context, w http.ResponseWriter, deviceID string, request *agentv1.FileRequest) *agentv1.FileResult {
-	result, err := t.agentService.File(ctx, deviceID, request)
+func fileReadRequest(path string) *agentv1.FileRequest {
+	return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_READ, Path: path}
+}
+
+func fileWriteRequest(path string, content []byte) *agentv1.FileRequest {
+	return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_WRITE, Path: path, Content: content}
+}
+
+func fileDeleteRequest(path string) *agentv1.FileRequest {
+	return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_DELETE, Path: path}
+}
+
+func fileMkdirRequest(path string) *agentv1.FileRequest {
+	return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_MKDIR, Path: path}
+}
+
+func fileRenameRequest(oldPath, newPath string) *agentv1.FileRequest {
+	return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_RENAME, Path: oldPath, NewPath: newPath}
+}
+
+func fileStatRequest(path string) *agentv1.FileRequest {
+	return &agentv1.FileRequest{Op: agentv1.FileOp_FILE_OP_STAT, Path: path}
+}
+
+func (d *deviceHandlers) performFile(ctx context.Context, w http.ResponseWriter, deviceID string, request *agentv1.FileRequest) *agentv1.FileResult {
+	result, err := d.agentService.File(ctx, deviceID, request)
 	if err != nil {
 		writeAgentError(w, err)
 		return nil
@@ -54,12 +63,12 @@ func (t *Tower) performFile(ctx context.Context, w http.ResponseWriter, deviceID
 	return result
 }
 
-func (t *Tower) handleListFiles(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	if path == "" {
 		path = "~"
 	}
-	result := t.performFile(r.Context(), w, r.PathValue("id"), fileRequest(path, "list"))
+	result := d.performFile(r.Context(), w, r.PathValue("id"), fileListRequest(path))
 	if result == nil {
 		return
 	}
@@ -67,52 +76,48 @@ func (t *Tower) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(result.GetEntriesJson()))
 }
 
-func (t *Tower) handleReadFile(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleReadFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
-	result := t.performFile(r.Context(), w, r.PathValue("id"), fileRequest(path, "read"))
+	result := d.performFile(r.Context(), w, r.PathValue("id"), fileReadRequest(path))
 	if result == nil {
 		return
 	}
 	httpapi.Success(w, map[string]interface{}{"content": string(result.GetContent()), "path": path})
 }
 
-func (t *Tower) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
-	if t.performFile(r.Context(), w, r.PathValue("id"), fileRequest(path, "delete")) != nil {
+	if d.performFile(r.Context(), w, r.PathValue("id"), fileDeleteRequest(path)) != nil {
 		httpapi.SuccessWithMessage(w, nil)
 	}
 }
 
-func (t *Tower) handleWriteFile(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 	request, ok := decodeJSON[writeFileRequest](w, r, 32<<20)
 	if !ok {
 		return
 	}
-	grpcRequest := fileRequest(request.Path, "write")
-	grpcRequest.Content = []byte(request.Content)
-	if t.performFile(r.Context(), w, r.PathValue("id"), grpcRequest) != nil {
+	if d.performFile(r.Context(), w, r.PathValue("id"), fileWriteRequest(request.Path, []byte(request.Content))) != nil {
 		httpapi.SuccessWithMessage(w, nil)
 	}
 }
 
-func (t *Tower) handleMkdir(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleMkdir(w http.ResponseWriter, r *http.Request) {
 	request, ok := decodeJSON[pathRequest](w, r, 1<<20)
 	if !ok {
 		return
 	}
-	if t.performFile(r.Context(), w, r.PathValue("id"), fileRequest(request.Path, "mkdir")) != nil {
+	if d.performFile(r.Context(), w, r.PathValue("id"), fileMkdirRequest(request.Path)) != nil {
 		httpapi.SuccessWithMessage(w, nil)
 	}
 }
 
-func (t *Tower) handleRename(w http.ResponseWriter, r *http.Request) {
+func (d *deviceHandlers) handleRename(w http.ResponseWriter, r *http.Request) {
 	request, ok := decodeJSON[renameRequest](w, r, 1<<20)
 	if !ok {
 		return
 	}
-	grpcRequest := fileRequest(request.OldPath, "rename")
-	grpcRequest.NewPath = request.NewPath
-	if t.performFile(r.Context(), w, r.PathValue("id"), grpcRequest) != nil {
+	if d.performFile(r.Context(), w, r.PathValue("id"), fileRenameRequest(request.OldPath, request.NewPath)) != nil {
 		httpapi.SuccessWithMessage(w, nil)
 	}
 }

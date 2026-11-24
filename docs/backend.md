@@ -31,10 +31,16 @@ server/
     ├── controltower/         # Master: dashboard, browser API, listeners
     │   ├── agents/           # Master side of the agent gRPC stream
     │   ├── server.go         # Tower type, construction, shutdown
+    │   ├── device_handlers.go# Focused dependencies for device browser routes
+    │   ├── deploy_handlers.go# Focused dependencies for deploy/SSH routes
+    │   ├── fleet_handlers.go # Focused dependencies for fleet routes
+    │   ├── dashboard_handlers.go # Focused dependencies for dashboard/self-test routes
     │   ├── routes.go         # Browser routes and auth wrapper
     │   ├── handlers.go       # Fleet, device info, fleet WebSocket
     │   ├── dashboard.go      # Summary and issues
     │   ├── deploy.go         # SSH deployment and lifecycle endpoints
+    │   ├── diagnose.go       # Connection chain diagnostics and results
+    │   ├── diagnose_probe.go # Tailscale and SSH diagnosis probes
     │   ├── device_api.go     # Shared device helpers, stats, processes
     │   ├── device_jobs.go    # Job endpoints
     │   ├── device_files.go   # File endpoints
@@ -47,6 +53,7 @@ server/
     │   ├── lifecycle.go      # Reinstall disconnected/outdated agents
     │   ├── fleet_loop.go     # Periodic fleet status broadcast
     │   └── spa.go            # SPA static files and fallback
+    ├── jobs/                 # Master-owned jobs and streamed log storage
     ├── fleet/                # Device registry, deployments, event hub
     │   ├── service.go        # Registry: enrollment, heartbeats, status
     │   ├── store.go          # SQLite persistence for devices

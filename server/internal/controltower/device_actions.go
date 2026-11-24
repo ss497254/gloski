@@ -32,13 +32,13 @@ func undoOperationFor(kind string) (undoOperation, bool) {
 	}
 }
 
-func (t *Tower) handleListDeviceActions(w http.ResponseWriter, r *http.Request) {
+func (d *deployHandlers) handleListDeviceActions(w http.ResponseWriter, r *http.Request) {
 	deviceID := r.PathValue("id")
-	if _, err := t.fleetSvc.Get(deviceID); err != nil {
+	if _, err := d.fleetSvc.Get(deviceID); err != nil {
 		httpapi.NotFound(w, "device not found")
 		return
 	}
-	list, err := t.actionStore.Recent(r.Context(), deviceID, actionLimit)
+	list, err := d.actionStore.Recent(r.Context(), deviceID, actionLimit)
 	if err != nil {
 		httpapi.InternalError(w, "failed to load device actions", err.Error())
 		return
@@ -48,14 +48,14 @@ func (t *Tower) handleListDeviceActions(w http.ResponseWriter, r *http.Request) 
 
 // handleUndoAction restores the wanted state recorded in a device action. Only
 // changes whose previous state is known can be undone, and only once.
-func (t *Tower) handleUndoAction(w http.ResponseWriter, r *http.Request) {
+func (d *deployHandlers) handleUndoAction(w http.ResponseWriter, r *http.Request) {
 	deviceID := r.PathValue("id")
-	device, err := t.fleetSvc.Get(deviceID)
+	device, err := d.fleetSvc.Get(deviceID)
 	if err != nil {
 		httpapi.NotFound(w, "device not found")
 		return
 	}
-	action, err := t.actionStore.Get(r.Context(), r.PathValue("actionId"))
+	action, err := d.actionStore.Get(r.Context(), r.PathValue("actionId"))
 	if err != nil || action.DeviceID != deviceID {
 		httpapi.NotFound(w, "action not found")
 		return
@@ -70,7 +70,7 @@ func (t *Tower) handleUndoAction(w http.ResponseWriter, r *http.Request) {
 		httpapi.BadRequest(w, "this kind of change cannot be undone")
 		return
 	}
-	claimed, claimErr := t.actionStore.ClaimUndo(r.Context(), action.ID)
+	claimed, claimErr := d.actionStore.ClaimUndo(r.Context(), action.ID)
 	if claimErr != nil {
 		httpapi.InternalError(w, "failed to claim the undo", claimErr.Error())
 		return
@@ -81,23 +81,23 @@ func (t *Tower) handleUndoAction(w http.ResponseWriter, r *http.Request) {
 	}
 	var undoErr error
 	if op == undoStart {
-		_, undoErr = t.installDevice(r.Context(), device, false)
+		_, undoErr = d.installDevice(r.Context(), device, false)
 	} else {
-		_, undoErr = t.stopDevice(r.Context(), device)
+		_, undoErr = d.stopDevice(r.Context(), device)
 	}
 	if undoErr != nil {
 		// Release the claim so the change can be retried, and record the
 		// failed attempt just like a failed start or stop.
-		if releaseErr := t.actionStore.ReleaseUndo(r.Context(), action.ID); releaseErr != nil {
+		if releaseErr := d.actionStore.ReleaseUndo(r.Context(), action.ID); releaseErr != nil {
 			logger.Warn("Failed to release undo claim on %s: %v", action.ID, releaseErr)
 		}
-		t.recordAction(deviceID, actions.Action{
+		d.recordAction(deviceID, actions.Action{
 			Kind: actions.KindUndo, Target: action.Target, From: action.To, To: action.From,
 		}, undoErr)
 		httpapi.InternalError(w, "failed to undo the change", undoErr.Error())
 		return
 	}
-	t.recordAction(deviceID, actions.Action{
+	d.recordAction(deviceID, actions.Action{
 		Kind: actions.KindUndo, Target: action.Target, From: action.To, To: action.From,
 	}, nil)
 	httpapi.SuccessWithMessage(w, map[string]interface{}{"undone": true})

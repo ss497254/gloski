@@ -26,8 +26,8 @@ type deployRequest struct {
 	AgentPort int    `json:"agent_port"`
 }
 
-func (t *Tower) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
-	if !t.tailnetClient.Available() {
+func (d *deployHandlers) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
+	if !d.tailnetClient.Available() {
 		httpapi.SuccessWithMessage(w, map[string]interface{}{
 			"available": false,
 			"error":     "tailscaled API is not reachable from the master",
@@ -39,7 +39,7 @@ func (t *Tower) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	status, err := t.tailnetClient.Status(ctx)
+	status, err := d.tailnetClient.Status(ctx)
 	if err != nil {
 		httpapi.SuccessWithMessage(w, map[string]interface{}{
 			"available": false,
@@ -57,8 +57,8 @@ func (t *Tower) handleTailnetPeers(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
-	if !t.installer.Available() {
+func (d *deployHandlers) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
+	if !d.installer.Available() {
 		httpapi.BadRequest(w, "the master has no agent builds to install; run 'make build' on the master")
 		return
 	}
@@ -70,7 +70,7 @@ func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 
 	// Agents speak gRPC. Derive the endpoint the master advertises instead of
 	// using the browser origin, which points at the HTTP dashboard.
-	masterURL := t.agentGRPCURL()
+	masterURL := d.agentGRPCURL()
 
 	target := provisioning.Target{
 		Name:      strings.TrimSpace(request.Name),
@@ -79,7 +79,7 @@ func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 		SSHPort:   request.SSHPort,
 		AgentPort: request.AgentPort,
 		MasterURL: masterURL,
-		JoinToken: t.fleetSvc.JoinToken(),
+		JoinToken: d.fleetSvc.JoinToken(),
 		DeployID:  uuid.NewString(),
 	}
 	if err := target.Validate(); err != nil {
@@ -100,17 +100,17 @@ func (t *Tower) handleDeployDevice(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	if err := t.fleetSvc.CreateDeployment(deployment); err != nil {
+	if err := d.fleetSvc.CreateDeployment(deployment); err != nil {
 		httpapi.InternalError(w, "failed to record deployment", err.Error())
 		return
 	}
 
-	go func() { _, _ = t.lifecycle.Install(deployment, false) }()
+	go func() { _, _ = d.lifecycle.Install(deployment, false) }()
 	httpapi.SuccessWithMessage(w, deployment)
 }
 
-func (t *Tower) handleListDeployments(w http.ResponseWriter, r *http.Request) {
-	list, err := t.fleetSvc.ListDeployments()
+func (d *deployHandlers) handleListDeployments(w http.ResponseWriter, r *http.Request) {
+	list, err := d.fleetSvc.ListDeployments()
 	if err != nil {
 		httpapi.InternalError(w, "failed to list deployments", err.Error())
 		return
@@ -121,8 +121,8 @@ func (t *Tower) handleListDeployments(w http.ResponseWriter, r *http.Request) {
 	httpapi.SuccessWithMessage(w, map[string]interface{}{"deployments": list})
 }
 
-func (t *Tower) handleGetDeployment(w http.ResponseWriter, r *http.Request) {
-	deployment, err := t.fleetSvc.GetDeployment(r.PathValue("id"))
+func (d *deployHandlers) handleGetDeployment(w http.ResponseWriter, r *http.Request) {
+	deployment, err := d.fleetSvc.GetDeployment(r.PathValue("id"))
 	if err != nil {
 		if errors.Is(err, fleet.ErrDeploymentNotFound) {
 			httpapi.NotFound(w, "deployment not found")
@@ -136,19 +136,19 @@ func (t *Tower) handleGetDeployment(w http.ResponseWriter, r *http.Request) {
 
 var errStopUnreachable = errors.New("the device is offline and was not installed over SSH, so the master cannot reach it")
 
-func (t *Tower) handleStartDevice(w http.ResponseWriter, r *http.Request) {
-	t.installNow(w, r, false)
+func (d *deployHandlers) handleStartDevice(w http.ResponseWriter, r *http.Request) {
+	d.installNow(w, r, false)
 }
 
 // handleTrustHost accepts a device's new SSH host key, then installs again.
-func (t *Tower) handleTrustHost(w http.ResponseWriter, r *http.Request) {
-	t.installNow(w, r, true)
+func (d *deployHandlers) handleTrustHost(w http.ResponseWriter, r *http.Request) {
+	d.installNow(w, r, true)
 }
 
 // installNow runs the install script on a device at a person's request. It
 // starts a stopped agent, restarts a running one, and replaces a broken one.
-func (t *Tower) installNow(w http.ResponseWriter, r *http.Request, trustHost bool) {
-	device, err := t.fleetSvc.Get(r.PathValue("id"))
+func (d *deployHandlers) installNow(w http.ResponseWriter, r *http.Request, trustHost bool) {
+	device, err := d.fleetSvc.Get(r.PathValue("id"))
 	if err != nil {
 		httpapi.NotFound(w, "device not found")
 		return
@@ -166,8 +166,8 @@ func (t *Tower) installNow(w http.ResponseWriter, r *http.Request, trustHost boo
 	if trustHost {
 		kind = actions.KindTrustHost
 	}
-	result, err := t.installDevice(r.Context(), device, trustHost)
-	t.recordAction(device.ID, actions.Action{
+	result, err := d.installDevice(r.Context(), device, trustHost)
+	d.recordAction(device.ID, actions.Action{
 		Kind: kind, Target: "agent", From: from, To: fleet.DeployRunning, Undoable: !trustHost,
 	}, err)
 	if err != nil {
@@ -179,20 +179,20 @@ func (t *Tower) installNow(w http.ResponseWriter, r *http.Request, trustHost boo
 
 // installDevice does the work for start, restart, trust-host and undo. The
 // caller has already checked that the device has SSH details.
-func (t *Tower) installDevice(ctx context.Context, device *fleet.Device, trustHost bool) (provisioning.Result, error) {
+func (d *deployHandlers) installDevice(ctx context.Context, device *fleet.Device, trustHost bool) (provisioning.Result, error) {
 	if device.Deploy == nil {
 		return provisioning.Result{}, errors.New("the master has no SSH details for this device")
 	}
 	if trustHost {
-		if err := t.installer.ForgetHost(device.Deploy.Host, device.Deploy.SSHPort); err != nil {
+		if err := d.installer.ForgetHost(device.Deploy.Host, device.Deploy.SSHPort); err != nil {
 			return provisioning.Result{}, fmt.Errorf("failed to forget the old host key: %w", err)
 		}
 	}
-	return t.lifecycle.Install(device.Deploy, true)
+	return d.lifecycle.Install(device.Deploy, true)
 }
 
-func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
-	device, err := t.fleetSvc.Get(r.PathValue("id"))
+func (d *deployHandlers) handleStopDevice(w http.ResponseWriter, r *http.Request) {
+	device, err := d.fleetSvc.Get(r.PathValue("id"))
 	if err != nil {
 		httpapi.NotFound(w, "device not found")
 		return
@@ -201,8 +201,8 @@ func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 	if device.Deploy != nil {
 		from = device.Deploy.Status
 	}
-	stopped, err := t.stopDevice(r.Context(), device)
-	t.recordAction(device.ID, actions.Action{
+	stopped, err := d.stopDevice(r.Context(), device)
+	d.recordAction(device.ID, actions.Action{
 		Kind: actions.KindAgentStop, Target: "agent", From: from, To: fleet.DeployStopped, Undoable: from != "",
 	}, err)
 	if err != nil {
@@ -219,10 +219,10 @@ func (t *Tower) handleStopDevice(w http.ResponseWriter, r *http.Request) {
 // stopDevice is shared by the stop handler and undo. A connected agent is told
 // to exit; SSH is the way in when it is not. Marking the deployment stopped is
 // what keeps the lifecycle loop from starting it again.
-func (t *Tower) stopDevice(ctx context.Context, device *fleet.Device) (bool, error) {
-	target, targetErr := t.deviceTarget(device.ID)
+func (d *deployHandlers) stopDevice(ctx context.Context, device *fleet.Device) (bool, error) {
+	target, targetErr := d.deviceTarget(device.ID)
 	stopped := false
-	if err := t.agentService.Shutdown(device.ID, agents.ShutdownExit); err == nil {
+	if err := d.agentService.Shutdown(device.ID, agents.ShutdownExit); err == nil {
 		stopped = true
 	} else if targetErr != nil {
 		return false, errStopUnreachable
@@ -230,38 +230,38 @@ func (t *Tower) stopDevice(ctx context.Context, device *fleet.Device) (bool, err
 		stopCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		var err error
-		stopped, err = t.installer.Stop(stopCtx, target)
+		stopped, err = d.installer.Stop(stopCtx, target)
 		if err != nil {
-			_ = t.fleetSvc.SetDeploymentStatus(target.DeployID, fleet.DeployFailed, err.Error())
+			_ = d.fleetSvc.SetDeploymentStatus(target.DeployID, fleet.DeployFailed, err.Error())
 			return false, fmt.Errorf("failed to stop agent: %w", err)
 		}
 	}
 	if targetErr == nil {
-		if err := t.fleetSvc.SetDeploymentStopped(target.DeployID); err != nil {
+		if err := d.fleetSvc.SetDeploymentStopped(target.DeployID); err != nil {
 			logger.Warn("Failed to update deployment %s: %v", target.DeployID, err)
 		}
 	}
 	// The agent is gone; drop its stream now instead of waiting for TCP to notice.
-	t.agentService.Disconnect(device.ID)
+	d.agentService.Disconnect(device.ID)
 	return stopped, nil
 }
 
 // recordAction never fails the user's action: the change already happened,
 // and a full database must not turn a successful start into an error.
-func (t *Tower) recordAction(deviceID string, action actions.Action, err error) {
+func (d *deployHandlers) recordAction(deviceID string, action actions.Action, err error) {
 	action.DeviceID = deviceID
 	action.Result = actions.ResultOK
 	if err != nil {
 		action.Result = actions.ResultFailed
 		action.Error = err.Error()
 	}
-	if recordErr := t.actionStore.Record(context.Background(), action); recordErr != nil {
+	if recordErr := d.actionStore.Record(d.ctx, action); recordErr != nil {
 		logger.Warn("Failed to record action on %s: %v", deviceID, recordErr)
 	}
 }
 
-func (t *Tower) deviceTarget(deviceID string) (provisioning.Target, error) {
-	device, err := t.fleetSvc.Get(deviceID)
+func (d *deployHandlers) deviceTarget(deviceID string) (provisioning.Target, error) {
+	device, err := d.fleetSvc.Get(deviceID)
 	if err != nil {
 		return provisioning.Target{}, errors.New("device not found")
 	}
@@ -277,7 +277,44 @@ func (t *Tower) deviceTarget(deviceID string) (provisioning.Target, error) {
 		SSHPort:   deployment.SSHPort,
 		AgentPort: deployment.AgentPort,
 		MasterURL: deployment.MasterURL,
-		JoinToken: t.fleetSvc.JoinToken(),
+		JoinToken: d.fleetSvc.JoinToken(),
 		DeployID:  deployment.ID,
 	}, nil
+}
+
+func (d *deployHandlers) deploymentTarget(deployment *fleet.Deployment) provisioning.Target {
+	return provisioning.Target{
+		Name:      deployment.Name,
+		Host:      deployment.Host,
+		User:      deployment.User,
+		SSHPort:   deployment.SSHPort,
+		AgentPort: deployment.AgentPort,
+		MasterURL: d.agentGRPCURL(),
+		JoinToken: d.fleetSvc.JoinToken(),
+		DeployID:  deployment.ID,
+	}
+}
+
+func (t *Tower) deviceTarget(deviceID string) (provisioning.Target, error) {
+	return t.deployAPI.deviceTarget(deviceID)
+}
+
+func (t *Tower) installDevice(ctx context.Context, device *fleet.Device, trustHost bool) (provisioning.Result, error) {
+	return t.deployAPI.installDevice(ctx, device, trustHost)
+}
+
+func (t *Tower) stopDevice(ctx context.Context, device *fleet.Device) (bool, error) {
+	return t.deployAPI.stopDevice(ctx, device)
+}
+
+func (t *Tower) recordAction(deviceID string, action actions.Action, err error) {
+	t.deployAPI.recordAction(deviceID, action, err)
+}
+
+func (t *Tower) diagnoseSSH(ctx context.Context, deployment *fleet.Deployment, result *diagnosis) {
+	t.deployAPI.diagnoseSSH(ctx, deployment, result)
+}
+
+func (t *Tower) diagnoseDevice(ctx context.Context, device *fleet.Device) diagnosis {
+	return t.deployAPI.diagnoseDevice(ctx, device)
 }

@@ -53,15 +53,15 @@ Hard rules. A violation is High unless the item says otherwise:
    the transfer pipe, not whole in memory. Uploads replace the target only
    after the whole body arrived. Listing, stat, rename, delete and bounded
    editor text reads stay on gRPC.
-5. **File safety.** Keep the protected-path rules: Delete refuses whole trees
-   except `/tmp`; Rename refuses only the roots. Paths from the browser are
-   validated before use.
+5. **File safety.** Keep the protected-path rules: Delete and Rename both
+   refuse a protected root and anything below it, except under `/tmp`. Paths
+   from the browser are validated before use.
 6. **Jobs and logs.** Log output stays capped (10 MB per job); truncation
    advances `last_seq` and writes one notice. Finished jobs are pruned after
    30 days; pending and running jobs are never pruned.
 7. **SQLite.** Pragmas are `_pragma=name(value)` in the DSN. A schema change
-   to job tables goes in `agents.NewJobStore`, including a backfill for
-   existing rows; a new migration alone is not enough.
+   to job tables is versioned in `schema_migrations`, including a backfill for
+   existing rows.
 8. **Concurrency.** One `SendMsg` at a time on a gRPC stream. Long file
    transfers or slow browsers must not block heartbeats, jobs or terminals.
 9. **Logs and user flow.** API calls carry the same `X-Request-ID` in browser

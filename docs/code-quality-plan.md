@@ -62,10 +62,9 @@ Risk: none. Verify: `go doc` output, doc links, unchanged build.
 - `internal/files/service.go` becomes `path.go` (validation and protected-path
   policy), `list.go`, `read.go`, `write.go`, `delete.go`, `rename.go`,
   `upload.go`, `search.go`.
-- One protected-path list used by delete and rename, with one scope each:
-  Delete refuses the whole tree (except under `/tmp`), Rename refuses only the
-  roots, so moving a file inside a system directory stays legal. Write its tests
-  before moving the code.
+- One protected-path list and one tree check used by delete and rename: both
+  refuse a protected root and anything below it, except under `/tmp`. Write its
+  tests before moving the code.
 - Move file operations out of `internal/worker/agent_jobs.go` into
   `agent_files.go`; leave jobs and processes where they are.
 
@@ -138,7 +137,16 @@ immediate relief. Batches 3 to 5 are separate commits. Renaming is last.
 
 - [x] Batch 1: docs map (`19f3769`)
 - [x] Batch 2: files split (`8fc397f`)
-- [ ] Batch 3: shrink `Tower`
-- [ ] Batch 4: files feature split
+- [x] Batch 3: shrink `Tower` (handler groups split into `deviceHandlers`, `deployHandlers`, `fleetHandlers`, `dashboardHandlers`; `JobStore` moved to `internal/jobs`)
+- [x] Batch 4: files feature split (`e88cca6`)
 - [ ] Batch 5: errors and renames
 - [ ] Batch 6: lint gate
+
+## Review follow-up (2026-11-24)
+
+- Stream uploads use unique temporary files so simultaneous writes to the same
+  destination cannot share or truncate an in-progress file.
+- HTTP request contexts cancel master-side waits for file, process and check
+  responses; the request timeout remains the upper bound.
+- Agent job tables and their legacy-column upgrade are owned by schema
+  migration 12 rather than the agent-stream service constructor.
