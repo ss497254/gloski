@@ -1,8 +1,15 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { bracketMatching, defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
-import { EditorState, type Extension } from '@codemirror/state'
+import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view'
+import {
+  EditorView,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  keymap,
+  lineNumbers as lineNumbersExtension,
+  placeholder as editorPlaceholder,
+} from '@codemirror/view'
 import { useEffect, useMemo, useRef } from 'react'
 
 // Language imports
@@ -121,12 +128,19 @@ export function CodeEditor({
   filename,
   readOnly = false,
   className,
+  lineNumbers = true,
   darkMode = true,
   placeholder,
 }: CodeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
+  const readOnlyCompartment = useRef(new Compartment()).current
+  const languageCompartment = useRef(new Compartment()).current
+  const themeCompartment = useRef(new Compartment()).current
+  const placeholderCompartment = useRef(new Compartment()).current
+  const lineNumbersCompartment = useRef(new Compartment()).current
+  const initialConfig = useRef({ readOnly, filename, darkMode, placeholder, lineNumbers })
 
   // Keep onChange ref updated
   onChangeRef.current = onChange
@@ -143,9 +157,6 @@ export function CodeEditor({
 
       // Keymaps
       keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-
-      // Theme
-      darkMode ? oneDark : [],
 
       // Editor styling
       EditorView.theme({
@@ -173,6 +184,23 @@ export function CodeEditor({
         },
       }),
 
+      readOnlyCompartment.of(
+        initialConfig.current.readOnly
+          ? [EditorState.readOnly.of(true), EditorView.editable.of(false)]
+          : []
+      ),
+      languageCompartment.of(getLanguageExtension(initialConfig.current.filename) ?? []),
+      themeCompartment.of(initialConfig.current.darkMode ? oneDark : []),
+      placeholderCompartment.of(
+        initialConfig.current.placeholder
+          ? [
+              editorPlaceholder(initialConfig.current.placeholder),
+              EditorView.contentAttributes.of({ 'aria-placeholder': initialConfig.current.placeholder }),
+            ]
+          : []
+      ),
+      lineNumbersCompartment.of(initialConfig.current.lineNumbers ? lineNumbersExtension() : []),
+
       // Update listener
       EditorView.updateListener.of((update) => {
         if (update.docChanged && onChangeRef.current) {
@@ -181,40 +209,8 @@ export function CodeEditor({
       }),
     ]
 
-    // Line numbers
-    exts.push(lineNumbers())
-
-    // Read-only mode
-    if (readOnly) {
-      exts.push(EditorState.readOnly.of(true))
-      exts.push(EditorView.editable.of(false))
-    }
-
-    // Language support
-    const langExt = getLanguageExtension(filename)
-    if (langExt) {
-      exts.push(langExt)
-    }
-
-    // Placeholder
-    if (placeholder) {
-      exts.push(
-        EditorView.theme({
-          '.cm-placeholder': {
-            color: 'var(--muted-foreground)',
-            fontStyle: 'italic',
-          },
-        })
-      )
-      exts.push(
-        EditorView.contentAttributes.of({
-          'aria-placeholder': placeholder,
-        })
-      )
-    }
-
     return exts
-  }, [readOnly, filename, darkMode, placeholder])
+  }, [readOnlyCompartment, languageCompartment, themeCompartment, placeholderCompartment, lineNumbersCompartment])
 
   // Initialize editor
   useEffect(() => {
@@ -239,6 +235,38 @@ export function CodeEditor({
     // Only recreate when extensions change, not value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extensions])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({
+      effects: [
+        readOnlyCompartment.reconfigure(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
+        languageCompartment.reconfigure(getLanguageExtension(filename) ?? []),
+        themeCompartment.reconfigure(darkMode ? oneDark : []),
+        placeholderCompartment.reconfigure(
+          placeholder
+            ? [
+                editorPlaceholder(placeholder),
+                EditorView.contentAttributes.of({ 'aria-placeholder': placeholder }),
+              ]
+            : []
+        ),
+        lineNumbersCompartment.reconfigure(lineNumbers ? lineNumbersExtension() : []),
+      ],
+    })
+  }, [
+    readOnly,
+    filename,
+    darkMode,
+    placeholder,
+    lineNumbers,
+    readOnlyCompartment,
+    languageCompartment,
+    themeCompartment,
+    placeholderCompartment,
+    lineNumbersCompartment,
+  ])
 
   // Update content when value changes externally
   useEffect(() => {

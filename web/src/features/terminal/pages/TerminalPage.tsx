@@ -241,49 +241,59 @@ export function TerminalPage() {
   const closeTab = useCallback(
     (tabId: string, e: React.MouseEvent) => {
       e.stopPropagation()
+      if (tabs.length === 1) return // Don't close last tab.
 
-      setTabs((prevTabs) => {
-        if (prevTabs.length === 1) return prevTabs // Don't close last tab
-
-        destroyTerminalInstance(tabId)
-        terminalRefs.current.delete(tabId)
-
-        const newTabs = prevTabs.filter((t) => t.id !== tabId)
-
-        setActiveTab((prevActive) => {
-          if (prevActive === tabId) {
-            return newTabs[newTabs.length - 1].id
-          }
-          return prevActive
-        })
-
-        return newTabs
-      })
+      const remainingTabs = tabs.filter((tab) => tab.id !== tabId)
+      destroyTerminalInstance(tabId)
+      terminalRefs.current.delete(tabId)
+      setTabs(remainingTabs)
+      if (activeTab === tabId) setActiveTab(remainingTabs[remainingTabs.length - 1].id)
     },
-    [destroyTerminalInstance]
+    [activeTab, destroyTerminalInstance, tabs]
   )
 
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Tab bar */}
       <div className="terminal-tab-bar flex items-center bg-muted border-b">
-        <link href="https://www.nerdfonts.com/assets/css/webfont.css" rel="stylesheet"></link>
-        <div className="flex-1 flex items-center h-full overflow-x-auto">
+        <div role="tablist" aria-label="Terminal sessions" className="flex-1 flex items-center h-full overflow-x-auto">
           {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'flex items-center gap-2 px-4 h-full text-sm border-r border-border transition-colors',
-                activeTab === tab.id
-                  ? 'bg-background text-foreground font-medium'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/30'
-              )}
-            >
-              <TerminalIcon className="h-4 w-4" />
-              <span className="truncate max-w-32">{tab.title}</span>
+            <div key={tab.id} className="flex h-full items-center border-r border-border">
+              <button
+                id={`terminal-tab-${tab.id}`}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`terminal-panel-${tab.id}`}
+                tabIndex={activeTab === tab.id ? 0 : -1}
+                onClick={() => setActiveTab(tab.id)}
+                onKeyDown={(event) => {
+                  const currentIndex = tabs.findIndex((item) => item.id === tab.id)
+                  let nextIndex = currentIndex
+                  if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length
+                  else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length
+                  else if (event.key === 'Home') nextIndex = 0
+                  else if (event.key === 'End') nextIndex = tabs.length - 1
+                  else return
+
+                  event.preventDefault()
+                  const nextTab = tabs[nextIndex]
+                  setActiveTab(nextTab.id)
+                  document.getElementById(`terminal-tab-${nextTab.id}`)?.focus()
+                }}
+                className={cn(
+                  'flex items-center gap-2 px-4 h-full text-sm transition-colors',
+                  activeTab === tab.id
+                    ? 'bg-background text-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/30'
+                )}
+              >
+                <TerminalIcon className="h-4 w-4" />
+                <span className="truncate max-w-32">{tab.title}</span>
+              </button>
               {tabs.length > 1 && (
                 <button
+                  type="button"
                   onClick={(e) => closeTab(tab.id, e)}
                   className="ml-1 p-1 -m-0.5 rounded transition-colors hover:bg-muted-foreground/20 hover:text-foreground"
                   aria-label={`Close ${tab.title}`}
@@ -291,10 +301,10 @@ export function TerminalPage() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
-            </button>
+            </div>
           ))}
         </div>
-        <Button variant="ghost" size="sm" onClick={addTab} className="m-1 transition-colors">
+        <Button variant="ghost" size="sm" onClick={addTab} className="m-1 transition-colors" aria-label="Add terminal">
           <Plus className="h-4 w-4" />
         </Button>
       </div>
@@ -304,6 +314,10 @@ export function TerminalPage() {
         {tabs.map((tab) => (
           <div
             key={tab.id}
+            id={`terminal-panel-${tab.id}`}
+            role="tabpanel"
+            aria-labelledby={`terminal-tab-${tab.id}`}
+            aria-hidden={activeTab !== tab.id}
             ref={(el) => {
               if (el) terminalRefs.current.set(tab.id, el)
             }}
