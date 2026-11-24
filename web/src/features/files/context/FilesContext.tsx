@@ -1,22 +1,22 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useDevice } from '@/shared/context'
-import { pinnedFolderId as toPinnedFolderId, unwrap, type FileEntry, type ListResponse } from '@/shared/api'
+import { unwrap, type FileEntry, type ListResponse } from '@/shared/api'
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
   type RefObject,
 } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
-import { getFileType } from '../lib/file-types'
-import { getParentPath, joinPath } from '../lib/file-utils'
+import { getParentPath } from '../lib/file-utils'
 import { useFilesStore } from '../stores/files'
+import { useFileDirectory } from '../hooks/useFileDirectory'
+import { useFileOperations } from '../hooks/useFileOperations'
+import { useFilePreview } from '../hooks/useFilePreview'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -55,7 +55,7 @@ interface FilesContextValue {
   cancelEdit: () => void
   startEdit: () => void
   setEditedContent: (content: string) => void
-  loadFileContent: (entry: FileEntry) => void
+  loadFileContent: (entry: FileEntry) => Promise<void>
 
   // File operations
   handleCreateFolder: () => Promise<void>
@@ -122,6 +122,7 @@ interface FilesContextValue {
 }
 
 const FilesContext = createContext<FilesContextValue | null>(null)
+const emptyEntries: FileEntry[] = []
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider
@@ -135,16 +136,33 @@ export function FilesProvider({ children }: FilesProviderProps) {
   const { device } = useDevice()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryPath = searchParams.get('path') || '~'
+  const setPath = useCallback((path: string) => setSearchParams({ path }), [setSearchParams])
+  const { data, loading, error, loadDirectory } = useFileDirectory(device, queryPath)
+  const preview = useFilePreview(device, setPath)
+  const {
+    selectedFile,
+    fileContent,
+    fileLoading,
+    isEditing,
+    editedContent,
+    setEditedContent,
+    saving,
+    hasUnsavedChanges,
+    clearPreview,
+    handleEntrySelect,
+    handleEdit,
+    handleSave,
+    closePreview,
+    cancelEdit,
+    startEdit,
+    loadFileContent,
+  } = preview
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Files store - use selectors for optimized subscriptions
   // ─────────────────────────────────────────────────────────────────────────────
 
-  const setPinnedFolders = useFilesStore((s) => s.setPinnedFolders)
-  const addPinnedFolder = useFilesStore((s) => s.addPinnedFolder)
-  const removePinnedFolder = useFilesStore((s) => s.removePinnedFolder)
   const isPinned = useFilesStore((s) => s.isPinned)
-  const getPinnedFolderByPath = useFilesStore((s) => s.getPinnedFolderByPath)
   const selectedPaths = useFilesStore((s) => s.selectedPaths)
   const toggleSelection = useFilesStore((s) => s.toggleSelection)
   const selectAll = useFilesStore((s) => s.selectAll)
@@ -165,59 +183,73 @@ export function FilesProvider({ children }: FilesProviderProps) {
   // Data state
   // ─────────────────────────────────────────────────────────────────────────────
 
-  const [data, setData] = useState<ListResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [homeDir, setHomeDir] = useState<string | undefined>()
 
   // Use the actual path from device response for file operations
   // This is the resolved absolute path, not the URL query param
   const currentPath = data?.path || queryPath
+  const directoryEntries = data?.entries ?? emptyEntries
+  const operations = useFileOperations({
+    device,
+    currentPath,
+    entries: directoryEntries,
+    selectedFile,
+    clearPreview,
+    loadDirectory,
+  })
+  const {
+    newFolderDialog,
+    setNewFolderDialog,
+    newFileDialog,
+    setNewFileDialog,
+    deleteDialog,
+    setDeleteDialog,
+    renameDialog,
+    setRenameDialog,
+    bulkDeleteDialog,
+    setBulkDeleteDialog,
+    newName,
+    setNewName,
+    uploading,
+    fileInputRef,
+    handleCreateFolder,
+    handleCreateFile,
+    handleDelete,
+    handleRename,
+    handleBulkDelete,
+    handleDropUpload,
+    handleUpload,
+    handleDownload,
+    handleDownloadSelected,
+    copyPath,
+    handleTogglePinEntry,
+    handleSidebarUnpin,
+    handleRenameEntry,
+    isDialogOpen,
+    setPinnedFolders,
+  } = operations
 
   // ─────────────────────────────────────────────────────────────────────────────
   // File preview state
   // ─────────────────────────────────────────────────────────────────────────────
-
-  const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null)
-  const [fileContent, setFileContent] = useState<string | null>(null)
-  const [fileLoading, setFileLoading] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedContent, setEditedContent] = useState('')
-  const [saving, setSaving] = useState(false)
 
   // ─────────────────────────────────────────────────────────────────────────────
   // UI state
   // ─────────────────────────────────────────────────────────────────────────────
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [focusedIndex, setFocusedIndex] = useState(0)
+  const [focusState, setFocusState] = useState({ path: queryPath, index: 0 })
+  const focusedIndex = focusState.path === queryPath ? focusState.index : 0
+  const setFocusedIndex = useCallback((index: number) => setFocusState({ path: queryPath, index }), [queryPath])
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Dialog state
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  const [newFolderDialog, setNewFolderDialog] = useState(false)
-  const [newFileDialog, setNewFileDialog] = useState(false)
-  const [deleteDialog, setDeleteDialog] = useState<FileEntry | null>(null)
-  const [renameDialog, setRenameDialog] = useState<FileEntry | null>(null)
-  const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false)
-  const [newName, setNewName] = useState('')
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Upload state
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
   // ─────────────────────────────────────────────────────────────────────────────
   // Computed values
   // ─────────────────────────────────────────────────────────────────────────────
 
   const sortedAndFilteredEntries = useMemo(() => {
-    if (!data?.entries) return []
 
-    let entries = [...data.entries]
+    let entries = [...directoryEntries]
 
     // Filter
     if (searchQuery) {
@@ -248,10 +280,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
     })
 
     return entries
-  }, [data?.entries, searchQuery, sortBy, sortOrder])
-
-  const hasUnsavedChanges = isEditing && editedContent !== fileContent
-  const isDialogOpen = !!newFolderDialog || !!newFileDialog || !!deleteDialog || !!renameDialog || bulkDeleteDialog
+  }, [directoryEntries, searchQuery, sortBy, sortOrder])
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Effects
@@ -260,7 +289,6 @@ export function FilesProvider({ children }: FilesProviderProps) {
   // Clear selection when path changes
   useEffect(() => {
     clearSelection()
-    setFocusedIndex(0)
   }, [queryPath, clearSelection])
 
   // Load pinned folders and home directory from device
@@ -279,41 +307,15 @@ export function FilesProvider({ children }: FilesProviderProps) {
   }, [device, setPinnedFolders])
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Data Loading
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  const loadDirectory = useCallback(
-    async (path: string) => {
-      setLoading(true)
-      setError('')
-      try {
-        const result = await device.getClient().files.list(path)
-        setData(unwrap(result))
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load directory')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [device]
-  )
-
-  useEffect(() => {
-    loadDirectory(queryPath)
-  }, [queryPath, loadDirectory])
-
-  // ─────────────────────────────────────────────────────────────────────────────
   // Navigation
   // ─────────────────────────────────────────────────────────────────────────────
 
   const navigateTo = useCallback(
     (path: string) => {
-      setSearchParams({ path })
-      setSelectedFile(null)
-      setFileContent(null)
-      setIsEditing(false)
+      clearPreview()
+      setPath(path)
     },
-    [setSearchParams]
+    [clearPreview, setPath]
   )
 
   const goUp = useCallback(() => {
@@ -323,283 +325,6 @@ export function FilesProvider({ children }: FilesProviderProps) {
   const refresh = useCallback(() => {
     loadDirectory(queryPath)
   }, [loadDirectory, queryPath])
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // File Operations
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  const loadFileContent = useCallback(
-    async (entry: FileEntry) => {
-      setFileLoading(true)
-      try {
-        const result = unwrap(await device.getClient().files.read(entry.path))
-        setFileContent(result.content)
-        setEditedContent(result.content)
-      } catch (err) {
-        setFileContent(`Error loading file: ${err instanceof Error ? err.message : 'Unknown error'}`)
-      } finally {
-        setFileLoading(false)
-      }
-    },
-    [device]
-  )
-
-  const handleEntrySelect = useCallback(
-    async (entry: FileEntry) => {
-      if (entry.type === 'directory') {
-        navigateTo(entry.path)
-      } else {
-        setSelectedFile(entry)
-        setIsEditing(false)
-
-        // Only load content for text files
-        const fileType = getFileType(entry.name)
-        if (fileType === 'code' || fileType === 'text') {
-          loadFileContent(entry)
-        } else {
-          setFileContent(null)
-        }
-      }
-    },
-    [navigateTo, loadFileContent]
-  )
-
-  const handleEdit = useCallback(
-    (entry: FileEntry) => {
-      handleEntrySelect(entry)
-      setTimeout(() => setIsEditing(true), 100)
-    },
-    [handleEntrySelect]
-  )
-
-  const handleSave = useCallback(async () => {
-    if (!selectedFile) return
-    setSaving(true)
-    try {
-      await device.getClient().files.write(selectedFile.path, editedContent)
-      setFileContent(editedContent)
-      setIsEditing(false)
-      toast.success('File saved successfully')
-    } catch {
-      toast.error('Failed to save file')
-    } finally {
-      setSaving(false)
-    }
-  }, [device, selectedFile, editedContent])
-
-  const handleCreateFolder = useCallback(async () => {
-    if (!newName.trim()) return
-    try {
-      await device.getClient().files.mkdir(joinPath(currentPath, newName))
-      toast.success('Folder created')
-      setNewFolderDialog(false)
-      setNewName('')
-      loadDirectory(currentPath)
-    } catch {
-      toast.error('Failed to create folder')
-    }
-  }, [device, newName, currentPath, loadDirectory])
-
-  const handleCreateFile = useCallback(async () => {
-    if (!newName.trim()) return
-    try {
-      await device.getClient().files.write(joinPath(currentPath, newName), '')
-      toast.success('File created')
-      setNewFileDialog(false)
-      setNewName('')
-      loadDirectory(currentPath)
-    } catch {
-      toast.error('Failed to create file')
-    }
-  }, [device, newName, currentPath, loadDirectory])
-
-  const handleDelete = useCallback(async () => {
-    if (!deleteDialog) return
-    try {
-      await device.getClient().files.delete(deleteDialog.path)
-      toast.success(`${deleteDialog.type === 'directory' ? 'Folder' : 'File'} deleted`)
-      setDeleteDialog(null)
-      if (selectedFile?.path === deleteDialog.path) {
-        setSelectedFile(null)
-        setFileContent(null)
-      }
-      loadDirectory(currentPath)
-    } catch {
-      toast.error('Failed to delete')
-    }
-  }, [device, deleteDialog, selectedFile?.path, currentPath, loadDirectory])
-
-  const handleRename = useCallback(async () => {
-    if (!renameDialog || !newName.trim()) return
-    const newPath = joinPath(getParentPath(renameDialog.path), newName)
-    try {
-      await device.getClient().files.rename(renameDialog.path, newPath)
-      toast.success('Renamed successfully')
-      setRenameDialog(null)
-      setNewName('')
-      if (selectedFile?.path === renameDialog.path) {
-        setSelectedFile(null)
-        setFileContent(null)
-      }
-      loadDirectory(currentPath)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to rename')
-    }
-  }, [device, renameDialog, newName, selectedFile?.path, currentPath, loadDirectory])
-
-  const handleBulkDelete = useCallback(async () => {
-    if (selectedPaths.size === 0) return
-
-    const results = await Promise.allSettled(
-      Array.from(selectedPaths).map((path) => device.getClient().files.delete(path))
-    )
-
-    const successCount = results.filter((r) => r.status === 'fulfilled').length
-    const failCount = results.filter((r) => r.status === 'rejected').length
-
-    setBulkDeleteDialog(false)
-    clearSelection()
-
-    if (successCount > 0) {
-      toast.success(`Deleted ${successCount} item(s)`)
-      loadDirectory(currentPath)
-    }
-    if (failCount > 0) {
-      toast.error(`Failed to delete ${failCount} item(s)`)
-    }
-  }, [device, selectedPaths, currentPath, loadDirectory, clearSelection])
-
-  const handleDropUpload = useCallback(
-    async (files: File[]) => {
-      if (files.length === 0) return
-
-      setUploading(true)
-      let successCount = 0
-      let failCount = 0
-
-      for (const file of files) {
-        try {
-          await device.getClient().files.upload(currentPath, file)
-          successCount++
-        } catch (err) {
-          failCount++
-          console.error(`Failed to upload ${file.name}:`, err)
-        }
-      }
-
-      setUploading(false)
-
-      if (successCount > 0) {
-        toast.success(`Uploaded ${successCount} file(s)`)
-        loadDirectory(currentPath)
-      }
-      if (failCount > 0) {
-        toast.error(`Failed to upload ${failCount} file(s)`)
-      }
-    },
-    [device, currentPath, loadDirectory]
-  )
-
-  const handleUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files
-      if (!files || files.length === 0) return
-      handleDropUpload(Array.from(files))
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    },
-    [handleDropUpload]
-  )
-
-  const handleDownload = useCallback(
-    (entry: FileEntry) => {
-      const url = device.getClient().files.getDownloadUrl(entry.path)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = entry.name
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    },
-    [device]
-  )
-
-  const handleDownloadSelected = useCallback(() => {
-    if (!data?.entries) return
-    const selectedEntries = data.entries.filter((e: FileEntry) => selectedPaths.has(e.path) && e.type === 'file')
-    selectedEntries.forEach((entry: FileEntry) => handleDownload(entry))
-  }, [data?.entries, selectedPaths, handleDownload])
-
-  const copyPath = useCallback((path: string) => {
-    navigator.clipboard.writeText(path)
-    toast.success('Path copied to clipboard')
-  }, [])
-
-  const closePreview = useCallback(() => {
-    if (isEditing && editedContent !== fileContent) {
-      if (!window.confirm('You have unsaved changes. Are you sure you want to close?')) {
-        return
-      }
-    }
-    setSelectedFile(null)
-    setFileContent(null)
-    setIsEditing(false)
-  }, [isEditing, editedContent, fileContent])
-
-  const cancelEdit = useCallback(() => {
-    setIsEditing(false)
-    setEditedContent(fileContent || '')
-  }, [fileContent])
-
-  const startEdit = useCallback(() => {
-    setIsEditing(true)
-  }, [])
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Pin/Unpin Folder
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  const handleTogglePinEntry = useCallback(
-    async (entry: FileEntry) => {
-      if (entry.type !== 'directory') return
-
-      if (isPinned(entry.path)) {
-        const folder = getPinnedFolderByPath(entry.path)
-        if (folder) {
-          try {
-            await device.getClient().files.pinned.unpin(folder.id)
-            removePinnedFolder(folder.id)
-            toast.success('Folder unpinned')
-          } catch {
-            toast.error('Failed to unpin folder')
-          }
-        }
-      } else {
-        try {
-          const folder = unwrap(await device.getClient().files.pinned.pin(entry.path, entry.name))
-          addPinnedFolder(folder)
-          toast.success('Folder pinned')
-        } catch {
-          toast.error('Failed to pin folder')
-        }
-      }
-    },
-    [device, isPinned, getPinnedFolderByPath, removePinnedFolder, addPinnedFolder]
-  )
-
-  const handleSidebarUnpin = useCallback(
-    async (id: string) => {
-      try {
-        await device.getClient().files.pinned.unpin(toPinnedFolderId(id))
-        removePinnedFolder(id)
-        toast.success('Folder unpinned')
-      } catch {
-        toast.error('Failed to unpin folder')
-      }
-    },
-    [device, removePinnedFolder]
-  )
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Selection helpers
@@ -623,11 +348,6 @@ export function FilesProvider({ children }: FilesProviderProps) {
     selectAll(sortedAndFilteredEntries.map((e) => e.path))
   }, [selectAll, sortedAndFilteredEntries])
 
-  const handleRenameEntry = useCallback((entry: FileEntry) => {
-    setRenameDialog(entry)
-    setNewName(entry.name)
-  }, [])
-
   // ─────────────────────────────────────────────────────────────────────────────
   // Context value
   // ─────────────────────────────────────────────────────────────────────────────
@@ -643,7 +363,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
 
       // Data
       data,
-      entries: data?.entries || [],
+      entries: directoryEntries,
       loading,
       error,
       homeDir,
@@ -738,6 +458,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
       goUp,
       refresh,
       data,
+      directoryEntries,
       loading,
       error,
       homeDir,
@@ -746,6 +467,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
       fileContent,
       isEditing,
       editedContent,
+      setEditedContent,
       fileLoading,
       saving,
       hasUnsavedChanges,
@@ -766,16 +488,24 @@ export function FilesProvider({ children }: FilesProviderProps) {
       copyPath,
       handleTogglePinEntry,
       uploading,
+      fileInputRef,
       handleDropUpload,
       handleUpload,
       newFolderDialog,
+      setNewFolderDialog,
       newFileDialog,
+      setNewFileDialog,
       deleteDialog,
+      setDeleteDialog,
       renameDialog,
+      setRenameDialog,
       bulkDeleteDialog,
+      setBulkDeleteDialog,
       newName,
+      setNewName,
       searchQuery,
       focusedIndex,
+      setFocusedIndex,
       handleToggleCheck,
       handleSelectAll,
       handleRenameEntry,
