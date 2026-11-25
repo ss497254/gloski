@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/ss497254/gloski/internal/config"
-	"github.com/ss497254/gloski/internal/controltower"
 	"github.com/ss497254/gloski/internal/logger"
+	"github.com/ss497254/gloski/internal/master"
 )
 
 var (
@@ -40,9 +40,9 @@ func main() {
 
 	switch cfg.Mode {
 	case config.ModeMaster:
-		logger.Info("Gloski control tower %s starting...", version)
-		if err := controltower.Run(cfg, version); err != nil {
-			logger.Fatal("Control tower failed: %v", err)
+		logger.Info("Gloski master %s starting...", version)
+		if err := master.Run(cfg, version); err != nil {
+			logger.Fatal("Master failed: %v", err)
 		}
 	case config.ModeAgent:
 		logger.Fatal("gloski no longer runs in agent mode; use the gloski-agent binary")

@@ -15,11 +15,11 @@ staged_mode=${GLOSKI_CHECK_STAGED:-0}
 changed() {
 	if [ "$staged_mode" = "1" ]; then
 		# The hook's temporary index contains exactly the committed paths.
-		git diff --cached --name-only --diff-filter=ACM | sort -u
+		git diff --cached --name-only --diff-filter=ACMR | sort -u
 	else
 		{
-			git diff --name-only --diff-filter=ACM
-			git diff --cached --name-only --diff-filter=ACM
+			git diff --name-only --diff-filter=ACMR
+			git diff --cached --name-only --diff-filter=ACMR
 			git ls-files --others --exclude-standard
 		} | sort -u
 	fi
@@ -154,7 +154,7 @@ EOF
 if name_only | grep -q '^server/proto/agentv1/'; then
 	note "PROTOCOL FILE CHANGED: confirm generated code was regenerated and ProtocolVersion bumped if the wire format changed"
 fi
-if name_only | grep -q '^server/internal/controltower/routes.go$'; then
+if name_only | grep -q '^server/internal/master/routes.go$'; then
 	note "ROUTES CHANGED: confirm docs/http-api.md and the frontend client were updated"
 fi
 

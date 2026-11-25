@@ -1,115 +1,48 @@
 # Where to change what
 
-A map for common changes. If a change needs a file that is not listed here, fix
-this page in the same commit.
+A high-level map of subsystems for common changes.
 
-## Add a browser endpoint
+## Subsystems
 
-1. Handler: add it to the matching file in `server/internal/controltower/`:
-   - device commands and jobs: `device_jobs.go`, `device_files.go`,
-     `device_terminal.go`, `device_api.go`
-   - fleet, dashboard, deployments: `handlers.go`, `dashboard.go`, `deploy.go`
-2. Register the route in `server/internal/controltower/routes.go`. Use a method
-   pattern such as `GET /api/devices/{id}/api/files`.
-3. Decide the response shape (raw, wrapped, error). The three shapes are
-   documented in [http-api.md](http-api.md).
-4. Add the call to the frontend:
-   - device-scoped: `web/src/shared/api/resources/`
-   - master-scoped: `web/src/shared/tower/client.ts`
-5. Document the method, path, body, response and errors in
-   [http-api.md](http-api.md).
-6. Test with `go test ./...`, then against a live master.
-
-## Add an agent command
-
-The browser never talks to an agent directly. A command crosses the gRPC stream.
-
-1. Add messages and a payload case to
-   `server/proto/agentv1/agent.proto`.
-2. Regenerate: `make proto`. The generated code is checked in and must be
-   committed with the change.
-3. Master side: add a method to `server/internal/controltower/agents/`
-   (`commands.go` or a new file) that sends the message and waits for its
-   result.
-4. Device side: dispatch the new `MasterMessage` case in
-   `server/internal/worker/run.go`, and implement it in a focused file:
-   `agent_jobs.go`, `agent_files.go`, `agent_terminal.go`, or a new file.
-5. Add tests for the store/command logic and a live smoke test through the
-   dashboard or HTTP API.
-6. Update [backend.md](backend.md) and, if the browser can reach it, the
-   endpoint tables in [http-api.md](http-api.md).
-
-## Add a page
-
-1. Create `web/src/features/<name>/` with `pages/<Name>Page.tsx`.
-2. Add the route in `web/src/App.tsx`.
-3. Add the nav item in `web/src/app/navigation.ts`.
-4. Device-scoped pages go under `DeviceLayout` and redirect old `/servers/*`
-   and `/fleet/*` URLs as the existing pages do.
-5. Update [frontend.md](frontend.md).
-
-## Change the database schema
-
-1. Add a migration to `server/internal/database/migrations.go`. Versions are
-   integers and must only increase; never edit an applied one. All tables
-   including job tables are tracked by schema migrations.
-2. Update the store methods in `server/internal/fleet/` or
-   `server/internal/jobs/store.go`.
-3. Update [data-model.md](data-model.md).
-4. Test on a fresh database file and on a copy of an existing one.
-
-## Add a config setting
-
-1. Add the field to `server/internal/config/config.go` with its JSON tag.
-2. Add the environment override in `server/internal/config/env.go`.
-3. Set the default in `DefaultConfig` or the mode-specific defaults.
-4. Update `docs/tower.md` and the configuration table in
-   [backend.md](backend.md).
-5. Add a case to `server/tests/config/config_test.go`.
-
-## Change file operations
-
-1. Filesystem policy and operations: `server/internal/files/`.
-2. Device-side handling: `server/internal/worker/agent_files.go` for small
-   operations, `agent_transfer.go` for file contents over HTTP.
-3. Browser API translation: `server/internal/controltower/device_files.go`;
-   downloads and uploads add `device_transfer.go` and `file_transfer.go`.
-4. Frontend client and UI: `web/src/shared/api/resources/files.ts` and
-   `web/src/features/files/`.
-5. Update [http-api.md](http-api.md).
-
-## Add or change a job status
-
-1. Add the constant in `server/internal/jobs/store.go`.
-2. Update the transitions in `MarkRunning`, `Finish`, `AbandonMissing`,
-   `Abandon`, and the queries that filter by status.
-3. Update the frontend badge and filters in `web/src/features/jobs/`.
-4. Update [data-model.md](data-model.md).
-5. Test both the normal finish path and a reconnect that abandons a job.
-
-## Where things live
-
-| I need to understand... | Read |
+| Area | Where |
 |---|---|
-| The whole system in one page | [architecture.md](architecture.md) |
-| HTTP routes and payloads | [http-api.md](http-api.md) |
-| SQLite tables and statuses | [data-model.md](data-model.md) |
-| The master's browser API and lifecycle | `server/internal/controltower/` |
-| The master half of the gRPC stream | `server/internal/controltower/agents/` |
-| Master-owned jobs and streamed logs | `server/internal/jobs/` |
-| Device-side jobs, files, terminal | `server/internal/worker/` |
-| Devices, deployments, fleet events | `server/internal/fleet/` |
-| SSH install and uninstall | `server/internal/provisioning/` (config merge), `server/internal/agentdist/install-agent.sh` (phases, staging, rollback) |
-| Agent builds served by the master | `server/internal/agentdist/` |
-| Stats collection | `server/internal/system/` |
-| Metric history and retention | `server/internal/metrics/`, `controltower/device_history.go`, `controltower/maintenance.go` |
-| Check results and the fleet matrix | `server/internal/checks/`, `controltower/check_matrix.go`, `web/src/features/dashboard/components/FleetCheckMatrix.tsx` |
-| Native probes and scheduling | `server/internal/checks/probes.go`, `controltower/probes.go`, `worker/agent_checks.go`, `proto/agentv1/agent.proto` |
-| Frontend routes and pages | `web/src/App.tsx`, `web/src/features/` |
-| Frontend API client | `web/src/shared/api/`, `web/src/shared/tower/client.ts` |
-| Table controls and gap-aware charts | `web/src/shared/components/table-controls.tsx`, `web/src/features/devices/lib/history.ts` |
+| Master HTTP API, dashboard summary, self-test, lifecycle loop | `server/internal/master/` |
+| Master-side gRPC agent stream & command dispatch | `server/internal/master/agentstream/` |
+| Device-side agent runtime (jobs, files, transfers, terminal, probes) | `server/internal/agent/` |
+| gRPC protocol definitions and generated code | `server/proto/agentv1/` |
+| SQLite migrations | `server/internal/database/` |
+| Devices, deployments, and fleet events | `server/internal/fleet/` |
+| SSH installation and scripts | `server/internal/provisioning/`, `server/internal/agentdist/` |
+| Jobs, checks/probes, metrics, actions | `server/internal/jobs/`, `server/internal/checks/`, `server/internal/metrics/`, `server/internal/actions/` |
+| Filesystem policy & operations | `server/internal/files/` |
+| System stats collection | `server/internal/system/` |
+| Config defaults and env overrides | `server/internal/config/` |
+| Frontend router, navigation, pages, and feature modules | `web/src/App.tsx`, `web/src/app/`, `web/src/features/` |
+| Frontend API clients | `web/src/shared/api/`, `web/src/shared/tower/` |
 
-## Verify a change
+## Common workflows
+
+- **Add a browser endpoint:** implement and register the route in
+  `server/internal/master/`, add the client call in `web/src/shared/api/`
+  (device-scoped) or `web/src/shared/tower/` (master-scoped), and update
+  [http-api.md](http-api.md).
+- **Add an agent command:** update `server/proto/agentv1/agent.proto`,
+  regenerate with `make proto`, wire the master send/wait in
+  `server/internal/master/agentstream/`, handle the command in
+  `server/internal/agent/`, and update [backend.md](backend.md) /
+  [http-api.md](http-api.md).
+- **Add a frontend page:** add the feature page under `web/src/features/`,
+  register its route and navigation entry, keep legacy `/fleet/*` and
+  `/servers/*` redirects working if device-scoped, keep the master's SPA route
+  list aligned, and update [frontend.md](frontend.md).
+- **Change the database schema:** append a new numbered migration in
+  `server/internal/database/`, update the owning store package, and update
+  [data-model.md](data-model.md).
+- **Add a configuration setting:** add the field, env override, and default in
+  `server/internal/config/`, add a config test, and update [tower.md](tower.md)
+  and [backend.md](backend.md).
+
+## Verification
 
 ```bash
 make build
@@ -118,6 +51,5 @@ cd server && go test -race ./internal/...
 cd web && bun run type-check && bun test && bun run build
 ```
 
-Then run a live master and agent using the recipe in `AGENTS.md`. Unit tests
-have not caught every transport bug in this project; a smoke test through the
-dashboard is part of the definition of done.
+Also verify transport, lifecycle, job, file, or terminal changes against a
+live master and agent before committing.

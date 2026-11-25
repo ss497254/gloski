@@ -5,8 +5,7 @@ The browser talks only to the master. Device calls
 agent stream. Web routes are in [frontend.md](frontend.md); agent transport is
 described in [backend.md](backend.md).
 
-Base URL: the dashboard origin, for example `http://127.0.0.1:8080`. All routes
-are registered in `server/internal/controltower/routes.go`.
+Base URL: the dashboard origin, for example `http://127.0.0.1:8080`.
 
 ## Authentication
 
@@ -35,9 +34,8 @@ say which one applies.
 | **error** | `{"success":false,"error":"plain message"}` |
 
 JSON request bodies must use `Content-Type: application/json`; anything else
-returns `415`. Writes are same-origin only (see `httpapi.SameOrigin`); set
-`GLOSKI_ALLOWED_ORIGINS=*` to disable that check behind a proxy that rewrites
-`Host`.
+returns `415`. Writes are same-origin only; set `GLOSKI_ALLOWED_ORIGINS=*` to
+disable that check behind a proxy that rewrites `Host`.
 
 The SPA fallback knows the browser's routes. A known route returns `200` with
 `index.html`; an unknown extensionless path returns `404` **with the SPA body**
@@ -145,9 +143,8 @@ device and metric; the chart metrics are `cpu`, `memory`, `swap`, `load1`, `netw
 `network_tx` and `disk:<mount_point>` (percent used). Results are ordered
 oldest first, so they can be passed straight to a chart.
 
-`Device` and `Deployment` fields are defined in `server/internal/fleet/types.go`
-and `server/internal/fleet/deployment.go`. Tokens and machine IDs are never
-returned (`json:"-"`).
+Device and Deployment objects exclude internal credentials (`token`, `machine_id`)
+from JSON responses.
 
 `Diagnosis.steps` is ordered from the master outwards: `deployment`, `tailscale`,
 `ssh`, `login`, `install`, `process`, `agent`, `build`. Links that do not apply

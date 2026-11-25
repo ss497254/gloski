@@ -84,9 +84,9 @@ See [docs/frontend.md](docs/frontend.md) and [docs/backend.md](docs/backend.md) 
 
 ### Backend Changes
 
-1. **Browser endpoints** go in `server/internal/controltower/` and are registered in `routes.go`
-2. **Master-to-agent commands** go in `server/internal/controltower/agents/`
-3. **Device-side handling** goes in `server/internal/worker/`
+1. **Browser endpoints** go in `server/internal/master/` and are registered in `routes.go`
+2. **Master-to-agent commands** go in `server/internal/master/agentstream/`
+3. **Device-side handling** goes in `server/internal/agent/`
 4. **Protocol changes** go in `server/proto/agentv1/agent.proto` (regenerate the checked-in Go code)
 
 ## Testing Your Changes
@@ -129,8 +129,8 @@ go build ./cmd/gloski
 
 ### Adding a New API Endpoint
 
-1. Add the handler in `server/internal/controltower/`
-2. Register the route in `server/internal/controltower/routes.go`
+1. Add the handler in `server/internal/master/`
+2. Register the route in `server/internal/master/routes.go`
 3. Add the client method in `web/src/shared/api/` (device calls) or `web/src/shared/tower/client.ts` (master calls)
 
 ### Adding a Shared Component
@@ -216,5 +216,3 @@ Code changes are not done until the matching docs are true:
 - [Control Tower](docs/tower.md)
 - [Responsive Design Patterns](docs/responsive-design.md)
 - [SDK](docs/sdk.md)
-- [Code Quality Plan](docs/code-quality-plan.md)
-- [Roadmap](docs/roadmap.md)

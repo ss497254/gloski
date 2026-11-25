@@ -89,7 +89,7 @@ These came from the owner directly. Follow them unless told otherwise.
 
 The docs map is written: glossary, HTTP API reference, data model,
 where-to-change-what, and a `CONTRIBUTING.md` that matches the main-only
-workflow. The files service is split by operation, worker file handling lives in
+workflow. The files service is split by operation, agent file handling lives in
 `agent_files.go`, and delete and rename share one protected-path tree check:
 both refuse a protected root and anything below it, except under `/tmp`.
 
@@ -111,7 +111,7 @@ itself.
 
 Local plans and roadmaps (when present) live in `docs/wip/` and are not
 committed:
-- `code-quality-plan.md` (Batches 1–4 are done; batch 5 is next)
+- `code-quality-plan.md` (Batches 1–5 are done; batch 6 is next)
 - `roadmap.md` (step 1 remaining items, then steps 2–4)
 - `reliability-plan.md` (master-owned agent lifecycle and test SSH server notes)
 

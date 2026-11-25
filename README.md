@@ -1,7 +1,7 @@
 # Gloski
 
 A Tailnet-first control tower for Linux devices. One `gloski` master serves the
-dashboard and coordinates stateless `gloski-agent` workers on every device,
+dashboard and coordinates stateless `gloski-agent` processes on every device,
 including itself.
 
 ## Quick start
@@ -36,8 +36,8 @@ on the same listener.
 
 ## Code layout
 
-The master lives in `server/internal/controltower`, the device-side agent in
-`server/internal/worker`, fleet state in `server/internal/fleet`, and SSH
+The master lives in `server/internal/master`, the device-side agent in
+`server/internal/agent`, fleet state in `server/internal/fleet`, and SSH
 installation in `server/internal/provisioning`. See
 [Backend Architecture](docs/backend.md) for the full map.
 
@@ -70,5 +70,4 @@ All settings are documented in [docs/tower.md](docs/tower.md).
 ## Acknowledgements
 
 Patterns and a small amount of code in this project were informed by
-[Beszel](https://github.com/henrygd/beszel) (MIT, © 2024 henrygd). See
-[docs/beszel/](docs/beszel/README.md) for the topic-by-topic reference.
+[Beszel](https://github.com/henrygd/beszel) (MIT, © 2024 henrygd).

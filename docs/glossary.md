@@ -1,54 +1,45 @@
 # Glossary
 
 Gloski has one word per concept. Use these terms in code, commits, docs and UI
-copy. The right-hand column says where the concept lives today; the planned
-renames are in [code-quality-plan.md](code-quality-plan.md).
+copy.
 
-| Term | Meaning | Where |
-|---|---|---|
-| **Gloski** | The project and the product. | repository |
-| **master** | The control process: dashboard, browser API, SQLite, agent lifecycle. | `cmd/gloski`, `internal/controltower` |
-| **agent** | The device-side process. One per device, including the master host. | `cmd/gloski-agent`, `internal/worker` |
-| **device** | A machine enrolled in the fleet. | `fleet.Device` |
-| **master device** | The device row with `master = 1`. Its agent reaches the master over a Unix socket. | `Device.Master` |
-| **local agent** | The agent on the master host, started and supervised by the master. | `controltower/local_agent.go` |
-| **remote agent** | An agent on another device, reached over h2c on the Tailnet. | `controltower/agent_transport.go` |
-| **deployment** | The SSH record of how an agent was installed on a device. | `fleet.Deployment` |
-| **install phase** | The named stage in an install error: platform, prepare, binary, config, replace or start. It travels in the error text, not a separate field. | `agentdist/install-agent.sh` |
-| **job** | A command the master owns and one agent executes. | `agents.Job` |
-| **session** | One live `Agent.Connect` gRPC stream for a device. | `agents.connection` |
-| **diagnosis** | An ordered chain of facts from the master outwards, with the first broken link as the headline. | `controltower/diagnose.go` |
-| **self-test** | A read-only checklist of the master's own health, shown under Settings → Master health. | `controltower/selftest.go` |
-| **device action** | A master-owned change to a device, recorded so it can be explained and, where the previous state is known, undone. | `actions.Action`, `device_actions` |
-| **undo** | Restoring the wanted state recorded in a reversible device action. | `POST /api/devices/{id}/actions/{actionId}/undo` |
-| **check** | A saved command whose exit code is a verdict, run on a schedule yet to be built. | `internal/checks` (result model) |
-| **check result** | One run of one check on one device: verdict, summary, details, timing. | `checks.Result`, `check_results` |
-| **native probe** | A TCP, HTTP, DNS or TLS check run by the agent itself, requested over the existing gRPC stream. | `checks.ProbeKind`, `worker/agent_checks.go` |
-| **stable check ID** | An FNV hash of a probe's kind and target (plus accepted statuses), so reconfiguring a schedule does not split its history. | `checks.StableID` |
-| **idle suppression** | Native probes stop after three minutes with no dashboard or device-stats request; heartbeats and metric sampling continue. | `controltower/probes.go` |
-| **metric sample** | One metric value recorded by the master from a heartbeat, at most once every five minutes per device and metric. | `metrics.Sample`, `metric_samples` |
-| **check group** | A fixed column of the fleet matrix: Connectivity, Storage, Services, Updates, Backups, plus Other for unmatched check IDs. Derived from a check ID prefix, not stored. | `controltower.checkGroup` |
-| **fleet check matrix** | Devices as rows and check groups as columns, one coloured block per check, ordered red first. Grey means skipped, stale or never run. | `controltower/check_matrix.go`, `FleetCheckMatrix.tsx` |
-| **stale** | A result older than twice its schedule. Recomputed when read, never stored as a final answer. | `checks.Result.StaleAt` |
-| **skipped** | A check that does not apply to a device. Not a failure. | `checks.StatusSkipped` |
-| **unknown** | A check that has not run, or ran without a usable result. Not a failure. | `checks.StatusUnknown` |
-| **dashboard** | The React single-page app. | `web/` |
-| **file transfer** | A download or upload of file contents over HTTP on the agent port. | `controltower/file_transfer.go` |
-| **transfer id** | A one-time id that lets one agent HTTP request reach its transfer. | `agentv1.FileTransfer` |
-| **terminal** | A PTY session opened from the browser. | `worker/agent_terminal.go` |
+| Term | Meaning |
+|---|---|
+| **Gloski** | The project and the product. |
+| **master** | The control process: dashboard, browser API, SQLite database, and agent lifecycle. |
+| **agent** | The device-side process (`gloski-agent`). One per device, including the master host. |
+| **device** | A machine enrolled in the fleet. |
+| **master device** | The device record representing the master host itself; its agent connects over a Unix socket. |
+| **local agent** | The agent on the master host, started and supervised as a child process by the master. |
+| **remote agent** | An agent on another device, reached over h2c on the Tailnet. |
+| **deployment** | The SSH record of how an agent was installed on a device. |
+| **install phase** | The named stage in an install error (`platform`, `prepare`, `binary`, `config`, `replace`, or `start`), carried in the error text. |
+| **job** | A command the master owns and one agent executes. |
+| **session** | One live bidirectional gRPC stream for a device. |
+| **diagnosis** | An ordered chain of connection checks from the master outwards, with the first broken link as the headline. |
+| **self-test** | A read-only checklist of the master's own health, shown under Settings → Master health. |
+| **device action** | A master-owned change to a device, recorded so it can be explained and, when the previous wanted state is known, undone. |
+| **undo** | Restoring the wanted state recorded in a reversible device action. |
+| **check result** | One run of one check or native probe on one device: verdict, summary, details, timing. |
+| **native probe** | A TCP, HTTP, DNS or TLS check run by the agent itself, requested over the existing gRPC stream. |
+| **stable check ID** | A deterministic hash of a probe's kind and target (plus accepted statuses), so schedule changes do not split history. |
+| **idle suppression** | Native probes pause after three minutes with no dashboard or device-stats request; heartbeats and metric sampling continue. |
+| **metric sample** | One metric value recorded by the master from a heartbeat, at most once every five minutes per device and metric. |
+| **check group** | A fixed column of the fleet matrix (`Connectivity`, `Storage`, `Services`, `Updates`, `Backups`, plus `Other`), derived from check ID prefixes. |
+| **fleet check matrix** | Devices as rows and check groups as columns, one coloured block per check, ordered red first. Grey means skipped, stale or never run. |
+| **stale** | A check result older than twice its schedule interval. Recomputed when read. |
+| **skipped** | A check that does not apply to a device. Not a failure. |
+| **unknown** | A check that has not run, or ran without a usable result. Not a failure. |
+| **dashboard** | The React single-page app. |
+| **file transfer** | A download or upload of file contents over HTTP on the agent port. |
+| **transfer id** | A one-time ID that lets one agent HTTP request reach its transfer. |
+| **terminal** | A PTY session opened from the browser. |
 
 ## Words to avoid
 
-- **server**: only for an actual HTTP or gRPC server (`http.Server`,
-  `grpc.Server`). Do not use it for the master.
-- **tower / control tower**: product prose only. It is not a second name for
-  the master in code, and it is not a package name after batch 5 of the
-  readability plan.
-- **worker**: only the Go package name `internal/worker`. In prose and new
-  code, say agent.
-- **node / host**: use device for a fleet member. Host is fine for the SSH
-  address field inside a deployment.
+- **server**: only for an actual HTTP or gRPC server. Do not use it for the master.
+- **tower / control tower**: product prose only, not a separate code concept from master.
+- **worker**: replaced by agent; do not use it in code, prose, or UI.
+- **node / host**: use device for a fleet member. Host is fine for the SSH address field inside a deployment.
 - **standalone**: removed. There is no standalone mode.
-- **upload session / chunked upload**: the chunked upload API in
-  `internal/files` is unused legacy code, not the upload path. Real uploads use
-  a `FileTransfer` over HTTP.
+- **upload session / chunked upload**: legacy code removed; real uploads use HTTP file transfers.

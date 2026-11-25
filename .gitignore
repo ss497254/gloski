@@ -45,3 +45,6 @@ logs/
 
 # Agent builds embedded into the master
 server/internal/agentdist/builds/gloski-agent-*
+
+# Local work-in-progress plans and reference notes
+docs/wip/
