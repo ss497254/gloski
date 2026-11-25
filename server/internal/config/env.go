@@ -20,14 +20,11 @@ func (c *Config) loadCommonEnv() {
 	envString("GLOSKI_MODE", &c.Mode)
 	envString("GLOSKI_HOST", &c.Host)
 	envInt("GLOSKI_PORT", &c.Port)
-	envString("GLOSKI_BASE_URL", &c.BaseURL)
-	envString("GLOSKI_API_PREFIX", &c.APIPrefix)
 	envString("GLOSKI_DATA_DIR", &c.DataDir)
 	envString("GLOSKI_SHELL", &c.Shell)
 	envString("GLOSKI_LOG_LEVEL", &c.LogLevel)
 	envInt("GLOSKI_SHUTDOWN_TIMEOUT", &c.ShutdownTimeout)
 	envBool("GLOSKI_DETAILED_ERRORS", &c.DetailedErrors)
-	envInt64("GLOSKI_MAX_JSON_BODY_SIZE", &c.MaxJSONBodySize)
 }
 
 func (c *Config) loadFeatureEnv() {
@@ -35,10 +32,6 @@ func (c *Config) loadFeatureEnv() {
 	envString("GLOSKI_API_KEY", &c.APIKey)
 	envString("GLOSKI_JWT_PUBLIC_KEY", &c.JWTPublicKey)
 	envString("GLOSKI_JWT_PUBLIC_KEY_FILE", &c.JWTPublicKeyFile)
-	envBool("GLOSKI_DOWNLOADS_ENABLED", &c.Downloads.Enabled)
-	envInt("GLOSKI_DOWNLOADS_MAX_CONCURRENT", &c.Downloads.MaxConcurrent)
-	envBool("GLOSKI_JOBS_ENABLED", &c.Jobs.Enabled)
-	envInt("GLOSKI_JOBS_MAX_JOBS", &c.Jobs.MaxJobs)
 
 	if raw := strings.TrimSpace(os.Getenv("GLOSKI_PROBES")); raw != "" {
 		var probes []ProbeDefinition
@@ -87,19 +80,6 @@ func envInt(key string, target *int) {
 		return
 	}
 	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		warnInvalidEnv(key, value, err)
-		return
-	}
-	*target = parsed
-}
-
-func envInt64(key string, target *int64) {
-	value := os.Getenv(key)
-	if value == "" {
-		return
-	}
-	parsed, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		warnInvalidEnv(key, value, err)
 		return

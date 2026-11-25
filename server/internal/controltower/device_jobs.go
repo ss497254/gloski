@@ -1,6 +1,7 @@
 package controltower
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -43,7 +44,15 @@ func (d *deviceHandlers) handleRunJob(w http.ResponseWriter, r *http.Request) {
 // device in the same URL, so one device's path cannot reach another's jobs.
 func (d *deviceHandlers) deviceJob(w http.ResponseWriter, r *http.Request) (*jobs.Job, bool) {
 	job, err := d.agentService.GetJob(r.PathValue("jobId"))
-	if err != nil || job.DeviceID != r.PathValue("id") {
+	if err != nil {
+		if errors.Is(err, jobs.ErrJobNotFound) {
+			httpapi.NotFound(w, "job not found")
+			return nil, false
+		}
+		writeAgentError(w, err)
+		return nil, false
+	}
+	if job.DeviceID != r.PathValue("id") {
 		httpapi.NotFound(w, "job not found")
 		return nil, false
 	}

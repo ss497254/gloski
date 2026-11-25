@@ -5,11 +5,16 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/ss497254/gloski/internal/database"
 )
+
+// ErrActionNotFound means no action record exists for that ID.
+var ErrActionNotFound = errors.New("action not found")
 
 // Kinds recorded today. File operations and services will add their own.
 const (
@@ -106,7 +111,14 @@ func (s *Store) Get(ctx context.Context, id string) (Action, error) {
 		SELECT id, device_id, kind, target, from_value, to_value, result, error,
 		       undoable, undone_at, created_at
 		FROM device_actions WHERE id = ?`, id)
-	return scanAction(row)
+	action, err := scanAction(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Action{}, ErrActionNotFound
+		}
+		return Action{}, fmt.Errorf("load action %s: %w", id, err)
+	}
+	return action, nil
 }
 
 // ClaimUndo atomically marks an action as being undone. Only one caller can

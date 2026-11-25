@@ -38,8 +38,6 @@ type Config struct {
 	// Server settings
 	Host            string `json:"host"`
 	Port            int    `json:"port"`
-	BaseURL         string `json:"base_url"`         // Public URL for share links (e.g., https://example.com)
-	APIPrefix       string `json:"api_prefix"`       // API prefix for all routes (e.g., /my-prefix)
 	ShutdownTimeout int    `json:"shutdown_timeout"` // Shutdown timeout in seconds (default: 5)
 
 	// Data directory
@@ -69,16 +67,9 @@ type Config struct {
 	LogLevel string `json:"log_level"` // debug, info, warn, error
 
 	// API settings
-	DetailedErrors  bool  `json:"detailed_errors"`    // Include detailed error messages in API responses (useful for development)
-	MaxJSONBodySize int64 `json:"max_json_body_size"` // Maximum size for JSON request bodies in bytes (default: 1MB)
+	DetailedErrors bool `json:"detailed_errors"` // Include detailed error messages in API responses (useful for development)
 
-	// Downloads
-	Downloads DownloadsConfig `json:"downloads"`
-
-	// Jobs
-	Jobs JobsConfig `json:"jobs"`
-
-	// Control tower (master) settings
+	// Master settings
 	Master MasterConfig `json:"master"`
 
 	// Device agent settings
@@ -139,19 +130,6 @@ type AgentConfig struct {
 	Master bool `json:"master"`
 }
 
-// DownloadsConfig holds configuration for the download manager
-type DownloadsConfig struct {
-	Enabled       bool `json:"enabled"`
-	MaxConcurrent int  `json:"max_concurrent"` // Maximum concurrent downloads (default: 3)
-	MaxRetries    int  `json:"max_retries"`    // Maximum retry attempts (default: 3)
-}
-
-// JobsConfig holds configuration for the jobs manager
-type JobsConfig struct {
-	Enabled bool `json:"enabled"`
-	MaxJobs int  `json:"max_jobs"` // Maximum number of jobs to keep (default: 100)
-}
-
 // DefaultConfig returns the built-in defaults before the config file and
 // environment are applied.
 func DefaultConfig() *Config {
@@ -168,15 +146,6 @@ func DefaultConfig() *Config {
 		AllowedPaths:    []string{},
 		Shell:           getDefaultShell(),
 		LogLevel:        "info",
-		Downloads: DownloadsConfig{
-			Enabled:       true,
-			MaxConcurrent: 3,
-			MaxRetries:    3,
-		},
-		Jobs: JobsConfig{
-			Enabled: true,
-			MaxJobs: 100,
-		},
 		Master: MasterConfig{
 			WebDir:            "web/dist",
 			DeviceTimeout:     45,
@@ -196,16 +165,6 @@ func DefaultConfig() *Config {
 // MasterDBPath returns the path to the master's SQLite database.
 func (c *Config) MasterDBPath() string {
 	return filepath.Join(c.DataDir, "master.db")
-}
-
-// DatabasePath returns the path to the SQLite database
-func (c *Config) DatabasePath() string {
-	return filepath.Join(c.DataDir, "gloski.db")
-}
-
-// LogsDir returns the path to the logs directory
-func (c *Config) LogsDir() string {
-	return filepath.Join(c.DataDir, "logs")
 }
 
 // Load reads the optional JSON config file, applies environment overrides and

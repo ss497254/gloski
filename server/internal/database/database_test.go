@@ -87,3 +87,21 @@ func TestAgentJobsMigrationUpgradesLegacyTables(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenDropsLegacyStandaloneTables(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "master.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	for _, table := range []string{"downloads", "download_share_links", "jobs", "pinned_folders"} {
+		var found int
+		if err := db.DB().QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&found); err != nil {
+			t.Fatal(err)
+		}
+		if found != 0 {
+			t.Errorf("legacy table %s still exists after migration", table)
+		}
+	}
+}

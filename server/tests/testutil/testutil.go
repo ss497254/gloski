@@ -31,7 +31,6 @@ func TestConfig(t *testing.T) *config.Config {
 		Shell:           "/bin/bash",
 		LogLevel:        "error",
 		DetailedErrors:  true,
-		MaxJSONBodySize: 1024 * 1024,
 		ShutdownTimeout: 5,
 	}
 

@@ -134,7 +134,10 @@ func (d *deployHandlers) handleGetDeployment(w http.ResponseWriter, r *http.Requ
 	httpapi.SuccessWithMessage(w, deployment)
 }
 
-var errStopUnreachable = errors.New("the device is offline and was not installed over SSH, so the master cannot reach it")
+var (
+	errStopUnreachable = errors.New("the device is offline and was not installed over SSH, so the master cannot reach it")
+	errNotDeployed     = errors.New("the master has no SSH details for this device")
+)
 
 func (d *deployHandlers) handleStartDevice(w http.ResponseWriter, r *http.Request) {
 	d.installNow(w, r, false)
@@ -154,7 +157,7 @@ func (d *deployHandlers) installNow(w http.ResponseWriter, r *http.Request, trus
 		return
 	}
 	if device.Deploy == nil {
-		httpapi.BadRequest(w, "the master has no SSH details for this device")
+		httpapi.BadRequest(w, errNotDeployed.Error())
 		return
 	}
 
@@ -181,7 +184,7 @@ func (d *deployHandlers) installNow(w http.ResponseWriter, r *http.Request, trus
 // caller has already checked that the device has SSH details.
 func (d *deployHandlers) installDevice(ctx context.Context, device *fleet.Device, trustHost bool) (provisioning.Result, error) {
 	if device.Deploy == nil {
-		return provisioning.Result{}, errors.New("the master has no SSH details for this device")
+		return provisioning.Result{}, errNotDeployed
 	}
 	if trustHost {
 		if err := d.installer.ForgetHost(device.Deploy.Host, device.Deploy.SSHPort); err != nil {
@@ -263,10 +266,10 @@ func (d *deployHandlers) recordAction(deviceID string, action actions.Action, er
 func (d *deployHandlers) deviceTarget(deviceID string) (provisioning.Target, error) {
 	device, err := d.fleetSvc.Get(deviceID)
 	if err != nil {
-		return provisioning.Target{}, errors.New("device not found")
+		return provisioning.Target{}, err
 	}
 	if device.DeployID == "" || device.Deploy == nil {
-		return provisioning.Target{}, errors.New("device was not deployed by this tower")
+		return provisioning.Target{}, errNotDeployed
 	}
 
 	deployment := device.Deploy

@@ -1,6 +1,7 @@
 package controltower
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"mime"
@@ -9,9 +10,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/ss497254/gloski/internal/actions"
 	"github.com/ss497254/gloski/internal/controltower/agents"
 	"github.com/ss497254/gloski/internal/fleet"
 	"github.com/ss497254/gloski/internal/httpapi"
+	"github.com/ss497254/gloski/internal/jobs"
 )
 
 var deviceWSUpgrader = websocket.Upgrader{
@@ -104,8 +107,15 @@ func writeAgentError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, agents.ErrNoAgent):
 		httpapi.Error(w, http.StatusBadGateway, err.Error())
-	case errors.Is(err, fleet.ErrDeviceNotFound):
-		httpapi.NotFound(w, "device not found")
+	case errors.Is(err, agents.ErrRequestTimeout), errors.Is(err, context.DeadlineExceeded):
+		httpapi.Error(w, http.StatusGatewayTimeout, err.Error())
+	case errors.Is(err, fleet.ErrDeviceNotFound),
+		errors.Is(err, fleet.ErrDeploymentNotFound),
+		errors.Is(err, jobs.ErrJobNotFound),
+		errors.Is(err, actions.ErrActionNotFound):
+		httpapi.NotFound(w, err.Error())
+	case errors.Is(err, errStopUnreachable), errors.Is(err, errNotDeployed):
+		httpapi.BadRequest(w, err.Error())
 	default:
 		httpapi.InternalError(w, "agent request failed", err.Error())
 	}

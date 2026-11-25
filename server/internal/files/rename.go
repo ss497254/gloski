@@ -1,7 +1,6 @@
 package files
 
 import (
-	"errors"
 	"os"
 )
 
@@ -24,11 +23,11 @@ func (s *Service) Rename(oldPath, newPath string) error {
 	}
 
 	if _, err := os.Stat(absOldPath); os.IsNotExist(err) {
-		return errors.New("source path does not exist")
+		return ErrNotFound
 	}
 
 	if _, err := os.Stat(absNewPath); err == nil {
-		return errors.New("destination path already exists")
+		return ErrAlreadyExists
 	}
 
 	return os.Rename(absOldPath, absNewPath)

@@ -5,12 +5,17 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/ss497254/gloski/internal/database"
 )
+
+// ErrJobNotFound means no job exists with that ID.
+var ErrJobNotFound = errors.New("job not found")
 
 // Job status values stored by the master.
 const (
@@ -331,7 +336,14 @@ func (t *Store) Get(id string) (*Job, error) {
 	row := t.db.QueryRow(`
 		SELECT `+jobColumns+`
 		FROM agent_jobs WHERE id = ?`, id)
-	return scanJob(row)
+	job, err := scanJob(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrJobNotFound
+		}
+		return nil, fmt.Errorf("load job %s: %w", id, err)
+	}
+	return job, nil
 }
 
 // Recent returns the newest jobs across all fleet.

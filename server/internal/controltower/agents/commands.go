@@ -241,6 +241,10 @@ func (svc *Service) Connected(deviceID string) bool {
 	return err == nil
 }
 
+// ErrRequestTimeout means the connected agent did not answer before the
+// command deadline expired.
+var ErrRequestTimeout = errors.New("agent did not respond in time")
+
 func (svc *Service) request(ctx context.Context, deviceID string, message *agentv1.MasterMessage, timeout time.Duration) (*agentv1.AgentMessage, error) {
 	conn, err := svc.connection(deviceID)
 	if err != nil {
@@ -272,7 +276,7 @@ func (svc *Service) request(ctx context.Context, deviceID string, message *agent
 		}
 		return reply, nil
 	case <-timer.C:
-		return nil, fmt.Errorf("agent %s did not respond in time", deviceID)
+		return nil, fmt.Errorf("%w: %s", ErrRequestTimeout, deviceID)
 	}
 }
 

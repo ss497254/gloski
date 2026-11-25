@@ -1,13 +1,20 @@
 package controltower
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/ss497254/gloski/internal/actions"
 	"github.com/ss497254/gloski/internal/config"
+	"github.com/ss497254/gloski/internal/controltower/agents"
+	"github.com/ss497254/gloski/internal/fleet"
+	"github.com/ss497254/gloski/internal/jobs"
 )
 
 func newRoutesTower(t *testing.T) *Tower {
@@ -69,6 +76,34 @@ func TestCrossOriginRequestsAreRejected(t *testing.T) {
 	}
 	if code := send("GET", "/api/devices", evil, "", "", false); code != http.StatusOK {
 		t.Errorf("cross-origin GET = %d, want 200", code)
+	}
+}
+
+func TestWriteAgentErrorMapping(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{"no agent", agents.ErrNoAgent, http.StatusBadGateway},
+		{"wrapped timeout", fmt.Errorf("rpc: %w", agents.ErrRequestTimeout), http.StatusGatewayTimeout},
+		{"deadline exceeded", context.DeadlineExceeded, http.StatusGatewayTimeout},
+		{"missing device", fleet.ErrDeviceNotFound, http.StatusNotFound},
+		{"missing deployment", fleet.ErrDeploymentNotFound, http.StatusNotFound},
+		{"missing job", jobs.ErrJobNotFound, http.StatusNotFound},
+		{"missing action", actions.ErrActionNotFound, http.StatusNotFound},
+		{"not deployed", errNotDeployed, http.StatusBadRequest},
+		{"stop unreachable", errStopUnreachable, http.StatusBadRequest},
+		{"unexpected", errors.New("boom"), http.StatusInternalServerError},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			writeAgentError(recorder, tc.err)
+			if recorder.Code != tc.want {
+				t.Errorf("status = %d, want %d (body=%s)", recorder.Code, tc.want, recorder.Body.String())
+			}
+		})
 	}
 }
 

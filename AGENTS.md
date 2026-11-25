@@ -25,10 +25,9 @@ transfer files, and view processes and stats on every device.
   found through Tailscale.
 
 Deeper reading: `docs/architecture.md`, `docs/tower.md`, `docs/backend.md`,
-`docs/frontend.md`, `CONTRIBUTING.md`. `docs/ideas-from-smdwin.md` inventories
-patterns from a Windows diagnostics tool; `docs/beszel/` is a topic-by-topic
-sourcebook for borrowing from Beszel (MIT; its frontend is React 19, so UI code
-is directly portable). Start at `docs/beszel/README.md`.
+`docs/frontend.md`, `CONTRIBUTING.md`. Unimplemented plans, roadmaps, and
+external reference sourcebooks (e.g. SMDWin, Beszel, Termix notes) are kept
+locally in `docs/wip/` (gitignored) so `docs/` only documents what is built.
 
 ## Owner's priorities and preferences
 
@@ -56,7 +55,7 @@ These came from the owner directly. Follow them unless told otherwise.
 - **The master owns the agent lifecycle.** Not the device and not the agent:
   devices differ and may lack systemd or cron. The master installs, starts,
   restarts and updates agents over SSH; an incompatible agent just exits and
-  the master runs the right one. Details in `docs/roadmap.md`.
+  the master runs the right one.
 - **Agents are never installed by hand.** Every device is deployed from the
   dashboard. Do not add manual install paths.
 - **No SSH fallback for actions.** If an agent is down the master should revive
@@ -102,35 +101,25 @@ are refused and reinstalled by the lifecycle. Listing, stat, rename, delete and
 the editor's small text reads stay on gRPC.
 
 Job logs are capped at 10 MB each and a daily maintenance pass in
-`controltower/maintenance.go` deletes finished jobs older than 30 days
-(`agents.JobRetention`). Device metric history, the fleet check matrix,
-native TCP/HTTP/DNS/TLS probes and the installer/SPA hardening are in; see
-`docs/beszel/11-implementation-plan.md` for what was done and what stays parked.
+Device metric history, the fleet check matrix, native TCP/HTTP/DNS/TLS probes
+and the installer/SPA hardening are in.
 
 The master-owned agent lifecycle is built (`7b936a3`), and the protocol changes
 from `7f86d0a` and `ab0abad` are in. Agents built before those commits must be
 reinstalled; the install script removes an old `/tmp/gloski-agent` install by
 itself.
 
-**Code readability work is in `docs/code-quality-plan.md`.** Batches 1 and 2
-are done; batch 3 (shrink `Tower`) is next when quality work resumes.
-
-**Features are in `docs/roadmap.md`**, in order; start at the first unfinished
-item of step 1.
-
-**The reliability design is in `docs/reliability-plan.md`**: the master owns
-the agent lifecycle and reinstalls over SSH whatever is disconnected or
-outdated. Its Status section says what is verified and how to test it here.
+Local plans and roadmaps (when present) live in `docs/wip/` and are not
+committed:
+- `code-quality-plan.md` (Batches 1–4 are done; batch 5 is next)
+- `roadmap.md` (step 1 remaining items, then steps 2–4)
+- `reliability-plan.md` (master-owned agent lifecycle and test SSH server notes)
 
 Known gaps not covered by either plan:
 
 - The dashboard's master client does not send the API key.
 - Device identity is still keyed by name; a machine-id guard only blocks
   duplicates.
-- Legacy database tables and config fields from standalone mode remain.
-- The files package still carries unused chunked-upload and search code.
-- `Tower` and `FilesContext` are still the god objects described in the
-  readability plan.
 
 ## Working on the code
 
@@ -184,5 +173,6 @@ These are facts about one machine, not requirements of the project.
   generated code byte for byte:
   `PATH=/root/.local/share/gloski-tools/bin:/root/.local/share/gloski-tools/protoc/bin:$PATH make proto`
 - `python3` is not installed; script with awk, perl or bun.
-- There is no SSH server and Tailscale is not running. Use the test SSH server
-  described in `docs/reliability-plan.md` to deploy agents locally.
+- There is no SSH server and Tailscale is not running. Use the local test SSH
+  server in `server/internal/provisioning/sshtest/sshd` to deploy agents
+  locally.

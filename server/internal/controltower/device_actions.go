@@ -1,6 +1,7 @@
 package controltower
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/ss497254/gloski/internal/actions"
@@ -56,7 +57,15 @@ func (d *deployHandlers) handleUndoAction(w http.ResponseWriter, r *http.Request
 		return
 	}
 	action, err := d.actionStore.Get(r.Context(), r.PathValue("actionId"))
-	if err != nil || action.DeviceID != deviceID {
+	if err != nil {
+		if errors.Is(err, actions.ErrActionNotFound) {
+			httpapi.NotFound(w, "action not found")
+			return
+		}
+		httpapi.InternalError(w, "failed to load action", err.Error())
+		return
+	}
+	if action.DeviceID != deviceID {
 		httpapi.NotFound(w, "action not found")
 		return
 	}

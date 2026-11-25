@@ -1,7 +1,6 @@
 package files
 
 import (
-	"errors"
 	"os"
 )
 
@@ -19,7 +18,7 @@ func (s *Service) Read(path string) (string, error) {
 	}
 
 	if info.IsDir() {
-		return "", errors.New("cannot read directory")
+		return "", ErrIsDirectory
 	}
 
 	if info.Size() > MaxFileSize {

@@ -275,6 +275,16 @@ var migrations = []migration{
 		name:    "create_agent_jobs",
 		apply:   migrateAgentJobs,
 	},
+	{
+		version: 13,
+		name:    "drop_legacy_standalone_tables",
+		sql: `
+			DROP TABLE IF EXISTS download_share_links;
+			DROP TABLE IF EXISTS downloads;
+			DROP TABLE IF EXISTS jobs;
+			DROP TABLE IF EXISTS pinned_folders;
+		`,
+	},
 }
 
 // migrateAgentJobs creates job storage and upgrades databases where the tables

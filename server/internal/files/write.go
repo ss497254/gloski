@@ -1,7 +1,6 @@
 package files
 
 import (
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -33,7 +32,7 @@ func (s *Service) WriteStream(path string, content io.Reader) (int64, error) {
 		return 0, err
 	}
 	if info, err := os.Stat(absPath); err == nil && info.IsDir() {
-		return 0, errors.New("destination is a directory")
+		return 0, ErrIsDirectory
 	}
 	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
 		return 0, err

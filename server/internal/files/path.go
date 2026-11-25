@@ -20,6 +20,12 @@ var (
 	// ErrDangerousPath means a destructive operation targeted a system path,
 	// the home directory itself, or a path below a protected root.
 	ErrDangerousPath = errors.New("dangerous path operation")
+	// ErrIsDirectory means a file-only operation targeted a directory.
+	ErrIsDirectory = errors.New("path is a directory")
+	// ErrNotFound means the target or source path does not exist.
+	ErrNotFound = errors.New("path does not exist")
+	// ErrAlreadyExists means the destination path already exists.
+	ErrAlreadyExists = errors.New("destination path already exists")
 )
 
 // MaxFileSize is the largest file Read will load for the editor.

@@ -106,6 +106,16 @@ func TestLoadConfig(t *testing.T) {
 			config:  `{"mode": "standalone", "host": "127.0.0.1", "port": 8080}`,
 			wantErr: true,
 		},
+		{
+			name:    "ignores legacy standalone fields",
+			config:  `{"base_url": "https://old.example", "api_prefix": "/old", "downloads": {"enabled": false}, "jobs": {"max_jobs": 10}, "host": "127.0.0.1", "port": 8080}`,
+			wantErr: false,
+			checkFunc: func(t *testing.T, cfg *config.Config) {
+				if cfg.Host != "127.0.0.1" || cfg.Port != 8080 {
+					t.Errorf("unexpected host/port: %s:%d", cfg.Host, cfg.Port)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
